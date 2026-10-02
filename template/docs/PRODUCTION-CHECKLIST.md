@@ -8,8 +8,12 @@ Dùng cho mỗi lần bàn giao. Mục chưa đạt phải vào danh sách hạn
 - [ ] Không còn tài khoản demo, tài khoản test; đã xóa `SEED_ADMIN_PASSWORD` khỏi `.env` và đổi mật khẩu admin
 - [ ] 2FA hoặc SSO cho vai trò quản trị và duyệt chi (nếu khách yêu cầu)
 - [ ] `.env` trên máy chủ quyền 600; secret sinh ngẫu nhiên ≥ 32 ký tự
-- [ ] SSH chỉ bằng khóa; firewall chỉ mở 22, 80, 443; fail2ban chạy
-- [ ] Branch protection `main`: bắt buộc PR, CI xanh, Code Owners review; environment production có người duyệt
+- [ ] SSH chỉ bằng khóa (kiểm: `sshd -T | grep -i passwordauthentication` ra `no`); firewall chỉ mở 22, 80, 443; fail2ban chạy
+- [ ] Branch protection `main`: bắt buộc PR, CI xanh, Code Owners review
+- [ ] Settings > Environments: `production` có Required reviewers và "Deployment branches and tags" chỉ cho tag `v*`;
+      `staging` chỉ cho nhánh `main` (chặn chạy workflow deploy từ nhánh lạ)
+- [ ] Settings > Rules: ruleset cho tag `v*`, chỉ người phát hành được tạo, cấm xóa và cấm cập nhật
+- [ ] `git ls-files -s infra/*.sh` đều `100755` (CI cũng kiểm)
 
 ## Dữ liệu
 

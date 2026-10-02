@@ -19,6 +19,8 @@ permissions:
 
 jobs:
   rollback:
+    # Chỉ chạy từ main: deploy.yml rsync thư mục infra/ của nhánh được chọn lên máy chủ.
+    if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/deploy.yml
     with:
       environment: ${{ inputs.environment }}
