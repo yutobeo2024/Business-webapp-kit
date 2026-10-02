@@ -1,14 +1,23 @@
 // Tiện ích dùng chung cho hook. Hook nhận JSON qua stdin.
 // Quy ước Claude Code: exit 0 = cho qua; exit 2 = chặn (PreToolUse/Stop) hoặc báo lại cho Claude (PostToolUse), nội dung qua stderr.
+// Không dùng thư viện ngoài: hook phải chạy được cả khi chưa pnpm install.
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 
+const WIN = process.platform === "win32";
+
+/** Đọc JSON từ stdin. Hỏng thì trả {} (hook không bảo vệ gì, ví dụ post-edit, stop-verify). */
 export function readInput() {
+  return readInputStrict() ?? {};
+}
+
+/** Như readInput nhưng trả null khi JSON hỏng, để hook bảo vệ CHẶN thay vì âm thầm cho qua (fail-closed). */
+export function readInputStrict() {
   try {
     return JSON.parse(readFileSync(0, "utf8") || "{}");
   } catch {
-    return {};
+    return null;
   }
 }
 
@@ -22,7 +31,7 @@ export function pass() {
 }
 
 export function projectDir(input = {}) {
-  return process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+  return process.env.CLAUDE_PROJECT_DIR || input?.cwd || process.cwd();
 }
 
 /** Đường dẫn tương đối so với gốc dự án, dạng POSIX. Trên Windows file_path đến với dấu "\". */
@@ -31,8 +40,37 @@ export function relPath(filePath, root) {
   return relative(root, abs).split("\\").join("/");
 }
 
+const real = (p) => {
+  try {
+    return realpathSync.native(p);
+  } catch {
+    return p; // file chưa tồn tại
+  }
+};
+
+/**
+ * Phân tích đường dẫn mục tiêu để SO KHỚP luật bảo vệ.
+ * - key: tương đối so với gốc, POSIX, chữ thường trên Windows (NTFS không phân biệt hoa thường: ".ENV" chính là ".env").
+ * - outside: nằm ngoài dự án, kể cả khác ổ đĩa (path.relative khi đó trả đường dẫn tuyệt đối, không bắt đầu bằng "../").
+ * - ads: có ":" sau ổ đĩa, tức NTFS alternate data stream (".env::$DATA" ghi thẳng vào .env).
+ * Symlink được giải về đích thật.
+ */
+export function resolveTarget(filePath, root) {
+  const abs = real(isAbsolute(filePath) ? filePath : join(root, filePath));
+  const r = relative(real(root), abs);
+  const rel = r.split("\\").join("/");
+  return {
+    rel,
+    key: WIN ? rel.toLowerCase() : rel,
+    outside: isAbsolute(r) || rel === ".." || rel.startsWith("../"),
+    ads: WIN && abs.slice(2).includes(":"),
+  };
+}
+
 export function isGitTracked(rel, root) {
-  const r = spawnSync("git", ["ls-files", "--error-unmatch", "--", rel], { cwd: root, stdio: "ignore" });
+  // Windows: so khớp không phân biệt hoa thường, giống hệ thống file.
+  const spec = WIN ? `:(icase)${rel}` : rel;
+  const r = spawnSync("git", ["ls-files", "--error-unmatch", "--", spec], { cwd: root, stdio: "ignore" });
   return r.status === 0;
 }
 

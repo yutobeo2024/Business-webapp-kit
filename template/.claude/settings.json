@@ -35,15 +35,20 @@
       "Bash(scp *)",
       "Bash(rsync *)",
       "Bash(curl *)",
-      "Bash(wget *)"
+      "Bash(wget *)",
+      "Bash(infra/dc.sh *)"
     ],
     "deny": [
       "Read(.env)",
       "Read(.env.*)",
       "Read(!.env.example)",
       "Read(secrets/**)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(!.env.example)",
       "Edit(.claude/hooks/**)",
       "Edit(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)",
       "Edit(pnpm-lock.yaml)",
       "Bash(drizzle-kit push *)",
       "Bash(pnpm exec drizzle-kit push *)",
