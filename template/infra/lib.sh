@@ -4,6 +4,9 @@
 
 INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE=(docker compose -f "$INFRA_DIR/compose.prod.yml")
+# compose.prod.yml bắt buộc APP_TAG cho MỌI lệnh compose (kể cả exec, ps). Mặc định lấy tag đang chạy để sao lưu,
+# cảnh báo, khôi phục và lệnh tay hoạt động; deploy.sh tự export tag mới trước khi pull/up.
+export APP_TAG="${APP_TAG:-$(cat "$INFRA_DIR/.deployed-tag" 2>/dev/null || echo none)}"
 
 log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 die() { log "LỖI: $*" >&2; exit 1; }

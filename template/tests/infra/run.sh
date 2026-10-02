@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Điều kiện kiểm viết trong nháy đơn và được eval trong check(): biến mở rộng lúc kiểm, không phải lúc khai báo.
+# shellcheck disable=SC2016,SC2034
+# Kiểm hành vi script vận hành trong infra/ bằng docker, curl giả (không cần Docker daemon, không đụng máy chủ thật).
+#   bash tests/infra/run.sh
+# Docker giả mô phỏng đúng hành vi đã kiểm trên docker compose 2.39: compose.prod.yml khai báo ${APP_TAG:?}
+# nên MỌI lệnh compose (kể cả exec, ps) thất bại khi thiếu APP_TAG.
+set -Euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+FAILED=0
+PASSED=0
+
+ok() { PASSED=$((PASSED + 1)); printf 'ĐÚNG  %s\n' "$1"; }
+fail() { FAILED=$((FAILED + 1)); printf 'SAI   %s\n' "$1"; }
+check() { if eval "$2"; then ok "$1"; else fail "$1"; fi; }
+
+# Nội suy biến thật của compose (chỉ khi máy có docker compose thật).
+if docker compose version >/dev/null 2>&1; then
+  mkdir -p "$WORK/real"
+  cp -r "$ROOT/infra" "$WORK/real/infra"
+  printf 'DOMAIN=x\nACME_EMAIL=a@x\nIMAGE_PREFIX=ghcr.io/x/y\nPOSTGRES_USER=app\nPOSTGRES_PASSWORD=p\nPOSTGRES_DB=app\nREDIS_PASSWORD=r\n' \
+    >"$WORK/real/infra/.env"
+  # shellcheck disable=SC2016
+  if env -u APP_TAG bash -c 'source "$1/lib.sh"; "${COMPOSE[@]}" config -q' _ "$WORK/real/infra"; then
+    ok "docker compose thật: config hợp lệ khi chưa có APP_TAG"
+  else
+    fail "docker compose thật: config hợp lệ khi chưa có APP_TAG"
+  fi
+fi
+
+# Lệnh giả trên PATH.
+BIN="$WORK/bin"
+mkdir -p "$BIN"
+cat >"$BIN/docker" <<'SH'
+#!/usr/bin/env bash
+echo "APP_TAG=${APP_TAG:-} docker $*" >>"$CALLS"
+if [[ "${1:-}" == "compose" ]]; then
+  [[ -n "${APP_TAG:-}" ]] || { echo "required variable APP_TAG is missing a value: Thiếu APP_TAG" >&2; exit 1; }
+  args=" $* "
+  case "$args" in
+    *" pg_dump "*) echo "DUMP" ;;
+    *" pg_restore "*) cat >/dev/null ;;
+    *" run --rm migrate "*) exit "${FAKE_MIGRATE_EXIT:-0}" ;;
+    *" ps -q "*) echo "cid-${*: -1}" ;;
+  esac
+  exit 0
+fi
+case "${1:-}" in
+  inspect) echo "running healthy" ;;
+esac
+exit 0
+SH
+cat >"$BIN/curl" <<'SH'
+#!/usr/bin/env bash
+exit "${FAKE_HEALTH_EXIT:-0}"
+SH
+printf '#!/usr/bin/env bash\nexit 0\n' >"$BIN/sleep"
+chmod +x "$BIN"/*
+
+# Mỗi tình huống chạy trên một bản sao infra/ riêng (script ghi .deployed-tag, .env cạnh chính nó).
+fresh() {
+  CASE="$WORK/case-$1"
+  rm -rf "$CASE"
+  mkdir -p "$CASE/backups"
+  cp -r "$ROOT/infra" "$CASE/infra"
+  cat >"$CASE/infra/.env" <<ENV
+DOMAIN=app.example.vn
+POSTGRES_USER=app
+POSTGRES_DB=app
+IMAGE_PREFIX=ghcr.io/x/y
+BACKUP_DIR=$CASE/backups
+ENV
+  export CALLS="$CASE/calls.log"
+  : >"$CALLS"
+}
+run() { env -u APP_TAG PATH="$BIN:$PATH" CALLS="$CALLS" "$@" >"$CASE/out.log" 2>&1; }
+line_of() { grep -n -- "$1" "$CALLS" | head -1 | cut -d: -f1; }
+
+# 1. Sao lưu chạy độc lập (cron 02:00) khi chưa từng deploy, không có APP_TAG.
+fresh backup
+run bash "$CASE/infra/backup-db.sh" daily
+code=$?
+check "backup-db.sh chạy được khi không có APP_TAG" '[[ $code -eq 0 ]] && ls "$CASE"/backups/*.dump >/dev/null 2>&1'
+
+# 2. Deploy lần đầu trên máy mới: phải khởi động postgres/redis TRƯỚC khi pg_dump.
+fresh first
+run bash "$CASE/infra/deploy.sh" v1.0.0
+code=$?
+check "deploy lần đầu thành công" '[[ $code -eq 0 ]]'
+up_line=$(line_of "up -d --wait postgres redis")
+dump_line=$(line_of "pg_dump")
+check "deploy lần đầu: up postgres redis trước pg_dump" '[[ -n "$up_line" && -n "$dump_line" && $up_line -lt $dump_line ]]'
+check "deploy lần đầu: ghi .deployed-tag" '[[ "$(cat "$CASE/infra/.deployed-tag" 2>/dev/null)" == v1.0.0 ]]'
+
+# 3. Tag độc hại bị từ chối trước mọi lệnh docker.
+fresh evil
+run bash "$CASE/infra/deploy.sh" "v1';id;'"
+code=$?
+check "deploy từ chối tag độc hại" '[[ $code -ne 0 && ! -s "$CALLS" ]]'
+
+# 4. Health hỏng sau deploy: tự quay về tag trước.
+fresh rollback
+echo v1.0.0 >"$CASE/infra/.deployed-tag"
+FAKE_HEALTH_EXIT=1 run bash "$CASE/infra/deploy.sh" v1.1.0
+code=$?
+last_up=$(grep "docker compose .* up -d --remove-orphans" "$CALLS" | tail -1)
+check "deploy lỗi health: thoát mã khác 0" '[[ $code -ne 0 ]]'
+check "deploy lỗi health: lệnh up cuối dùng tag cũ" '[[ "$last_up" == APP_TAG=v1.0.0* ]]'
+check "deploy lỗi health: .deployed-tag giữ tag cũ" '[[ "$(cat "$CASE/infra/.deployed-tag")" == v1.0.0 ]]'
+
+# 5. alert-check (cron 10 phút) không báo nhầm container chết vì thiếu APP_TAG.
+fresh alert
+echo v1.0.0 >"$CASE/infra/.deployed-tag"
+date +%s >"$CASE/backups/.last-success"
+run bash "$CASE/infra/alert-check.sh"
+check "alert-check không báo nhầm container không chạy" '! grep -q "không chạy" "$CASE/out.log"'
+
+# 6. Lệnh tay theo runbook qua infra/dc.sh dùng tag đang chạy.
+fresh dc
+echo v1.0.0 >"$CASE/infra/.deployed-tag"
+run bash "$CASE/infra/dc.sh" ps
+code=$?
+check "dc.sh ps chạy được và dùng tag đang chạy" '[[ $code -eq 0 ]] && grep -q "^APP_TAG=v1.0.0 docker compose .* ps" "$CALLS"'
+
+# 7. Khôi phục: sao lưu trước, rồi pg_restore (không có APP_TAG trong môi trường).
+fresh restore
+echo v1.0.0 >"$CASE/infra/.deployed-tag"
+echo DUMP >"$CASE/backups/old.dump"
+echo app | run bash "$CASE/infra/restore-db.sh" "$CASE/backups/old.dump"
+code=$?
+check "restore-db.sh chạy được khi không có APP_TAG" '[[ $code -eq 0 ]] && grep -q "pg_restore -U" "$CALLS"'
+
+printf '\ntests/infra: %d đúng, %d sai\n' "$PASSED" "$FAILED"
+[[ $FAILED -eq 0 ]]

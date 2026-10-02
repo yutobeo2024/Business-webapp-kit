@@ -46,13 +46,20 @@ chmod 600 /home/deploy/.ssh/authorized_keys && chown deploy:deploy /home/deploy/
 
 log "Siết SSH (chỉ khi root đã có SSH key, tránh tự khóa mình ngoài)"
 if [[ -s /root/.ssh/authorized_keys ]]; then
-  cat > /etc/ssh/sshd_config.d/90-hardening.conf <<'CONF'
+  # sshd lấy giá trị ĐẦU TIÊN gặp được và đọc sshd_config.d theo thứ tự tên. Ảnh cloud thường có sẵn
+  # 50-cloud-init.conf với "PasswordAuthentication yes", nên file siết phải đứng trước (00-).
+  rm -f /etc/ssh/sshd_config.d/90-hardening.conf
+  cat > /etc/ssh/sshd_config.d/00-hardening.conf <<'CONF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 MaxAuthTries 3
 CONF
+  sshd -t || { echo "Cấu hình sshd lỗi, KHÔNG reload. Kiểm tra /etc/ssh/sshd_config.d/"; exit 1; }
   systemctl reload ssh 2>/dev/null || systemctl reload sshd
+  if ! sshd -T 2>/dev/null | grep -qi '^passwordauthentication no'; then
+    log "CẢNH BÁO: sshd vẫn cho đăng nhập bằng mật khẩu. Kiểm tra: sshd -T | grep -i passwordauthentication"
+  fi
 else
   log "BỎ QUA siết SSH: /root/.ssh/authorized_keys trống. Thêm key quản trị rồi chạy lại script."
 fi
@@ -75,9 +82,9 @@ install -d -m 750 -o deploy -g deploy /opt/app /opt/app/infra /opt/backups /opt/
 cat > /etc/cron.d/app <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-0 2 * * *   deploy /opt/app/infra/backup-db.sh daily     >> /var/log/app/backup.log 2>&1
-0 3 1 * *   deploy /opt/app/infra/restore-drill.sh       >> /var/log/app/restore-drill.log 2>&1
-*/10 * * * * deploy /opt/app/infra/alert-check.sh        >> /var/log/app/alert-check.log 2>&1
+0 2 * * *   deploy bash /opt/app/infra/backup-db.sh daily     >> /var/log/app/backup.log 2>&1
+0 3 1 * *   deploy bash /opt/app/infra/restore-drill.sh       >> /var/log/app/restore-drill.log 2>&1
+*/10 * * * * deploy bash /opt/app/infra/alert-check.sh        >> /var/log/app/alert-check.log 2>&1
 CRON
 install -d -m 750 -o deploy -g deploy /var/log/app
 cat > /etc/logrotate.d/app <<'ROT'

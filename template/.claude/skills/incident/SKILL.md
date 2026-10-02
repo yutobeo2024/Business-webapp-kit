@@ -11,7 +11,7 @@ S�� cố: $ARGUMENTS
 1. **Đánh giá mức độ** (theo `docs/runbooks/incident.md`): SEV1 hệ thống ngừng hoặc mất/sai dữ liệu; SEV2 một quy trình chính hỏng;
    SEV3 lỗi có cách né. SEV1/SEV2: nhắc người dùng làm bước giảm thiểu trước (rollback qua Actions > Rollback), điều tra sau.
 2. **Thu thập.** Hỏi người dùng thứ bạn không tự lấy được: thời điểm, tài khoản/vai trò, mã phiếu, ảnh chụp, log
-   (`docker compose -f infra/compose.prod.yml logs --since 1h api` do NGƯỜI DÙNG chạy trên máy chủ). Không đọc `.env`.
+   (`infra/dc.sh logs --since 1h api` do NGƯỜI DÙNG chạy trên máy chủ). Không đọc `.env`.
 3. **Khoanh vùng** bằng mã nguồn: từ mã lỗi `MODULE_REASON` hoặc endpoint tìm controller, service, state machine liên quan;
    xem `git log` các thay đổi gần thời điểm sự cố.
 4. **Tái hiện bằng test** (unit hoặc tích hợp) ĐỎ trước khi sửa. Không tái hiện được thì nói rõ, không sửa phỏng đoán.

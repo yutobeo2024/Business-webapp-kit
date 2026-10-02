@@ -38,6 +38,8 @@ rollback() {
 }
 
 log "Bắt đầu deploy $NEW_TAG (đang chạy: ${PREV_TAG:-chưa có})"
+# Máy mới chưa có container nào: sao lưu (pg_dump qua exec) cần PostgreSQL đang chạy.
+"${COMPOSE[@]}" up -d --wait postgres redis || die "Không khởi động được PostgreSQL/Redis"
 "$INFRA_DIR/backup-db.sh" "pre-deploy-$NEW_TAG" || die "Sao lưu trước deploy thất bại, dừng deploy"
 
 export APP_TAG="$NEW_TAG"

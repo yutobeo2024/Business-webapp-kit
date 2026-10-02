@@ -12,7 +12,8 @@ LATEST="$(find "$DIR" -maxdepth 1 -name '*.dump' -printf '%T@ %p\n' | sort -n | 
 
 NAME="restore-drill-$$"
 START=$(date +%s)
-trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+# -v: xóa cả volume ẩn danh của image postgres, không để lại bản sao dữ liệu production trên đĩa.
+trap 'docker rm -fv "$NAME" >/dev/null 2>&1 || true' EXIT
 trap 'alert "Diễn tập khôi phục THẤT BẠI với $(basename "$LATEST")"' ERR
 
 docker run -d --name "$NAME" -e POSTGRES_PASSWORD=drill postgres:17-alpine >/dev/null

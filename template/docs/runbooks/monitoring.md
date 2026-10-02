@@ -13,5 +13,5 @@ Telegram/Zalo cần một relay nhỏ. Kiểm thử: `source infra/lib.sh && loa
 
 Uptime Kuma: monitor HTTP(s) `https://<domain>/api/health`, chu kỳ 60 giây, "keyword" = `"status":"ok"`, bật cảnh báo chứng chỉ.
 
-Log: `docker compose -f infra/compose.prod.yml logs -f api` (JSON pino). Access log Caddy: volume `caddy_data`, `/data/logs/access.log`.
+Log: `infra/dc.sh logs -f api` (JSON pino). Access log Caddy: volume `caddy_data`, `/data/logs/access.log`.
 Sentry: thêm `@sentry/nestjs` và `@sentry/react` khi khách có tài khoản, DSN qua env (cần duyệt thêm thư viện).
