@@ -20,10 +20,19 @@ export class OriginGuard implements CanActivate {
   canActivate(ctx: ExecutionContext): boolean {
     const req = ctx.switchToHttp().getRequest<AuthedRequest>();
     if (SAFE_METHODS.has(req.method)) return true;
-    const origin =
-      req.get("origin") ?? (req.get("referer") ? new URL(req.get("referer")!).origin : undefined);
-    if (origin === this.env.APP_ORIGIN) return true;
+    if (requestOrigin(req.get("origin"), req.get("referer")) === this.env.APP_ORIGIN) return true;
     throw new BusinessError("CSRF_REJECTED", "Yêu cầu không hợp lệ (nguồn gửi không được phép)", 403);
+  }
+}
+
+/** Origin của request; Referer sai định dạng coi như không có (bị chặn 403, không thành lỗi 500). */
+function requestOrigin(origin: string | undefined, referer: string | undefined): string | undefined {
+  if (origin) return origin;
+  if (!referer) return undefined;
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return undefined;
   }
 }
 

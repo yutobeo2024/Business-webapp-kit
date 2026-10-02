@@ -89,7 +89,7 @@ export const purchaseRequests = pgTable(
       .notNull()
       .references(() => users.id),
     status: prStatusEnum("status").notNull().default("DRAFT"),
-    /** VND, số nguyên. mode "number" an toàn tới 2^53, đủ cho nghiệp vụ; validate Number.isSafeInteger ở biên. */
+    /** VND, số nguyên. mode "number" an toàn tới 2^53; giới hạn MAX_VND và isValidVnd ở biên (@app/shared/money). */
     totalAmount: bigint("total_amount", { mode: "number" }).notNull(),
     items: jsonb("items").$type<PrItem[]>().notNull(),
     note: text("note"),

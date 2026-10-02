@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { paginationQuerySchema } from "./api.js";
+import { isValidVnd, vndSchema } from "./money.js";
 
 /** Ngưỡng tổng tiền (VND) phải qua Giám đốc duyệt. Xem BR-03 trong docs/specs/001-phieu-de-nghi-mua-hang.md */
 export const DIRECTOR_APPROVAL_THRESHOLD_VND = 20_000_000;
@@ -42,22 +43,21 @@ export const PR_EVENT_LABELS: Record<PrEvent, string> = {
   CANCEL: "Hủy phiếu",
 };
 
-const vnd = z
-  .number()
-  .int("Số tiền phải là số nguyên (VND)")
-  .min(0)
-  .refine(Number.isSafeInteger, "Số tiền vượt giới hạn cho phép");
-
 export const prItemSchema = z.object({
   name: z.string().trim().min(1, "Tên hàng không được trống").max(200),
   quantity: z.number().int().min(1, "Số lượng tối thiểu là 1").max(1_000_000),
-  unitPrice: vnd,
+  unitPrice: vndSchema,
 });
 export type PrItem = z.infer<typeof prItemSchema>;
 
 export const createPurchaseRequestSchema = z.object({
   title: z.string().trim().min(5, "Tiêu đề tối thiểu 5 ký tự").max(200),
-  items: z.array(prItemSchema).min(1, "Phiếu phải có ít nhất 1 dòng hàng").max(50),
+  // Kiểm tổng ở field items (không phải cả object) để schema vẫn .extend() được.
+  items: z
+    .array(prItemSchema)
+    .min(1, "Phiếu phải có ít nhất 1 dòng hàng")
+    .max(50)
+    .refine((items) => isValidVnd(calcTotal(items)), "Tổng tiền vượt giới hạn cho phép"),
   note: z.string().trim().max(2000).optional(),
 });
 export type CreatePurchaseRequestInput = z.infer<typeof createPurchaseRequestSchema>;
@@ -99,6 +99,7 @@ export interface PurchaseRequestDto {
   allowedEvents: PrEvent[];
 }
 
+/** Không ném lỗi (form gọi khi đang gõ); kết quả phải qua isValidVnd trước khi lưu, schema đã làm việc đó. */
 export function calcTotal(items: PrItem[]): number {
   return items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
 }

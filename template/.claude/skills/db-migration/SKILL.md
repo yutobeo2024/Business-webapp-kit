@@ -14,7 +14,10 @@ description: Thay đổi schema PostgreSQL an toàn cho production theo mô hìn
      Ghi kế hoạch hai bước vào mô tả PR.
 3. **Sinh migration.** Sửa `packages/db/src/schema.ts` rồi `pnpm db:generate --name <ten_mo_ta>`.
    SQL tùy chỉnh: `pnpm --filter @app/db exec drizzle-kit generate --custom --name <ten>`, điền file mới tạo.
-   Index trên bảng lớn: `CREATE INDEX CONCURRENTLY` trong migration tùy chỉnh riêng.
+   Index trên bảng lớn: migrator chạy mọi migration trong MỘT transaction, nên `CONCURRENTLY` trong migration luôn lỗi.
+   Làm hai phần: (a) ghi vào mô tả PR lệnh `CREATE INDEX CONCURRENTLY IF NOT EXISTS <ten> ON ...` để người vận hành
+   chạy tay trên production TRƯỚC khi deploy; (b) migration chứa `CREATE INDEX IF NOT EXISTS <ten> ON ...` cùng tên
+   (môi trường đã tạo trước thì no-op, môi trường mới/dev thì tạo bình thường).
 4. **Đọc SQL sinh ra.** Có DROP ngoài ý muốn? Có khóa bảng lâu? Đổi tên cột có bị sinh thành DROP + ADD (mất dữ liệu)?
 5. **Kiểm.** `pnpm build && pnpm db:migrate` trên DB dev; `pnpm test:integration`.
 6. **Báo cáo:** loại thay đổi, cần downtime không, rollback thế nào, bước contract (nếu có) để ở release nào.

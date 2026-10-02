@@ -102,6 +102,48 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
     expect(res.status).toBe(423);
   });
 
+  it("khóa tài khoản khi đăng nhập sai song song (bộ đếm không bị ghi đè)", async () => {
+    // Trước đây: đọc failedLoginCount rồi ghi giá trị tuyệt đối, N request song song chỉ tăng bộ đếm 1 lần.
+    await Promise.all(
+      Array.from({ length: 8 }, () =>
+        agent()
+          .post("/api/auth/login")
+          .set("Origin", TEST_ORIGIN)
+          .set("X-Forwarded-For", nextIp())
+          .send({ email: f.staff.email, password: "sai-mat-khau" }),
+      ),
+    );
+    const res = await agent()
+      .post("/api/auth/login")
+      .set("Origin", TEST_ORIGIN)
+      .set("X-Forwarded-For", nextIp())
+      .send({ email: f.staff.email, password: TEST_PASSWORD });
+    expect(res.status).toBe(423);
+  });
+
+  it("CSRF: Referer sai định dạng bị chặn 403, không phải lỗi 500", async () => {
+    const res = await agent()
+      .post("/api/auth/login")
+      .set("Referer", "khong-phai-url")
+      .set("X-Forwarded-For", nextIp())
+      .send({ email: f.staff.email, password: TEST_PASSWORD });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("CSRF_REJECTED");
+  });
+
+  it("tổng tiền vượt giới hạn bị từ chối 400, không lưu sai hoặc lỗi 500", async () => {
+    const a = await login(f.staff.email);
+    const res = await a
+      .post("/api/purchase-requests")
+      .set("Origin", TEST_ORIGIN)
+      .send({
+        title: "Phiếu tổng tiền khổng lồ",
+        items: [{ name: "Hàng", quantity: 1_000_000, unitPrice: 9_000_000_000_000_000 }],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("VALIDATION_FAILED");
+  });
+
   it("CSRF: request ghi không có Origin hợp lệ bị chặn", async () => {
     const a = await login(f.staff.email);
     const res = await a.post("/api/purchase-requests").set("Origin", "https://evil.example").send({});

@@ -55,21 +55,7 @@ export class AuthService {
     }
     const ok = await verifyPassword(user.passwordHash, input.password);
     if (!ok || !user.isActive) {
-      const failed = user.failedLoginCount + 1;
-      await this.db
-        .update(users)
-        .set({
-          failedLoginCount: failed >= MAX_FAILED_LOGINS ? 0 : failed,
-          lockedUntil: failed >= MAX_FAILED_LOGINS ? new Date(Date.now() + LOCK_MINUTES * 60_000) : null,
-        })
-        .where(eq(users.id, user.id));
-      await writeAudit(this.db, {
-        actorId: user.id,
-        action: failed >= MAX_FAILED_LOGINS ? "auth.locked" : "auth.login_failed",
-        entityType: "user",
-        entityId: user.id,
-        ip: meta.ip,
-      });
+      await this.recordFailedLogin(user.id, meta.ip);
       throw invalid;
     }
 
@@ -104,6 +90,38 @@ export class AuthService {
         departmentId: user.departmentId,
       },
     };
+  }
+
+  /**
+   * Đếm lần đăng nhập sai trong transaction có khóa dòng: các request sai song song xếp hàng,
+   * không thể cùng đọc một giá trị cũ rồi ghi đè nhau (lách giới hạn 5 lần).
+   */
+  private async recordFailedLogin(userId: string, ip: string | null): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ failed: users.failedLoginCount, lockedUntil: users.lockedUntil })
+        .from(users)
+        .where(eq(users.id, userId))
+        .for("update");
+      // Request song song khác vừa khóa tài khoản: giữ nguyên khóa, không đếm lại từ đầu.
+      if (!current || (current.lockedUntil && current.lockedUntil > new Date())) return;
+      const failed = current.failed + 1;
+      const lock = failed >= MAX_FAILED_LOGINS;
+      await tx
+        .update(users)
+        .set({
+          failedLoginCount: lock ? 0 : failed,
+          lockedUntil: lock ? new Date(Date.now() + LOCK_MINUTES * 60_000) : null,
+        })
+        .where(eq(users.id, userId));
+      await writeAudit(tx, {
+        actorId: userId,
+        action: lock ? "auth.locked" : "auth.login_failed",
+        entityType: "user",
+        entityId: userId,
+        ip,
+      });
+    });
   }
 
   /** Trả về user nếu token hợp lệ, null nếu không. Tự gia hạn phiên trượt. */

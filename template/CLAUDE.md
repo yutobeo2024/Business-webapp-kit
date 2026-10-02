@@ -35,7 +35,8 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
 2. Input ở mọi biên (HTTP, job, webhook) validate bằng Zod schema trong `packages/shared`. Không định nghĩa schema lần hai ở FE.
 3. Lỗi nghiệp vụ: `throw new BusinessError("MODULE_REASON", "thông báo tiếng Việt", status)`. Không throw Error chung chung.
 4. Đổi trạng thái chỉ qua state machine; không update cột `status` trực tiếp.
-5. Tiền: số nguyên VND (`bigint` mode number). Thời gian: lưu UTC, hiển thị `Asia/Ho_Chi_Minh`.
+5. Tiền: số nguyên VND (`bigint` mode number), nhập qua `vndSchema`, tổng/thành tiền kiểm bằng `isValidVnd` (`@app/shared`).
+   Thời gian: lưu UTC, hiển thị `Asia/Ho_Chi_Minh`.
 6. Không hard-code secret; env mới phải thêm vào schema env (`apps/api/src/config/env.ts`) và `.env.example`.
 7. Endpoint công khai phải gắn `@Public()` và có lý do trong spec.
 

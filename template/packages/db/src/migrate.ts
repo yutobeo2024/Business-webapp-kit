@@ -10,7 +10,8 @@ if (!url) {
 }
 
 const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
-const handle = createDb(url, { max: 1, appName: "migrate" });
+// Không giới hạn thời gian câu lệnh: thêm cột có default, backfill trên bảng lớn có thể chạy quá 30 giây.
+const handle = createDb(url, { max: 1, appName: "migrate", statementTimeoutMs: 0 });
 
 try {
   await migrate(handle.db, { migrationsFolder });

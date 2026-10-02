@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "generate": "drizzle-kit generate",
-    "migrate": "node dist/migrate.js",
+    "migrate": "node --env-file-if-exists=../../.env dist/migrate.js",
     "check": "drizzle-kit check"
   },
   "dependencies": {
