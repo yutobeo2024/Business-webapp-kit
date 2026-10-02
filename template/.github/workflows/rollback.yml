@@ -1,0 +1,27 @@
+name: Rollback
+
+# Chạy tay: Actions > Rollback > Run workflow. Chọn môi trường và nhập tag đã từng chạy ổn
+# (xem /opt/app/infra/deploy-history.log hoặc tab Packages). Không chạy migration.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        required: true
+      tag:
+        description: Tag image muốn quay về, ví dụ v1.4.2 hoặc sha-1a2b3c4
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: ${{ inputs.environment }}
+      tag: ${{ inputs.tag }}
+      skip_migrate: true
+    secrets: inherit

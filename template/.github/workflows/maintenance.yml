@@ -1,0 +1,56 @@
+name: Bảo trì định kỳ
+
+# Hằng tuần: quét lỗ hổng mới công bố trên dependency và image đang chạy production.
+# Có lỗi thì mở issue để không bị bỏ sót.
+on:
+  schedule:
+    - cron: "0 1 * * 1" # 08:00 thứ Hai giờ Việt Nam
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+env:
+  TRIVY_VERSION: 0.62.1
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Lỗ hổng dependency production
+        id: audit
+        continue-on-error: true
+        run: pnpm audit --prod --audit-level high
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Quét image bản release đang chạy
+        id: images
+        continue-on-error: true
+        run: |
+          prefix="ghcr.io/${GITHUB_REPOSITORY,,}"
+          status=0
+          for app in api worker web; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "aquasec/trivy:${TRIVY_VERSION}" \
+              image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$prefix/$app:release" || status=1
+          done
+          exit "$status"
+      - name: Mở issue khi phát hiện vấn đề
+        if: steps.audit.outcome == 'failure' || steps.images.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create --title "Bảo trì: phát hiện lỗ hổng mức HIGH/CRITICAL ($(date +%F))" \
+            --body "Lần quét định kỳ phát hiện lỗ hổng. Chi tiết: $RUN_URL. Xử lý bằng skill /upgrade-deps trong Claude Code."

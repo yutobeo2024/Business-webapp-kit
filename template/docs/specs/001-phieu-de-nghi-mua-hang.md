@@ -1,0 +1,69 @@
+# SPEC-001: Phiếu đề nghị mua hàng (spec mẫu)
+
+| Trường          | Giá trị                                  |
+| --------------- | ---------------------------------------- |
+| Trạng thái spec | Đã duyệt                                 |
+| Module          | `apps/api/src/modules/purchase-requests` |
+
+## 1. Mục tiêu và phạm vi
+
+S�� hóa quy trình đề nghị mua hàng: nhân viên lập phiếu, trưởng phòng duyệt, phiếu giá trị lớn qua giám đốc.
+Ngoài phạm vi: đặt hàng nhà cung cấp, nhập kho, thanh toán.
+
+## 2. Vai trò và quyền
+
+| Hành động                                             | Nhân viên | Trưởng phòng   | Kế toán | Giám đốc | Quản trị |
+| ----------------------------------------------------- | --------- | -------------- | ------- | -------- | -------- |
+| Lập, sửa, gửi, hủy phiếu của mình                     | ✓         | ✓              | ✓       | ✓        | ✓        |
+| Duyệt/từ chối phiếu chờ trưởng phòng (cùng phòng ban) |           | ✓              |         |          |          |
+| Duyệt/từ chối phiếu chờ giám đốc                      |           |                |         | ✓        |          |
+| Xem phiếu                                             | của mình  | phòng ban mình | tất cả  | tất cả   | của mình |
+
+Quản trị chỉ quản lý tài khoản, không tham gia nghiệp vụ (tách biệt nhiệm vụ).
+
+## 3. Thực thể dữ liệu
+
+| Thực thể          | Trường chính                                      | Ràng buộc                                              | Dữ liệu cá nhân? |
+| ----------------- | ------------------------------------------------- | ------------------------------------------------------ | ---------------- |
+| purchase_requests | code, title, items, total_amount, status, version | code duy nhất dạng PR-YYYY-NNNNNN; total tính từ items | Không            |
+| audit_logs        | actor, action, before, after, ip                  | ghi cùng transaction                                   | Có (IP)          |
+
+## 4. Trạng thái và chuyển trạng thái
+
+```mermaid
+stateDiagram-v2
+  [*] --> DRAFT
+  DRAFT --> PENDING_MANAGER: SUBMIT
+  PENDING_MANAGER --> APPROVED: MANAGER_APPROVE (≤ ngưỡng)
+  PENDING_MANAGER --> PENDING_DIRECTOR: MANAGER_APPROVE (> ngưỡng)
+  PENDING_DIRECTOR --> APPROVED: DIRECTOR_APPROVE
+  PENDING_MANAGER --> REJECTED: REJECT
+  PENDING_DIRECTOR --> REJECTED: REJECT
+  REJECTED --> DRAFT: REVISE
+  DRAFT --> CANCELLED: CANCEL
+  PENDING_MANAGER --> CANCELLED: CANCEL
+  APPROVED --> [*]
+  CANCELLED --> [*]
+```
+
+## 5. Quy tắc nghiệp vụ
+
+- **BR-01**: Chỉ người lập được sửa và gửi phiếu; chỉ sửa ở trạng thái Nháp.
+- **BR-02**: Trưởng phòng chỉ duyệt/từ chối phiếu của phòng ban mình và không xử lý phiếu do chính mình lập.
+- **BR-03**: Tổng tiền > 20.000.000 ₫ phải qua giám đốc sau trưởng phòng. Đúng bằng 20.000.000 ₫ thì trưởng phòng duyệt là xong.
+- **BR-04**: Từ chối bắt buộc có lý do tối thiểu 10 ký tự; phiếu bị từ chối được người lập sửa lại về Nháp.
+- **BR-05**: Người lập được hủy phiếu khi Nháp hoặc Chờ trưởng phòng duyệt.
+- **BR-06**: Mọi thay đổi khóa dòng và kiểm phiên bản; hai người thao tác cùng lúc thì chỉ một người thành công, người còn lại
+  nhận thông báo tải lại. Audit ghi cùng transaction.
+- **BR-07**: Người ngoài phạm vi xem nhận "không tìm thấy", không lộ phiếu tồn tại.
+
+## 7. Thông báo
+
+Mỗi lần đổi trạng thái đẩy job `pr.status_changed` sau khi commit (điểm mở rộng gửi email/Zalo).
+
+## 10. Tiêu chí nghiệm thu
+
+- **AC-01**: Cho nhân viên phòng KD, Khi lập phiếu 90.000 ₫ và gửi, rồi trưởng phòng KD duyệt, Thì phiếu "Đã duyệt". (E2E)
+- **AC-02**: Cho phiếu 30.000.000 ₫, Khi trưởng phòng duyệt, Thì phiếu "Chờ giám đốc duyệt".
+- **AC-03**: Cho trưởng phòng KT, Khi mở phiếu của phòng KD, Thì nhận "Không tìm thấy dữ liệu".
+- **AC-04**: Cho hai thao tác duyệt và từ chối gửi cùng lúc, Thì chỉ một thành công, phiếu tăng đúng 1 phiên bản.

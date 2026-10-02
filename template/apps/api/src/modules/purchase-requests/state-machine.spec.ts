@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+import { DIRECTOR_APPROVAL_THRESHOLD_VND } from "@app/shared";
+import { allowedEvents, decide, type PrSnapshot } from "./state-machine.js";
+
+const DEPT = "dept-kd";
+const staff = { id: "u-staff", role: "STAFF" as const, departmentId: DEPT };
+const manager = { id: "u-manager", role: "MANAGER" as const, departmentId: DEPT };
+const otherManager = { id: "u-manager-2", role: "MANAGER" as const, departmentId: "dept-kt" };
+const director = { id: "u-director", role: "DIRECTOR" as const, departmentId: null };
+const admin = { id: "u-admin", role: "ADMIN" as const, departmentId: null };
+
+const pr = (over: Partial<PrSnapshot> = {}): PrSnapshot => ({
+  status: "DRAFT",
+  totalAmount: 1_000_000,
+  requesterId: staff.id,
+  departmentId: DEPT,
+  ...over,
+});
+
+const expectTo = (d: ReturnType<typeof decide>, to: string) => expect(d).toEqual({ ok: true, to });
+const expectErr = (d: ReturnType<typeof decide>, code: string) => {
+  expect(d.ok).toBe(false);
+  if (!d.ok) expect(d.error.code).toBe(code);
+};
+
+describe("BR-01 gửi duyệt", () => {
+  it("người lập gửi phiếu nháp", () => expectTo(decide(pr(), "SUBMIT", staff), "PENDING_MANAGER"));
+  it("người khác không được gửi phiếu nháp", () => expectErr(decide(pr(), "SUBMIT", manager), "FORBIDDEN"));
+  it("không gửi được phiếu đã gửi", () =>
+    expectErr(decide(pr({ status: "PENDING_MANAGER" }), "SUBMIT", staff), "PR_INVALID_TRANSITION"));
+});
+
+describe("BR-02 trưởng phòng duyệt", () => {
+  const pending = pr({ status: "PENDING_MANAGER" });
+  it("trưởng phòng cùng phòng ban được duyệt", () =>
+    expectTo(decide(pending, "MANAGER_APPROVE", manager), "APPROVED"));
+  it("trưởng phòng khác phòng ban bị chặn", () =>
+    expectErr(decide(pending, "MANAGER_APPROVE", otherManager), "FORBIDDEN"));
+  it("trưởng phòng không tự duyệt phiếu của mình", () =>
+    expectErr(
+      decide(pr({ status: "PENDING_MANAGER", requesterId: manager.id }), "MANAGER_APPROVE", manager),
+      "PR_SELF_APPROVAL",
+    ));
+  it("nhân viên không duyệt được", () => expectErr(decide(pending, "MANAGER_APPROVE", staff), "FORBIDDEN"));
+  it("admin không tham gia duyệt (tách biệt nhiệm vụ)", () =>
+    expectErr(decide(pending, "MANAGER_APPROVE", admin), "FORBIDDEN"));
+});
+
+describe("BR-03 ngưỡng giám đốc", () => {
+  it("đúng bằng ngưỡng: trưởng phòng duyệt là xong", () =>
+    expectTo(
+      decide(
+        pr({ status: "PENDING_MANAGER", totalAmount: DIRECTOR_APPROVAL_THRESHOLD_VND }),
+        "MANAGER_APPROVE",
+        manager,
+      ),
+      "APPROVED",
+    ));
+  it("vượt ngưỡng 1 đồng: chuyển giám đốc", () =>
+    expectTo(
+      decide(
+        pr({ status: "PENDING_MANAGER", totalAmount: DIRECTOR_APPROVAL_THRESHOLD_VND + 1 }),
+        "MANAGER_APPROVE",
+        manager,
+      ),
+      "PENDING_DIRECTOR",
+    ));
+  it("giám đốc duyệt phiếu chờ giám đốc", () =>
+    expectTo(decide(pr({ status: "PENDING_DIRECTOR" }), "DIRECTOR_APPROVE", director), "APPROVED"));
+  it("trưởng phòng không duyệt thay giám đốc", () =>
+    expectErr(decide(pr({ status: "PENDING_DIRECTOR" }), "DIRECTOR_APPROVE", manager), "FORBIDDEN"));
+});
+
+describe("BR-04 từ chối và sửa lại", () => {
+  it("trưởng phòng từ chối phiếu chờ trưởng phòng", () =>
+    expectTo(decide(pr({ status: "PENDING_MANAGER" }), "REJECT", manager), "REJECTED"));
+  it("giám đốc từ chối phiếu chờ giám đốc", () =>
+    expectTo(decide(pr({ status: "PENDING_DIRECTOR" }), "REJECT", director), "REJECTED"));
+  it("người lập sửa lại phiếu bị từ chối về nháp", () =>
+    expectTo(decide(pr({ status: "REJECTED" }), "REVISE", staff), "DRAFT"));
+});
+
+describe("BR-05 hủy phiếu", () => {
+  it("người lập hủy phiếu nháp", () => expectTo(decide(pr(), "CANCEL", staff), "CANCELLED"));
+  it("người lập hủy phiếu đang chờ trưởng phòng", () =>
+    expectTo(decide(pr({ status: "PENDING_MANAGER" }), "CANCEL", staff), "CANCELLED"));
+  it("không hủy được phiếu đã duyệt", () =>
+    expectErr(decide(pr({ status: "APPROVED" }), "CANCEL", staff), "PR_INVALID_TRANSITION"));
+  it("trạng thái kết thúc không có thao tác nào", () => {
+    expect(allowedEvents(pr({ status: "APPROVED" }), staff)).toEqual([]);
+    expect(allowedEvents(pr({ status: "CANCELLED" }), staff)).toEqual([]);
+  });
+});
+
+describe("allowedEvents", () => {
+  it("trưởng phòng thấy nút duyệt và từ chối", () =>
+    expect(allowedEvents(pr({ status: "PENDING_MANAGER" }), manager)).toEqual(["MANAGER_APPROVE", "REJECT"]));
+  it("người lập thấy gửi và hủy ở trạng thái nháp", () =>
+    expect(allowedEvents(pr(), staff)).toEqual(["SUBMIT", "CANCEL"]));
+});

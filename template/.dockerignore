@@ -1,0 +1,17 @@
+# Kết quả turbo prune trên máy dev: lọt vào build context sẽ làm sai image
+out
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+**/playwright-report
+**/test-results
+.git
+.github
+.claude
+docs
+e2e
+.env
+.env.*
+!.env.example
+infra/.env

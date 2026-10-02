@@ -1,0 +1,5 @@
+# Bắt buộc LF cho mọi file văn bản (script shell chạy trên server Linux).
+* text=auto eol=lf
+*.sh text eol=lf
+# Script PowerShell giữ nguyên byte (BOM UTF-8) để PowerShell 5.1 đọc đúng tiếng Việt.
+*.ps1 -text

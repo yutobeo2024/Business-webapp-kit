@@ -1,0 +1,67 @@
+/**
+ * Seed dữ liệu ban đầu. Idempotent: chạy nhiều lần không tạo trùng.
+ *   pnpm db:seed            -> phòng ban mặc định + tài khoản ADMIN từ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
+ *   pnpm db:seed -- --demo  -> thêm tài khoản demo cho từng vai trò (CẤM ở production)
+ */
+import { eq, sql } from "drizzle-orm";
+import { createDb, departments, users } from "@app/db";
+import type { Role } from "@app/shared";
+import { hashPassword } from "../auth/crypto.js";
+
+const url = process.env.DATABASE_URL;
+const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
+const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+const isProd = process.env.NODE_ENV === "production";
+const demo = process.argv.includes("--demo");
+
+function fail(msg: string): never {
+  console.error(`[seed] ${msg}`);
+  process.exit(1);
+}
+
+if (!url) fail("Thiếu DATABASE_URL");
+if (!adminEmail || !adminPassword) fail("Thiếu SEED_ADMIN_EMAIL hoặc SEED_ADMIN_PASSWORD");
+if (isProd && adminPassword.length < 14) fail("Production: SEED_ADMIN_PASSWORD phải tối thiểu 14 ký tự");
+if (isProd && demo) fail("Không được tạo tài khoản demo trên production");
+
+const { db, close } = createDb(url, { max: 1, appName: "seed" });
+
+async function upsertDepartment(code: string, name: string): Promise<string> {
+  await db.insert(departments).values({ code, name }).onConflictDoNothing({ target: departments.code });
+  const [d] = await db.select({ id: departments.id }).from(departments).where(eq(departments.code, code));
+  if (!d) throw new Error(`Không tạo được phòng ban ${code}`);
+  return d.id;
+}
+
+async function ensureUser(
+  email: string,
+  fullName: string,
+  role: Role,
+  password: string,
+  departmentId: string | null,
+) {
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(sql`lower(${users.email}) = ${email}`);
+  if (existing) return;
+  await db
+    .insert(users)
+    .values({ email, fullName, role, departmentId, passwordHash: await hashPassword(password) });
+  console.warn(`[seed] Tạo ${role} ${email}`);
+}
+
+try {
+  const kd = await upsertDepartment("KD", "Phòng Kinh doanh");
+  await upsertDepartment("KT", "Phòng Kế toán");
+  await ensureUser(adminEmail, "Quản trị hệ thống", "ADMIN", adminPassword, null);
+  if (demo) {
+    await ensureUser("nhanvien@example.com", "Nguyễn Văn Nhân", "STAFF", adminPassword, kd);
+    await ensureUser("truongphong@example.com", "Trần Thị Trưởng", "MANAGER", adminPassword, kd);
+    await ensureUser("giamdoc@example.com", "Lê Văn Giám", "DIRECTOR", adminPassword, null);
+    await ensureUser("ketoan@example.com", "Phạm Thị Toán", "ACCOUNTANT", adminPassword, null);
+  }
+  console.warn("[seed] Xong");
+} finally {
+  await close();
+}

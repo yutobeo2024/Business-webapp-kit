@@ -1,0 +1,48 @@
+import { type DynamicModule, Module } from "@nestjs/common";
+import { APP_FILTER, APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { LoggerModule } from "nestjs-pino";
+import { AuthModule } from "./auth/auth.module.js";
+import { OriginGuard, SessionGuard } from "./auth/guards.js";
+import { HttpExceptionFilter } from "./common/http-exception.filter.js";
+import { ENV, type Env } from "./config/env.js";
+import { DbModule } from "./db/db.module.js";
+import { HealthModule } from "./health/health.module.js";
+import { PurchaseRequestsModule } from "./modules/purchase-requests/purchase-requests.module.js";
+import { QueueModule } from "./queue/queue.module.js";
+
+@Module({})
+export class AppModule {
+  static forRoot(env: Env): DynamicModule {
+    return {
+      module: AppModule,
+      global: true,
+      imports: [
+        LoggerModule.forRoot({
+          pinoHttp: {
+            level: env.LOG_LEVEL,
+            transport: env.NODE_ENV === "development" ? { target: "pino-pretty" } : undefined,
+            // Không log cookie, header xác thực, body request.
+            redact: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]'],
+            autoLogging: { ignore: (req) => req.url?.startsWith("/api/health") ?? false },
+          },
+        }),
+        ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 300 }]),
+        DbModule,
+        QueueModule,
+        HealthModule,
+        AuthModule,
+        PurchaseRequestsModule,
+      ],
+      providers: [
+        { provide: ENV, useValue: env },
+        // Thứ tự guard: chặn tần suất -> kiểm tra nguồn gửi (CSRF) -> phiên đăng nhập
+        { provide: APP_GUARD, useClass: ThrottlerGuard },
+        { provide: APP_GUARD, useClass: OriginGuard },
+        { provide: APP_GUARD, useClass: SessionGuard },
+        { provide: APP_FILTER, useClass: HttpExceptionFilter },
+      ],
+      exports: [ENV],
+    };
+  }
+}

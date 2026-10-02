@@ -1,0 +1,50 @@
+name: Deploy (dùng lại)
+
+# Được gọi từ ci.yml và rollback.yml. Mỗi environment (staging, production) khai báo secret riêng:
+#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (private key), DEPLOY_KNOWN_HOSTS (dòng host key của máy chủ)
+# Production: bật "Required reviewers" trong Settings > Environments > production.
+on:
+  workflow_call:
+    inputs:
+      environment: { type: string, required: true }
+      tag: { type: string, required: true }
+      skip_migrate: { type: boolean, default: false }
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.tag }} -> ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cấu hình SSH (ghim host key, chống giả mạo máy chủ)
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Đồng bộ thư mục infra (không đụng .env và file trạng thái trên máy chủ)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: >-
+          rsync -az --delete -e "ssh -i ~/.ssh/id_deploy"
+          --exclude .env --exclude '.deployed-tag' --exclude 'deploy-history.log'
+          --exclude '.deploy.lock' --exclude '.alert-state'
+          infra/ "$USER@$HOST:/opt/app/infra/"
+      - name: Chạy deploy.sh
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          TAG: ${{ inputs.tag }}
+          SKIP: ${{ inputs.skip_migrate && '--skip-migrate' || '' }}
+        run: ssh -i ~/.ssh/id_deploy "$USER@$HOST" "/opt/app/infra/deploy.sh '$TAG' $SKIP"
