@@ -10,8 +10,8 @@ Dùng cho mỗi lần bàn giao. Mục chưa đạt phải vào danh sách hạn
 - [ ] `.env` trên máy chủ quyền 600; secret sinh ngẫu nhiên ≥ 32 ký tự
 - [ ] SSH chỉ bằng khóa (kiểm: `sshd -T | grep -i passwordauthentication` ra `no`); firewall chỉ mở 22, 80, 443; fail2ban chạy
 - [ ] Branch protection `main`: bắt buộc PR, CI xanh, Code Owners review
-- [ ] Settings > Environments: `production` có Required reviewers và "Deployment branches and tags" chỉ cho tag `v*`;
-      `staging` chỉ cho nhánh `main` (chặn chạy workflow deploy từ nhánh lạ)
+- [ ] Settings > Environments: `production` có Required reviewers và "Deployment branches and tags" chỉ cho tag `v*`
+      và nhánh `main` (workflow Rollback chạy từ `main`); `staging` chỉ cho nhánh `main`. Chặn deploy từ nhánh lạ
 - [ ] Settings > Rules: ruleset cho tag `v*`, chỉ người phát hành được tạo, cấm xóa và cấm cập nhật
 - [ ] `git ls-files -s infra/*.sh` đều `100755` (CI cũng kiểm)
 

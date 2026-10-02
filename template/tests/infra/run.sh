@@ -58,6 +58,8 @@ cat >"$BIN/curl" <<'SH'
 exit "${FAKE_HEALTH_EXIT:-0}"
 SH
 printf '#!/usr/bin/env bash\nexit 0\n' >"$BIN/sleep"
+# Git Bash trên Windows không có flock: dùng bản giả để chạy được ở máy dev (CI Linux dùng flock thật).
+command -v flock >/dev/null || printf '#!/usr/bin/env bash\nexit 0\n' >"$BIN/flock"
 chmod +x "$BIN"/*
 
 # Mỗi tình huống chạy trên một bản sao infra/ riêng (script ghi .deployed-tag, .env cạnh chính nó).
@@ -90,7 +92,7 @@ fresh first
 run bash "$CASE/infra/deploy.sh" v1.0.0
 code=$?
 check "deploy lần đầu thành công" '[[ $code -eq 0 ]]'
-up_line=$(line_of "up -d --wait postgres redis")
+up_line=$(line_of "up -d --wait .*postgres redis")
 dump_line=$(line_of "pg_dump")
 check "deploy lần đầu: up postgres redis trước pg_dump" '[[ -n "$up_line" && -n "$dump_line" && $up_line -lt $dump_line ]]'
 check "deploy lần đầu: ghi .deployed-tag" '[[ "$(cat "$CASE/infra/.deployed-tag" 2>/dev/null)" == v1.0.0 ]]'
@@ -107,6 +109,9 @@ echo v1.0.0 >"$CASE/infra/.deployed-tag"
 FAKE_HEALTH_EXIT=1 run bash "$CASE/infra/deploy.sh" v1.1.0
 code=$?
 last_up=$(grep "docker compose .* up -d --remove-orphans" "$CALLS" | tail -1)
+pull_line=$(grep "docker compose .* pull " "$CALLS" | head -1)
+first_up=$(grep "docker compose .* up -d --remove-orphans --wait" "$CALLS" | head -1)
+check "deploy: pull và up dùng tag MỚI" '[[ "$pull_line" == APP_TAG=v1.1.0* && "$first_up" == APP_TAG=v1.1.0* ]]'
 check "deploy lỗi health: thoát mã khác 0" '[[ $code -ne 0 ]]'
 check "deploy lỗi health: lệnh up cuối dùng tag cũ" '[[ "$last_up" == APP_TAG=v1.0.0* ]]'
 check "deploy lỗi health: .deployed-tag giữ tag cũ" '[[ "$(cat "$CASE/infra/.deployed-tag")" == v1.0.0 ]]'

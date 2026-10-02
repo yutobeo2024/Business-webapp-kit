@@ -15,7 +15,7 @@ export interface DbHandle {
 
 export function createDb(
   connectionString: string,
-  opts: { max?: number; appName?: string; statementTimeoutMs?: number } = {},
+  opts: { max?: number; appName?: string; statementTimeoutMs?: number; lockTimeoutMs?: number } = {},
 ): DbHandle {
   const pool = new pg.Pool({
     connectionString,
@@ -25,6 +25,7 @@ export function createDb(
     connectionTimeoutMillis: 5_000,
     // Chặn query treo: lỗi sau 30 giây thay vì giữ kết nối vô hạn. 0 = không giới hạn (chỉ dùng cho migrate).
     statement_timeout: opts.statementTimeoutMs ?? 30_000,
+    ...(opts.lockTimeoutMs ? { lock_timeout: opts.lockTimeoutMs } : {}),
   });
   const db = drizzle(pool, { schema, casing: "snake_case" });
   return { db, pool, close: () => pool.end() };

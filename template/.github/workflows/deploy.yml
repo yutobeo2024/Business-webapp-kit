@@ -55,5 +55,6 @@ jobs:
           USER: ${{ secrets.DEPLOY_USER }}
           TAG: ${{ inputs.tag }}
           SKIP: ${{ inputs.skip_migrate && '--skip-migrate' || '' }}
-        # Gọi qua bash: không phụ thuộc bit +x của file. printf %q: tag luôn là một đối số, không bị shell trên máy chủ diễn giải.
+        # Gọi qua bash (deploy.sh cũng gọi script con qua bash): không phụ thuộc bit +x; CI vẫn kiểm bit +x.
+        # printf %q: tag luôn là một đối số, không bị shell trên máy chủ diễn giải.
         run: ssh -i ~/.ssh/id_deploy "$USER@$HOST" "bash /opt/app/infra/deploy.sh $(printf %q "$TAG") $SKIP"

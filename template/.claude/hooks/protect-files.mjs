@@ -1,4 +1,7 @@
 // PreToolUse (Edit, Write, MultiEdit, NotebookEdit): bảo vệ file nhạy cảm và chính cơ chế bảo vệ.
+import { realpathSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import { block, isGitTracked, pass, projectDir, readInputStrict, resolveTarget } from "./_lib.mjs";
 
 const input = readInputStrict();
@@ -6,14 +9,33 @@ if (!input) block("protect-files: không đọc được input của hook, chặ
 const raw = input?.tool_input?.file_path ?? input?.tool_input?.notebook_path;
 if (!raw) pass();
 const root = projectDir(input);
-const { rel, key, outside, ads } = resolveTarget(raw, root);
+const { abs, rel, key, outside, ads } = resolveTarget(raw, root);
 
-if (outside) {
-  block(`Không sửa file ngoài dự án: ${raw}`);
-}
 if (ads) {
   block(`Đường dẫn có ":" (NTFS alternate data stream) bị chặn: ${raw}`);
 }
+/** abs nằm trong thư mục dir (so khớp không phân biệt hoa thường trên Windows). */
+const inside = (dir) => {
+  const r = relative(dir, abs);
+  return !!r && !r.startsWith("..") && !/^[a-zA-Z]:|^[\\/]/.test(r);
+};
+// Ngoài dự án chỉ cho ghi file làm việc của chính Claude Code: kế hoạch, memory, thư mục tạm.
+const realDir = (p) => {
+  try {
+    return realpathSync.native(p);
+  } catch {
+    return p;
+  }
+};
+const claudeWork = [
+  join(homedir(), ".claude", "plans"),
+  join(homedir(), ".claude", "projects"),
+  tmpdir(),
+].map(realDir);
+if (outside && !claudeWork.some(inside)) {
+  block(`Không sửa file ngoài dự án: ${raw}`);
+}
+if (outside) pass();
 if (/(^|\/)\.env(\.[^/]+)?$/.test(key) && !key.endsWith(".env.example")) {
   block(`Không sửa ${rel}: file chứa secret. Chỉ sửa .env.example (giá trị mẫu, không phải secret thật).`);
 }

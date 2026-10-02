@@ -39,8 +39,9 @@ rollback() {
 
 log "Bắt đầu deploy $NEW_TAG (đang chạy: ${PREV_TAG:-chưa có})"
 # Máy mới chưa có container nào: sao lưu (pg_dump qua exec) cần PostgreSQL đang chạy.
-"${COMPOSE[@]}" up -d --wait postgres redis || die "Không khởi động được PostgreSQL/Redis"
-"$INFRA_DIR/backup-db.sh" "pre-deploy-$NEW_TAG" || die "Sao lưu trước deploy thất bại, dừng deploy"
+# --no-recreate: container đang chạy giữ nguyên dù compose.prod.yml mới đổi cấu hình, để sao lưu xong rồi mới đổi.
+"${COMPOSE[@]}" up -d --wait --no-recreate postgres redis || die "Không khởi động được PostgreSQL/Redis"
+bash "$INFRA_DIR/backup-db.sh" "pre-deploy-$NEW_TAG" || die "Sao lưu trước deploy thất bại, dừng deploy"
 
 export APP_TAG="$NEW_TAG"
 "${COMPOSE[@]}" pull api worker web || die "Không pull được image $NEW_TAG"

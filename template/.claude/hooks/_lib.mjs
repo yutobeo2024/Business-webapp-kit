@@ -60,6 +60,7 @@ export function resolveTarget(filePath, root) {
   const r = relative(real(root), abs);
   const rel = r.split("\\").join("/");
   return {
+    abs,
     rel,
     key: WIN ? rel.toLowerCase() : rel,
     outside: isAbsolute(r) || rel === ".." || rel.startsWith("../"),

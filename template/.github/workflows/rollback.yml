@@ -18,6 +18,16 @@ permissions:
   contents: read
 
 jobs:
+  # Báo lỗi rõ thay vì "skipped" lặng lẽ: lúc có sự cố người vận hành dễ tưởng đã rollback xong.
+  require-main:
+    name: Chỉ chạy Rollback từ nhánh main
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::Rollback phải chạy từ nhánh main (đang chạy từ $GITHUB_REF). Chọn 'Use workflow from: main'."
+          exit 1
+
   rollback:
     # Chỉ chạy từ main: deploy.yml rsync thư mục infra/ của nhánh được chọn lên máy chủ.
     if: github.ref == 'refs/heads/main'

@@ -2,6 +2,7 @@
 // Chạy: pnpm claude:selftest (CI chạy ở mọi PR). Hook đặt sai đường dẫn sẽ âm thầm vô hiệu, nên phải kiểm.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -111,6 +112,38 @@ const bash = [
   ["git push origin feat:refs/heads/main", BLOCK],
   ["node --env-file=.env -e 1", BLOCK],
   ["echo x >> .claude/hooks/a.mjs", BLOCK],
+  // Lách tìm thấy ở lần kiểm độc lập 1.0.1.
+  ["> .claude/settings.json", BLOCK],
+  ["echo {} &> .claude/settings.json", BLOCK],
+  ["cp -t .claude/hooks guard-bash.mjs", BLOCK],
+  ['echo "$(rm -rf ~)"', BLOCK],
+  ['x="`rm -rf ~`"', BLOCK],
+  ['eval "rm -rf ~"', BLOCK],
+  ["sudo -u root rm -rf ~", BLOCK],
+  ["nice -n 5 rm -rf ~", BLOCK],
+  ["timeout 60 rm -rf ~", BLOCK],
+  ["env -C . rm -rf ~", BLOCK],
+  ["echo ~ | xargs rm -rf", BLOCK],
+  ["bash -x -c 'rm -rf ~'", BLOCK],
+  ["bash -c -- 'rm -rf ~'", BLOCK],
+  ['powershell -NoProfile -Command "Get-Content .env"', BLOCK],
+  ["r\\m -rf ~", BLOCK],
+  ["rm -r\\f ~", BLOCK],
+  ["rm -rf /c/", BLOCK],
+  ["rm -rf $PWD", BLOCK],
+  ['rm -rf "$(pwd)"', BLOCK],
+  ["rm -dfrvR /*", BLOCK],
+  ["find ~ -delete", BLOCK],
+  ["git reset --ha", BLOCK],
+  ["git commit --no-verif -m x", BLOCK],
+  ['git -c alias.p="push --force" p', BLOCK],
+  ["GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x", BLOCK],
+  ["git push origin 'refs/heads/*:refs/heads/*'", BLOCK],
+  ["docker compose down -vt 0", BLOCK],
+  ["docker compose down --volumes=true", BLOCK],
+  ["docker --context x volume rm pg_data", BLOCK],
+  ["bash -o errexit infra/deploy.sh v1", BLOCK],
+  ["ssh host bash /opt/app/infra/deploy.sh v1", BLOCK],
   // Chặn nhầm trước đây: phải CHO QUA.
   ["git push origin feat/main-menu", PASS],
   ["git push origin fix/release-notes", PASS],
@@ -127,6 +160,19 @@ const bash = [
   ["git add -A && git commit -m 'feat(api): thêm (module) mới; xong'", PASS],
   ["pnpm test > /tmp/test.log 2>&1", PASS],
   ["bash tests/infra/run.sh", PASS],
+  ["set -e; pnpm test", PASS],
+  ["set -eu && pnpm build", PASS],
+  ["grep -E useMutationOptions apps/web/src", PASS],
+  ["grep -rn -e purchaseRequestsService apps", PASS],
+  ["git checkout -b infra/caddy-timeout", PASS],
+  ["git restore --staged .", PASS],
+  ['git commit -m "fix: truncate long titles"', PASS],
+  ["docker compose down", PASS],
+  ["docker compose logs --since 30m api", PASS],
+  ["rm -rf dist .turbo node_modules", PASS],
+  ["git push -u origin feat/main-menu", PASS],
+  ["git commit -am 'fix: x'", PASS],
+  ["sed -n 1,20p infra/restore-db.sh", PASS],
 ];
 const powershell = [
   ["Get-Content .env", BLOCK],
@@ -164,6 +210,13 @@ const files = [
   [`${root}${sep}apps${sep}api${sep}src${sep}main.ts`, PASS],
   [`${root}${sep}.env`, BLOCK],
   [".claude/settings.local.json", BLOCK],
+  // Ngoài dự án: chỉ cho file làm việc của Claude Code (kế hoạch, memory, thư mục tạm).
+  [join(homedir(), ".claude", "plans", "ke-hoach.md"), PASS],
+  [join(homedir(), ".claude", "projects", "du-an", "memory", "MEMORY.md"), PASS],
+  [join(tmpdir(), "nhap.txt"), PASS],
+  [join(homedir(), ".claude", "settings.json"), BLOCK],
+  [join(homedir(), ".claude", "plans", "..", "settings.json"), BLOCK],
+  [join(homedir(), ".bashrc"), BLOCK],
 ];
 // NTFS không phân biệt hoa thường, có alternate data stream và nhiều ổ đĩa: chỉ kiểm trên Windows.
 if (process.platform === "win32") {

@@ -16,7 +16,7 @@ fi
 read -r -p "Sẽ GHI ĐÈ database '$POSTGRES_DB' bằng $(basename "$FILE"). Gõ đúng tên database để xác nhận: " CONFIRM
 [[ "$CONFIRM" == "$POSTGRES_DB" ]] || die "Đã hủy"
 
-"$INFRA_DIR/backup-db.sh" "pre-restore"
+bash "$INFRA_DIR/backup-db.sh" "pre-restore"
 log "Dừng api và worker"
 "${COMPOSE[@]}" stop api worker
 trap 'log "Khôi phục lỗi, khởi động lại api/worker"; "${COMPOSE[@]}" start api worker' ERR

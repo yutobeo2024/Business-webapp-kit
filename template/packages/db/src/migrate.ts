@@ -11,7 +11,9 @@ if (!url) {
 
 const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
 // Không giới hạn thời gian câu lệnh: thêm cột có default, backfill trên bảng lớn có thể chạy quá 30 giây.
-const handle = createDb(url, { max: 1, appName: "migrate", statementTimeoutMs: 0 });
+// Nhưng giới hạn thời gian CHỜ KHÓA: ALTER TABLE xếp sau một transaction dài sẽ chặn mọi query vào bảng đó;
+// quá 15 giây thì migration lỗi, deploy tự quay về bản trước thay vì làm app đứng.
+const handle = createDb(url, { max: 1, appName: "migrate", statementTimeoutMs: 0, lockTimeoutMs: 15_000 });
 
 try {
   await migrate(handle.db, { migrationsFolder });

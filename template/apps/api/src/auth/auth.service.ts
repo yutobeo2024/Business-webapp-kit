@@ -41,18 +41,17 @@ export class AuthService {
       .limit(1);
 
     const invalid = new BusinessError("AUTH_INVALID_CREDENTIALS", "Email hoặc mật khẩu không đúng", 401);
+    const locked = new BusinessError(
+      "AUTH_LOCKED",
+      `Tài khoản tạm khóa do đăng nhập sai nhiều lần. Thử lại sau ${LOCK_MINUTES} phút.`,
+      423,
+    );
 
     if (!user) {
       await verifyPassword(await getDummyHash(), input.password);
       throw invalid;
     }
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new BusinessError(
-        "AUTH_LOCKED",
-        `Tài khoản tạm khóa do đăng nhập sai nhiều lần. Thử lại sau ${LOCK_MINUTES} phút.`,
-        423,
-      );
-    }
+    if (user.lockedUntil && user.lockedUntil > new Date()) throw locked;
     const ok = await verifyPassword(user.passwordHash, input.password);
     if (!ok || !user.isActive) {
       await this.recordFailedLogin(user.id, meta.ip);
@@ -62,6 +61,14 @@ export class AuthService {
     const token = newSessionToken();
     const expiresAt = new Date(Date.now() + this.ttlMs());
     await this.db.transaction(async (tx) => {
+      // Kiểm lại khóa sau khi khóa dòng: một request sai song song có thể vừa khóa tài khoản trong lúc
+      // request này đang chấm mật khẩu. Không kiểm lại thì lần đoán đúng vẫn vào được và còn xóa khóa.
+      const [current] = await tx
+        .select({ lockedUntil: users.lockedUntil })
+        .from(users)
+        .where(eq(users.id, user.id))
+        .for("update");
+      if (current?.lockedUntil && current.lockedUntil > new Date()) throw locked;
       await tx.update(users).set({ failedLoginCount: 0, lockedUntil: null }).where(eq(users.id, user.id));
       await tx.insert(sessions).values({
         userId: user.id,
