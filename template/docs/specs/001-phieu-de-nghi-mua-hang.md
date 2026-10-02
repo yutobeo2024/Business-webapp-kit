@@ -7,7 +7,7 @@
 
 ## 1. Mục tiêu và phạm vi
 
-S�� hóa quy trình đề nghị mua hàng: nhân viên lập phiếu, trưởng phòng duyệt, phiếu giá trị lớn qua giám đốc.
+Số hóa quy trình đề nghị mua hàng: nhân viên lập phiếu, trưởng phòng duyệt, phiếu giá trị lớn qua giám đốc.
 Ngoài phạm vi: đặt hàng nhà cung cấp, nhập kho, thanh toán.
 
 ## 2. Vai trò và quyền

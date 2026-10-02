@@ -1,13 +1,46 @@
-# Báo cáo kiểm chứng kit 1.0.0
+# Báo cáo kiểm chứng kit
+
+## 1.0.1: sửa lỗi sau review toàn bộ (02/10/2026)
+
+Review 1.0.0 tìm ra 1 lỗi Critical (deploy production không chạy được) và các lỗi High ở khóa tài khoản, tiền,
+migration, cài đặt trên Windows, hardening SSH, GitHub Actions, hook Claude Code. Danh sách: [CHANGELOG.md](../CHANGELOG.md).
+Mỗi lỗi được tái hiện bằng test ĐỎ trên 1.0.0 trước khi sửa:
+
+| Lỗi | Test tái hiện | Trên 1.0.0 | Trên 1.0.1 |
+|---|---|---|---|
+| Lệnh compose chết vì thiếu `APP_TAG` (sao lưu, deploy, cảnh báo, khôi phục) | `tests/infra/run.sh` + `docker compose config` thật | 8/11 sai; compose báo `required variable APP_TAG is missing` | 11/11 |
+| Khóa tài khoản bị lách bằng request song song | `http.int.spec.ts` (8 request sai song song) | đăng nhập được (200) | 423 |
+| Tổng tiền tràn số | `http.int.spec.ts`, `purchase-request.spec.ts` | 500 (`9e+21`) | 400 |
+| Referer sai định dạng | `http.int.spec.ts` | 500 | 403 |
+| Hook bị lách / chặn nhầm / sai trên Windows | `pnpm claude:selftest` | 73/147 sai | đúng hết |
+| `install.ps1` lỗi font, mất bit +x | chạy thật trên PowerShell 5.1 và Git Bash | commit lỗi font, `.sh` 100644 | đúng chữ, 100755 |
+
+Sau đó một agent độc lập (chưa thấy quá trình sửa) rà lại toàn bộ diff và tìm thêm: khoảng 30 cách lách hook mới viết
+(redirect đầu lệnh, `$(...)` trong nháy kép, `sudo -u`, option git viết tắt...), 6 lệnh bị chặn nhầm, checklist
+mâu thuẫn với Rollback, request đoán đúng song song vượt khóa tài khoản, migrate thiếu `lock_timeout`. Tất cả đã sửa;
+các lệnh đó được đưa vào selftest (206 tình huống trên Windows), đối chiếu thấy đỏ trên bản trước.
+
+Môi trường kiểm:
+- Windows 10, Node 25 (bỏ qua kiểm engine), Docker Desktop 28.3: build, lint, typecheck, unit, format, selftest,
+  test tích hợp trên PostgreSQL 17 + Redis 7 thật, actionlint, shellcheck, chạy hai trình cài.
+- Linux (container `node:24-bookworm`), cài sạch với `engine-strict`: install, format, build, `verify:quick`
+  (38 unit), selftest (gồm post-edit), 20 test tích hợp, `tests/infra/run.sh`, migration khớp schema. Tất cả xanh.
+- `docker build` thật cả 3 image (api 321 MB, worker 294 MB, web 87 MB). Image api chạy migrate, lên `healthy`,
+  `/api/health` báo database và redis ok, chạy bằng user `node`.
+
+Còn chưa kiểm: workflow chạy thật trên GitHub, E2E Playwright, hook trong một phiên Claude Code thật, script vận hành
+trên máy chủ thật (đã kiểm bằng docker giả). Lỗi mức Medium từ review chưa sửa, để bước sau.
+
+## 1.0.0
 
 Kiểm ngày 02/10/2026 trên Ubuntu 24.04, Node 22.22, pnpm 10.34, PostgreSQL 16 và Redis 7 thật.
 Nguyên tắc: không coi là xong khi chỉ đọc lại mã. Mọi phần đều được chạy bằng công cụ hoặc dữ liệu thật.
 
-## Vòng 1: Kiểm tĩnh
+### Vòng 1: Kiểm tĩnh
 | Hạng mục | Công cụ | Kết quả |
 |---|---|---|
 | Định dạng toàn repo | prettier --check | Sạch |
-| 5 workflow GitHub Actions | actionlint 1.7.7 (kèm shellcheck cho khối `run`) | Sạch |
+| 4 workflow GitHub Actions | actionlint 1.7.7 (kèm shellcheck cho khối `run`) | Sạch |
 | YAML | yamllint | Sạch |
 | 7 script vận hành + install.sh | shellcheck 0.11 | Sạch |
 | 3 Dockerfile | hadolint 2.12 | Sạch |
@@ -15,23 +48,23 @@ Nguyên tắc: không coi là xong khi chỉ đọc lại mã. Mọi phần đ�
 | 3 file Compose | docker compose config 2.39 | Hợp lệ; thiếu biến bắt buộc thì báo lỗi; chỉ Caddy mở cổng, PostgreSQL và Redis không lộ |
 | Frontmatter 8 skill, 6 rule, 1 agent | parser YAML + đối chiếu trường hợp lệ theo tài liệu Claude Code | Hợp lệ |
 
-## Vòng 2: Cài mới từ đầu
+### Vòng 2: Cài mới từ đầu
 `install.sh` vào thư mục trống -> `pnpm install --frozen-lockfile` -> build -> `verify:quick` -> `claude:selftest`.
-Kết quả: lint, typecheck sạch; 35 unit test xanh; tự kiểm hook 60/60; tổng 100 giây.
+Kết quả: lint, typecheck sạch; 35 unit test xanh; tự kiểm hook xanh; tổng 100 giây.
 
-## Vòng 3: Chạy thật
+### Vòng 3: Chạy thật
 - 17 test tích hợp xanh trên PostgreSQL + Redis thật: luồng duyệt đủ bước, ngưỡng giám đốc, sai version, hai người duyệt đồng thời
   (chỉ một thắng), phạm vi dữ liệu (404), CSRF, rate limit 429, khóa tài khoản, cookie HttpOnly/SameSite, đăng xuất.
 - Migrate, seed (chạy lại không trùng; production từ chối tài khoản demo).
 - API + worker + frontend build qua proxy: tạo, gửi, từ chối thiếu lý do, ngưỡng 45 triệu sang giám đốc, gửi lại version cũ,
   giám đốc từ chối, sửa lại. Audit đủ 5 bước, worker nhận đủ job, 0 lỗi 500, dừng an toàn bằng SIGTERM.
 
-## Vòng 4: Image production (mô phỏng từng lệnh Dockerfile)
+### Vòng 4: Image production (mô phỏng từng lệnh Dockerfile)
 Build context theo `.dockerignore` -> `turbo prune` -> cài frozen lockfile -> build -> `pnpm deploy --prod` cho api, worker, web.
 Chạy chính artifact: lệnh migrate của Compose, lệnh seed của runbook, `CMD` của image, `HEALTHCHECK`. Gói api 69 MB, worker 45 MB,
 không có dependency dev. Caddy web: SPA deep link 200, source map 404, cache đúng cho assets và index.html.
 
-## Vòng 5: Script vận hành và tính nhất quán
+### Vòng 5: Script vận hành và tính nhất quán
 Docker giả lập gọi `pg_dump`, `pg_restore`, `psql` thật. 15 tình huống đạt: sao lưu (checksum, remote, từ chối nhãn độc hại),
 deploy lần đầu, tự rollback khi health hỏng / container không healthy / migration lỗi, từ chối tag độc hại, khóa chống deploy
 song song, khôi phục đúng dữ liệu và từ chối file sai checksum, diễn tập khôi phục, cảnh báo không spam.
@@ -40,7 +73,7 @@ Kiểm tự động 75 lệnh pnpm và 85 đường dẫn được nhắc trong 
 Hook Claude Code kiểm hành vi thật: chặn 36 lệnh Bash và 5 lệnh PowerShell nguy hiểm, cho qua lệnh an toàn; khóa file secret,
 lockfile, hạ tầng, migration đã commit; post-edit bắt lỗi lint thật và tự format; stop-verify chặn khi lỗi type, tự nhả sau 3 lần.
 
-## Lỗi thật đã phát hiện và sửa nhờ kiểm chứng
+### Lỗi thật đã phát hiện và sửa nhờ kiểm chứng
 1. `turbo prune` bỏ sót tsconfig gốc: image không build được. Sửa: package `@app/tsconfig`.
 2. npm đóng gói theo `.gitignore` nên mất `dist`, `migrations`. Sửa: khai báo `files`.
 3. `pnpm deploy` của pnpm 10 cần `--legacy` khi không inject workspace.
@@ -54,7 +87,7 @@ lockfile, hạ tầng, migration đã commit; post-edit bắt lỗi lint thật 
 11. Source map frontend bị phục vụ công khai. Sửa: Caddy trả 404.
 12. Skill `security-review` trùng lệnh có sẵn của Claude Code. Đổi thành `security-audit`.
 
-## Chưa kiểm được trong môi trường này (cần kiểm ở dự án đầu tiên)
+### Chưa kiểm được trong môi trường này (cần kiểm ở dự án đầu tiên)
 | Hạng mục | Lý do | Cách kiểm |
 |---|---|---|
 | `docker build` và chạy container thật | Không có Docker daemon; đã mô phỏng từng lệnh | `docker build -f infra/docker/api.Dockerfile .` trên máy có Docker |

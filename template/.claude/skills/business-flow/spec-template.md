@@ -58,7 +58,7 @@ Màn hình danh sách, bộ lọc, báo cáo, định dạng xuất, ai được
 
 ## 9. Yêu cầu phi chức năng
 
-S�� người dùng đồng thời, thời gian phản hồi, thời gian lưu dữ liệu, audit, dữ liệu cá nhân và mục đích xử lý.
+Số người dùng đồng thời, thời gian phản hồi, thời gian lưu dữ liệu, audit, dữ liệu cá nhân và mục đích xử lý.
 
 ## 10. Tiêu chí nghiệm thu
 

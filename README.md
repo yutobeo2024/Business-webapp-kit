@@ -1,19 +1,19 @@
 # Business Web App Kit
 
 Bộ khởi tạo production cho web app quy trình nghiệp vụ giao cho doanh nghiệp, làm việc cùng Claude Code.
-Phiên bản kit: 1.0.0 (02/10/2026).
+Phiên bản kit: 1.0.1 (02/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
 
 ## Kit gồm gì
 
 | Phần | Nội dung | Vị trí trong `template/` |
 |---|---|---|
 | Skeleton chạy được | NestJS 12 + React 19 + PostgreSQL 17 + Redis/BullMQ, đăng nhập session, module mẫu có state machine, phân quyền, audit | `apps/`, `packages/` |
-| Kiểm thử | 35 unit, 17 tích hợp trên DB thật, E2E Playwright | `*.spec.ts`, `*.int.spec.ts`, `e2e/` |
+| Kiểm thử | Unit, tích hợp trên DB thật, E2E Playwright, kiểm script vận hành bằng docker giả | `*.spec.ts`, `*.int.spec.ts`, `e2e/`, `tests/infra/` |
 | CI/CD | Kiểm tra mọi PR; merge main -> staging; tag -> production có người duyệt; rollback một nút | `.github/workflows/` |
 | Hạ tầng | Dockerfile 3 app, Compose production, Caddy HTTPS tự động | `infra/` |
 | Vận hành | Deploy tự rollback, sao lưu, khôi phục, diễn tập, cảnh báo, chuẩn bị server | `infra/*.sh` |
 | Bảo trì | Quét lỗ hổng hằng tuần, Dependabot, 7 runbook | `.github/`, `docs/runbooks/` |
-| Lớp Claude Code | CLAUDE.md ngắn, 6 rule theo đường dẫn, 8 skill, 1 subagent, 4 hook có bộ tự kiểm 60 tình huống | `CLAUDE.md`, `.claude/` |
+| Lớp Claude Code | CLAUDE.md ngắn, 6 rule theo đường dẫn, 8 skill, 1 subagent, 4 hook có bộ tự kiểm (`pnpm claude:selftest`) | `CLAUDE.md`, `.claude/` |
 
 Chi tiết lựa chọn stack: [docs/STACK.md](docs/STACK.md). Kiểm chứng đã làm: [docs/VERIFICATION.md](docs/VERIFICATION.md).
 Trước khi giao khách: [template/docs/PRODUCTION-CHECKLIST.md](template/docs/PRODUCTION-CHECKLIST.md) (có sẵn trong mỗi dự án tạo ra).
@@ -47,7 +47,8 @@ spec `001`, migration mẫu (tạo lại migration `init` từ schema thật).
 3. **Hook**: code chạy thật, chặn lệnh phá dữ liệu (cả PowerShell), khóa file secret, migration đã commit, CI và hạ tầng;
    format/lint ngay khi sửa; chặn kết thúc khi `verify:quick` đỏ.
 
-Giới hạn cần biết: deny rule và hook đọc nội dung lệnh, nên một script Node/Python tự mở file vẫn đọc được `.env`.
+Giới hạn cần biết: deny rule và hook đọc nội dung lệnh, nên một script Node/Python tự mở file (`node -e`, `python -c`)
+vẫn đọc được `.env` hoặc ghi vào file được bảo vệ.
 Khi cần cách ly ở mức hệ điều hành, bật sandbox của Claude Code hoặc chạy trong dev container.
 
 ## Bảo trì chính kit này

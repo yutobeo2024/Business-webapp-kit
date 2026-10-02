@@ -6,7 +6,7 @@ argument-hint: "<mô tả sự cố | log | mã lỗi>"
 
 # Xử lý sự cố
 
-S�� cố: $ARGUMENTS
+Sự cố: $ARGUMENTS
 
 1. **Đánh giá mức độ** (theo `docs/runbooks/incident.md`): SEV1 hệ thống ngừng hoặc mất/sai dữ liệu; SEV2 một quy trình chính hỏng;
    SEV3 lỗi có cách né. SEV1/SEV2: nhắc người dùng làm bước giảm thiểu trước (rollback qua Actions > Rollback), điều tra sau.
