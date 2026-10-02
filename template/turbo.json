@@ -1,6 +1,7 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "globalEnv": ["NODE_ENV"],
+  "agentGuidance": false,
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

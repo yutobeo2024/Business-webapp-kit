@@ -11,7 +11,8 @@ out
 .claude
 docs
 e2e
-.env
-.env.*
-!.env.example
-infra/.env
+# Secret ở mọi cấp thư mục (apps/api/.env...), không chỉ thư mục gốc.
+**/.env
+**/.env.*
+!**/.env.example
+tests
