@@ -10,17 +10,30 @@
 Số hóa quy trình đề nghị mua hàng: nhân viên lập phiếu, trưởng phòng duyệt, phiếu giá trị lớn qua giám đốc.
 Ngoài phạm vi: đặt hàng nhà cung cấp, nhập kho, thanh toán.
 
-## 2. Vai trò và quyền
+## 2. Quyền
 
-| Hành động                                             | Nhân viên | Trưởng phòng   | Kế toán | Giám đốc | Quản trị |
-| ----------------------------------------------------- | --------- | -------------- | ------- | -------- | -------- |
-| Lập, sửa, gửi, hủy phiếu của mình                     | ✓         | ✓              | ✓       |          |          |
-| Duyệt/từ chối phiếu chờ trưởng phòng (cùng phòng ban) |           | ✓              |         |          |          |
-| Duyệt/từ chối phiếu chờ giám đốc                      |           |                |         | ✓        |          |
-| Xem phiếu                                             | của mình  | phòng ban mình | tất cả  | tất cả   | của mình |
+Module khai báo các quyền dưới đây (`PR_PERMISSIONS` trong `packages/shared/src/purchase-request.ts`). Quản trị viên gom
+quyền thành vai trò trên màn "Vai trò" (ADR-0004); mã chỉ kiểm quyền, không kiểm tên vai trò.
 
-Quản trị chỉ quản lý tài khoản, không tham gia nghiệp vụ (tách biệt nhiệm vụ). Giám đốc là người duyệt cuối nên không
-lập phiếu (không ai duyệt được phiếu của giám đốc). Người lập phiếu phải thuộc một phòng ban.
+| Quyền                   | Cho phép                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `pr.create`             | Lập, sửa, gửi, hủy phiếu của mình (người lập phải thuộc một phòng ban)                |
+| `pr.view.department`    | Xem phiếu của phòng ban mình                                                          |
+| `pr.view.all`           | Xem phiếu của mọi phòng ban                                                           |
+| `pr.approve.department` | Duyệt/từ chối phiếu chờ trưởng phòng cùng phòng ban; phiếu mình lập đi thẳng cấp cuối |
+| `pr.approve.final`      | Duyệt/từ chối phiếu chờ giám đốc                                                      |
+
+Không có `pr.view.*` thì chỉ xem phiếu của mình. Vai trò mặc định do seed tạo (`apps/api/src/auth/default-roles.ts`):
+
+| Vai trò mặc định  | Quyền                                                             |
+| ----------------- | ----------------------------------------------------------------- |
+| Nhân viên         | `pr.create`                                                       |
+| Trưởng phòng      | `pr.create`, `pr.view.department`, `pr.approve.department`        |
+| Kế toán           | `pr.create`, `pr.view.all`                                        |
+| Giám đốc          | `pr.view.all`, `pr.approve.final`                                 |
+| Quản trị hệ thống | chỉ quyền quản trị (tách biệt nhiệm vụ, không có quyền nghiệp vụ) |
+
+Giám đốc là người duyệt cuối nên vai trò mặc định không có `pr.create` (không ai duyệt được phiếu của giám đốc).
 
 ## 3. Thực thể dữ liệu
 

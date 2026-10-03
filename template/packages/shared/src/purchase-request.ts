@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { paginationQuerySchema } from "./api.js";
 import { isValidVnd, vndSchema } from "./money.js";
-import type { Role } from "./roles.js";
+import type { PermissionDef } from "./permissions.js";
 
 /** Ngưỡng tổng tiền (VND) phải qua Giám đốc duyệt. Xem BR-03 trong docs/specs/001-phieu-de-nghi-mua-hang.md */
 export const DIRECTOR_APPROVAL_THRESHOLD_VND = 20_000_000;
@@ -73,8 +73,23 @@ export const updatePurchaseRequestSchema = createPurchaseRequestSchema.extend({
 });
 export type UpdatePurchaseRequestInput = z.infer<typeof updatePurchaseRequestSchema>;
 
-/** BR-08: vai trò được lập phiếu. Giám đốc là người duyệt cuối, Quản trị không tham gia nghiệp vụ. */
-export const PR_CREATOR_ROLES: readonly Role[] = ["STAFF", "MANAGER", "ACCOUNTANT"];
+/**
+ * Quyền của module phiếu đề nghị (đăng ký vào danh mục chung trong permissions.ts). Spec 001 mục 2.
+ * Phạm vi xem có cấp: pr.view.all > pr.view.department > mặc định chỉ phiếu của mình.
+ */
+export const PR_PERMISSIONS = {
+  "pr.create": { group: "Phiếu đề nghị mua hàng", label: "Lập phiếu (người lập phải thuộc một phòng ban)" },
+  "pr.view.department": { group: "Phiếu đề nghị mua hàng", label: "Xem phiếu của phòng ban mình" },
+  "pr.view.all": { group: "Phiếu đề nghị mua hàng", label: "Xem phiếu của mọi phòng ban" },
+  "pr.approve.department": {
+    group: "Phiếu đề nghị mua hàng",
+    label: "Duyệt/từ chối phiếu chờ trưởng phòng của phòng ban mình (phiếu mình lập đi thẳng lên cấp cuối)",
+  },
+  "pr.approve.final": {
+    group: "Phiếu đề nghị mua hàng",
+    label: "Duyệt/từ chối phiếu vượt ngưỡng (cấp cuối)",
+  },
+} as const satisfies Record<string, PermissionDef>;
 
 export const transitionPurchaseRequestSchema = z
   .object({

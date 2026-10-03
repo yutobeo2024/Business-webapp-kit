@@ -1,26 +1,27 @@
 import { describe, expect, it } from "vitest";
+import type { Permission } from "@app/shared";
 import { canView, viewScope } from "./policy.js";
 
 const pr = { requesterId: "u1", departmentId: "kd" };
+const u = (id: string, departmentId: string | null, permissions: Permission[] = []) => ({
+  id,
+  departmentId,
+  permissions,
+});
 
-describe("BR-07 phạm vi xem dữ liệu", () => {
-  it("nhân viên chỉ xem phiếu của mình", () => {
-    expect(canView(viewScope({ id: "u1", role: "STAFF", departmentId: "kd" }), pr)).toBe(true);
-    expect(canView(viewScope({ id: "u2", role: "STAFF", departmentId: "kd" }), pr)).toBe(false);
+describe("BR-07 phạm vi xem dữ liệu theo quyền", () => {
+  it("không có quyền xem rộng: chỉ xem phiếu của mình", () => {
+    expect(canView(viewScope(u("u1", "kd", ["pr.create"])), pr)).toBe(true);
+    expect(canView(viewScope(u("u2", "kd", ["pr.create"])), pr)).toBe(false);
   });
-  it("trưởng phòng xem phiếu cùng phòng ban", () => {
-    expect(canView(viewScope({ id: "m1", role: "MANAGER", departmentId: "kd" }), pr)).toBe(true);
-    expect(canView(viewScope({ id: "m2", role: "MANAGER", departmentId: "kt" }), pr)).toBe(false);
+  it("pr.view.department: xem phiếu cùng phòng ban", () => {
+    expect(canView(viewScope(u("m1", "kd", ["pr.view.department"])), pr)).toBe(true);
+    expect(canView(viewScope(u("m2", "kt", ["pr.view.department"])), pr)).toBe(false);
   });
-  it("trưởng phòng chưa gán phòng ban chỉ xem phiếu của mình", () =>
-    expect(viewScope({ id: "m3", role: "MANAGER", departmentId: null })).toEqual({
-      kind: "own",
-      userId: "m3",
-    }));
-  it("giám đốc và kế toán xem tất cả", () => {
-    expect(canView(viewScope({ id: "d", role: "DIRECTOR", departmentId: null }), pr)).toBe(true);
-    expect(canView(viewScope({ id: "k", role: "ACCOUNTANT", departmentId: null }), pr)).toBe(true);
-  });
-  it("admin không xem phiếu của người khác", () =>
-    expect(canView(viewScope({ id: "a", role: "ADMIN", departmentId: null }), pr)).toBe(false));
+  it("pr.view.department nhưng chưa gán phòng ban: chỉ xem phiếu của mình", () =>
+    expect(viewScope(u("m3", null, ["pr.view.department"]))).toEqual({ kind: "own", userId: "m3" }));
+  it("pr.view.all: xem tất cả, kể cả không thuộc phòng ban nào", () =>
+    expect(canView(viewScope(u("d", null, ["pr.view.all"])), pr)).toBe(true));
+  it("quản trị hệ thống không có quyền nghiệp vụ: không xem phiếu của người khác", () =>
+    expect(canView(viewScope(u("a", null, ["users.manage", "roles.manage"])), pr)).toBe(false));
 });

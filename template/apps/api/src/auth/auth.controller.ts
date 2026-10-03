@@ -1,12 +1,18 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import type { Response } from "express";
-import { type CurrentUser as CurrentUserType, type LoginInput, loginSchema } from "@app/shared";
+import {
+  type ChangePasswordInput,
+  changePasswordSchema,
+  type CurrentUser as CurrentUserType,
+  type LoginInput,
+  loginSchema,
+} from "@app/shared";
 import { type AuthedRequest, clientIp } from "../common/request-context.js";
 import { ZodPipe } from "../common/zod.pipe.js";
 import { ENV, type Env } from "../config/env.js";
 import { AuthService } from "./auth.service.js";
-import { CurrentUser, Public } from "./decorators.js";
+import { AllowDuringPasswordChange, CurrentUser, Public } from "./decorators.js";
 import { SESSION_COOKIE, sessionCookieOptions } from "./guards.js";
 
 @Controller("auth")
@@ -33,6 +39,20 @@ export class AuthController {
     return result.user;
   }
 
+  /** Tự đổi mật khẩu. Throttle chặt: endpoint này kiểm mật khẩu hiện tại, dễ bị dùng để dò mật khẩu. */
+  @AllowDuringPasswordChange()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("change-password")
+  @HttpCode(204)
+  async changePassword(
+    @CurrentUser() user: CurrentUserType,
+    @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput,
+    @Req() req: AuthedRequest,
+  ): Promise<void> {
+    await this.auth.changePassword(user, req.sessionTokenHash!, body, clientIp(req));
+  }
+
+  @AllowDuringPasswordChange()
   @Post("logout")
   @HttpCode(204)
   async logout(
@@ -44,6 +64,7 @@ export class AuthController {
     res.clearCookie(SESSION_COOKIE, { path: "/" });
   }
 
+  @AllowDuringPasswordChange()
   @Get("me")
   me(@CurrentUser() user: CurrentUserType): CurrentUserType {
     return user;

@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
-import { createDb, departments, users, type DbHandle } from "@app/db";
-import type { CurrentUser, Role } from "@app/shared";
+import { createDb, departments, userRoles, users, type DbHandle } from "@app/db";
+import type { CurrentUser } from "@app/shared";
+import { loadAccess } from "../src/auth/access.js";
 import { hashPassword } from "../src/auth/crypto.js";
+import { type DefaultRoleKey, ensureDefaultRoles } from "../src/auth/default-roles.js";
 import type { Env } from "../src/config/env.js";
 
 export const TEST_PASSWORD = "mat-khau-test-123";
@@ -30,7 +32,7 @@ export const openDb = (): DbHandle => createDb(process.env.DATABASE_URL!, { max:
 
 export async function resetDb(handle: DbHandle): Promise<void> {
   await handle.db.execute(
-    sql`truncate table audit_logs, sessions, purchase_requests, users, departments restart identity cascade`,
+    sql`truncate table audit_logs, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
   );
 }
 
@@ -42,6 +44,9 @@ export interface Fixture {
   manager: CurrentUser;
   managerKt: CurrentUser;
   director: CurrentUser;
+  accountant: CurrentUser;
+  admin: CurrentUser;
+  roleIds: Record<DefaultRoleKey, string>;
 }
 
 export async function seedFixture(handle: DbHandle): Promise<Fixture> {
@@ -49,22 +54,22 @@ export async function seedFixture(handle: DbHandle): Promise<Fixture> {
   const [kd] = await db.insert(departments).values({ code: "KD", name: "Kinh doanh" }).returning();
   const [kt] = await db.insert(departments).values({ code: "KT", name: "Kế toán" }).returning();
   const passwordHash = await hashPassword(TEST_PASSWORD);
+  const roleIds = await ensureDefaultRoles(db);
   const mk = async (
     email: string,
     fullName: string,
-    role: Role,
+    role: DefaultRoleKey,
     departmentId: string | null,
   ): Promise<CurrentUser> => {
-    const [u] = await db
-      .insert(users)
-      .values({ email, fullName, role, departmentId, passwordHash })
-      .returning();
+    const [u] = await db.insert(users).values({ email, fullName, departmentId, passwordHash }).returning();
+    await db.insert(userRoles).values({ userId: u!.id, roleId: roleIds[role] });
     return {
       id: u!.id,
       email: u!.email,
       fullName: u!.fullName,
-      role: u!.role,
       departmentId: u!.departmentId,
+      mustChangePassword: false,
+      ...(await loadAccess(db, u!.id)),
     };
   };
   return {
@@ -75,5 +80,8 @@ export async function seedFixture(handle: DbHandle): Promise<Fixture> {
     manager: await mk("manager@test.vn", "Trưởng phòng KD", "MANAGER", kd!.id),
     managerKt: await mk("manager-kt@test.vn", "Trưởng phòng KT", "MANAGER", kt!.id),
     director: await mk("director@test.vn", "Giám đốc", "DIRECTOR", null),
+    accountant: await mk("accountant@test.vn", "Kế toán", "ACCOUNTANT", kt!.id),
+    admin: await mk("admin@test.vn", "Quản trị", "ADMIN", null),
+    roleIds,
   };
 }

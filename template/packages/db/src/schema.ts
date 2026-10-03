@@ -10,12 +10,13 @@ import {
   pgEnum,
   pgSequence,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { PR_STATUSES, ROLES, type PrItem } from "@app/shared";
+import { PR_STATUSES, type PrItem } from "@app/shared";
 
 // Quy ước: bảng snake_case số nhiều; mọi bảng nghiệp vụ có created_at, updated_at; xóa mềm bằng deleted_at.
 const timestamps = {
@@ -26,13 +27,15 @@ const timestamps = {
     .$onUpdate(() => new Date()),
 };
 
-export const roleEnum = pgEnum("role", ROLES);
 export const prStatusEnum = pgEnum("pr_status", PR_STATUSES);
 
 export const departments = pgTable("departments", {
   id: uuid("id").primaryKey().defaultRandom(),
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
+  /** Ngừng dùng thay vì xóa: người dùng và chứng từ cũ vẫn trỏ tới. Không gán người mới vào phòng ban ngừng dùng. */
+  isActive: boolean("is_active").notNull().default(true),
+  version: integer("version").notNull().default(1),
   ...timestamps,
 });
 
@@ -43,17 +46,63 @@ export const users = pgTable(
     email: text("email").notNull(),
     fullName: text("full_name").notNull(),
     passwordHash: text("password_hash").notNull(),
-    role: roleEnum("role").notNull().default("STAFF"),
+    /** Đang dùng mật khẩu tạm do quản trị viên đặt: phải đổi trước khi làm việc khác. */
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
+    passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
     departmentId: uuid("department_id").references(() => departments.id),
     isActive: boolean("is_active").notNull().default(true),
     failedLoginCount: integer("failed_login_count").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    version: integer("version").notNull().default(1),
     ...timestamps,
   },
   (t) => [
     uniqueIndex("users_email_lower_uq").on(sql`lower(${t.email})`),
     index("users_department_idx").on(t.departmentId),
   ],
+);
+
+/**
+ * Vai trò = tập quyền do quản trị viên cấu hình (ADR-0004). Quyền là chuỗi khóa trong danh mục PERMISSIONS
+ * (packages/shared/src/permissions.ts); quyền không còn trong danh mục bị bỏ qua khi nạp.
+ */
+export const roles = pgTable(
+  "roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    /** Vai trò "Quản trị hệ thống": không xóa, không đổi tên, luôn giữ quyền quản trị người dùng và vai trò. */
+    isSystem: boolean("is_system").notNull().default(false),
+    version: integer("version").notNull().default(1),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("roles_name_lower_uq").on(sql`lower(${t.name})`)],
+);
+
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    permission: text("permission").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.roleId, t.permission] })],
+);
+
+export const userRoles = pgTable(
+  "user_roles",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** restrict: không xóa vai trò còn người dùng (service báo lỗi rõ trước khi tới đây). */
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "restrict" }),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.roleId] }), index("user_roles_role_idx").on(t.roleId)],
 );
 
 export const sessions = pgTable(

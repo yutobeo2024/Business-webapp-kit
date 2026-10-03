@@ -1,13 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { DIRECTOR_APPROVAL_THRESHOLD_VND } from "@app/shared";
+import { DIRECTOR_APPROVAL_THRESHOLD_VND, type Permission } from "@app/shared";
 import { allowedEvents, decide, type PrSnapshot } from "./state-machine.js";
 
 const DEPT = "dept-kd";
-const staff = { id: "u-staff", role: "STAFF" as const, departmentId: DEPT };
-const manager = { id: "u-manager", role: "MANAGER" as const, departmentId: DEPT };
-const otherManager = { id: "u-manager-2", role: "MANAGER" as const, departmentId: "dept-kt" };
-const director = { id: "u-director", role: "DIRECTOR" as const, departmentId: null };
-const admin = { id: "u-admin", role: "ADMIN" as const, departmentId: null };
+// Actor mang QUYỀN như vai trò mặc định (apps/api/src/auth/default-roles.ts); state machine không biết tên vai trò.
+const actor = (id: string, departmentId: string | null, permissions: Permission[]) => ({
+  id,
+  departmentId,
+  permissions,
+});
+const staff = actor("u-staff", DEPT, ["pr.create"]);
+const manager = actor("u-manager", DEPT, ["pr.create", "pr.view.department", "pr.approve.department"]);
+const otherManager = actor("u-manager-2", "dept-kt", [
+  "pr.create",
+  "pr.view.department",
+  "pr.approve.department",
+]);
+const director = actor("u-director", null, ["pr.view.all", "pr.approve.final"]);
+const admin = actor("u-admin", null, ["users.manage", "roles.manage", "departments.manage"]);
 
 const pr = (over: Partial<PrSnapshot> = {}): PrSnapshot => ({
   status: "DRAFT",

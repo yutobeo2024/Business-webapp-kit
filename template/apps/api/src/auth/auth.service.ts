@@ -1,12 +1,18 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, ne, sql } from "drizzle-orm";
 import { sessions, users, type Db } from "@app/db";
-import type { CurrentUser, LoginInput } from "@app/shared";
+import {
+  type ChangePasswordInput,
+  type CurrentUser,
+  type LoginInput,
+  passwordContainsEmail,
+} from "@app/shared";
 import { writeAudit } from "../common/audit.js";
 import { BusinessError } from "../common/business-error.js";
 import { ENV, type Env } from "../config/env.js";
 import { DB } from "../db/db.module.js";
-import { getDummyHash, hashToken, newSessionToken, verifyPassword } from "./crypto.js";
+import { loadAccess } from "./access.js";
+import { getDummyHash, hashPassword, hashToken, newSessionToken, verifyPassword } from "./crypto.js";
 
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
@@ -129,8 +135,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         fullName: user.fullName,
-        role: user.role,
         departmentId: user.departmentId,
+        mustChangePassword: user.mustChangePassword,
+        ...(await loadAccess(this.db, user.id)),
       },
     };
   }
@@ -179,15 +186,15 @@ export class AuthService {
         id: users.id,
         email: users.email,
         fullName: users.fullName,
-        role: users.role,
         departmentId: users.departmentId,
+        mustChangePassword: users.mustChangePassword,
       })
       .from(sessions)
       .innerJoin(users, eq(users.id, sessions.userId))
       .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, now), eq(users.isActive, true)))
       .limit(1);
     if (!row) return null;
-    const { sessionId, lastSeenAt, createdAt, ...user } = row;
+    const { sessionId, lastSeenAt, createdAt, ...profile } = row;
     if (this.expiryFor(createdAt, now) <= now) return null; // quá hạn tuyệt đối
 
     let renewedExpiresAt: Date | undefined;
@@ -198,7 +205,56 @@ export class AuthService {
         .set({ lastSeenAt: now, expiresAt: renewedExpiresAt })
         .where(eq(sessions.id, sessionId));
     }
-    return { user, tokenHash, renewedExpiresAt };
+    return { user: { ...profile, ...(await loadAccess(this.db, profile.id)) }, tokenHash, renewedExpiresAt };
+  }
+
+  /**
+   * Tự đổi mật khẩu (kể cả lần đầu với mật khẩu tạm). Thu hồi mọi phiên KHÁC của người dùng: ai đang giữ phiên cũ
+   * (máy bị đánh cắp, mật khẩu cũ bị lộ) bị đăng xuất ngay.
+   */
+  async changePassword(
+    actor: CurrentUser,
+    currentTokenHash: string,
+    input: ChangePasswordInput,
+    ip: string | null,
+  ): Promise<void> {
+    if (passwordContainsEmail(input.newPassword, actor.email)) {
+      throw new BusinessError(
+        "AUTH_WEAK_PASSWORD",
+        "Mật khẩu không được chứa tên đăng nhập (phần trước @ của email)",
+        400,
+      );
+    }
+    const newHash = await hashPassword(input.newPassword);
+    await this.db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(eq(users.id, actor.id))
+        .for("update");
+      if (!current || !(await verifyPassword(current.passwordHash, input.currentPassword))) {
+        throw new BusinessError("AUTH_WRONG_PASSWORD", "Mật khẩu hiện tại không đúng", 400);
+      }
+      await tx
+        .update(users)
+        .set({
+          passwordHash: newHash,
+          mustChangePassword: false,
+          passwordChangedAt: new Date(),
+          version: sql`${users.version} + 1`,
+        })
+        .where(eq(users.id, actor.id));
+      await tx
+        .delete(sessions)
+        .where(and(eq(sessions.userId, actor.id), ne(sessions.tokenHash, currentTokenHash)));
+      await writeAudit(tx, {
+        actorId: actor.id,
+        action: "auth.password_changed",
+        entityType: "user",
+        entityId: actor.id,
+        ip,
+      });
+    });
   }
 
   async logout(tokenHash: string, actorId: string, ip: string | null): Promise<void> {

@@ -182,7 +182,7 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
       .set("Origin", TEST_ORIGIN)
       .send({ title: "Mua bàn ghế phòng họp", items: [{ name: "Bàn", quantity: 1, unitPrice: 1000 }] });
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe("PR_ROLE_NOT_ALLOWED");
+    expect(res.body.code).toBe("FORBIDDEN");
   });
 
   it("CSRF: Referer sai định dạng bị chặn 403, không phải lỗi 500", async () => {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  PR_CREATOR_ROLES,
+  can,
   PR_EVENT_LABELS,
   PR_STATUS_LABELS,
   type PrEvent,
@@ -76,9 +76,9 @@ export function PurchaseRequestListPage() {
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const q = usePurchaseRequests({ page });
-  // BR-08: chỉ hiện nút cho vai trò được lập phiếu. Quyền thật do backend kiểm.
+  // Chỉ hiện nút cho người có quyền lập phiếu. Quyền thật do backend kiểm.
   const me = useMe();
-  const canCreate = Boolean(me.data && PR_CREATOR_ROLES.includes(me.data.role));
+  const canCreate = can(me.data, "pr.create");
 
   return (
     <div className="space-y-4">

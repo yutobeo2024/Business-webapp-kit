@@ -13,6 +13,7 @@ import {
   type UpdatePurchaseRequestInput,
   updatePurchaseRequestSchema,
 } from "@app/shared";
+import { RequirePermission } from "../../auth/access.js";
 import { CurrentUser } from "../../auth/decorators.js";
 import { type AuthedRequest, clientIp } from "../../common/request-context.js";
 import { ZodPipe } from "../../common/zod.pipe.js";
@@ -33,6 +34,7 @@ export class PurchaseRequestsController {
   }
 
   @Post()
+  @RequirePermission("pr.create")
   create(
     @CurrentUser() user: CurrentUserType,
     @Body(new ZodPipe(createPurchaseRequestSchema)) body: CreatePurchaseRequestInput,

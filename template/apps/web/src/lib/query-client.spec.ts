@@ -3,7 +3,15 @@ import { meQueryKey } from "@/features/auth/use-me";
 import { ApiError } from "./api";
 import { createQueryClient } from "./query-client";
 
-const user = { id: "u", email: "a@b.vn", fullName: "A", role: "STAFF", departmentId: null };
+const user = {
+  id: "u",
+  email: "a@b.vn",
+  fullName: "A",
+  departmentId: null,
+  roles: [],
+  permissions: [],
+  mustChangePassword: false,
+};
 
 describe("createQueryClient", () => {
   it("query nhận 401 (hết phiên) thì xóa người dùng hiện tại để hiện trang đăng nhập", async () => {

@@ -4,13 +4,13 @@ import type { Queue } from "bullmq";
 import { prCodeSeq, purchaseRequests, users, type Db, type DbOrTx } from "@app/db";
 import {
   businessYear,
+  can,
   calcTotal,
   type CreatePurchaseRequestInput,
   type CurrentUser,
   JOBS,
   type ListPurchaseRequestsQuery,
   type Paginated,
-  PR_CREATOR_ROLES,
   type PrStatusChangedJob,
   type PurchaseRequestDto,
   type TransitionPurchaseRequestInput,
@@ -80,9 +80,8 @@ export class PurchaseRequestsService {
     input: CreatePurchaseRequestInput,
     ip: string | null,
   ): Promise<PurchaseRequestDto> {
-    if (!PR_CREATOR_ROLES.includes(actor.role)) {
-      throw new BusinessError("PR_ROLE_NOT_ALLOWED", "Vai trò của bạn không lập phiếu đề nghị mua hàng", 403);
-    }
+    // Controller đã gắn @RequirePermission("pr.create"); kiểm lại ở service vì service còn được gọi từ nơi khác (job, test).
+    if (!can(actor, "pr.create")) throw Errors.forbidden("Bạn không có quyền lập phiếu đề nghị mua hàng");
     if (!actor.departmentId) {
       throw new BusinessError(
         "PR_NO_DEPARTMENT",

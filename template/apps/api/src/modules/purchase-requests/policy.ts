@@ -1,28 +1,21 @@
 /**
- * Phạm vi dữ liệu theo vai trò (BR-07). Áp dụng ở tầng query để chống IDOR:
+ * Phạm vi dữ liệu theo quyền (BR-07). Áp dụng ở tầng query để chống IDOR:
  * người không có quyền xem sẽ nhận 404 như thể phiếu không tồn tại.
  */
-import type { CurrentUser } from "@app/shared";
+import { can, type CurrentUser } from "@app/shared";
 
 export type ViewScope =
   | { kind: "all" }
   | { kind: "department"; departmentId: string; userId: string }
   | { kind: "own"; userId: string };
 
-export function viewScope(actor: Pick<CurrentUser, "id" | "role" | "departmentId">): ViewScope {
-  switch (actor.role) {
-    case "DIRECTOR":
-    case "ACCOUNTANT":
-      return { kind: "all" };
-    case "MANAGER":
-      return actor.departmentId
-        ? { kind: "department", departmentId: actor.departmentId, userId: actor.id }
-        : { kind: "own", userId: actor.id };
-    // ADMIN quản trị tài khoản, không tham gia nghiệp vụ (tách biệt nhiệm vụ): chỉ thấy phiếu của mình.
-    case "ADMIN":
-    case "STAFF":
-      return { kind: "own", userId: actor.id };
+/** Quyền có cấp: pr.view.all > pr.view.department > mặc định chỉ phiếu của chính mình. */
+export function viewScope(actor: Pick<CurrentUser, "id" | "departmentId" | "permissions">): ViewScope {
+  if (can(actor, "pr.view.all")) return { kind: "all" };
+  if (can(actor, "pr.view.department") && actor.departmentId) {
+    return { kind: "department", departmentId: actor.departmentId, userId: actor.id };
   }
+  return { kind: "own", userId: actor.id };
 }
 
 export function canView(scope: ViewScope, pr: { requesterId: string; departmentId: string }): boolean {

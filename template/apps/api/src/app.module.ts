@@ -2,6 +2,7 @@ import { type DynamicModule, Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
+import { PermissionGuard } from "./auth/access.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { OriginGuard, SessionGuard } from "./auth/guards.js";
 import { HttpExceptionFilter } from "./common/http-exception.filter.js";
@@ -36,10 +37,12 @@ export class AppModule {
       ],
       providers: [
         { provide: ENV, useValue: env },
-        // Thứ tự guard: chặn tần suất -> kiểm tra nguồn gửi (CSRF) -> phiên đăng nhập
+        // Thứ tự guard: chặn tần suất -> kiểm tra nguồn gửi (CSRF) -> phiên đăng nhập -> quyền
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: OriginGuard },
         { provide: APP_GUARD, useClass: SessionGuard },
+        // Sau SessionGuard: cần req.user. Endpoint gắn @RequirePermission(...) thiếu quyền thì 403.
+        { provide: APP_GUARD, useClass: PermissionGuard },
         { provide: APP_FILTER, useClass: HttpExceptionFilter },
       ],
       exports: [ENV],

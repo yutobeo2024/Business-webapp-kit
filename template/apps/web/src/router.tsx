@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
-import { ROLE_LABELS } from "@app/shared";
 import { Button } from "@/components/ui/button";
+import { ChangePasswordPage } from "@/features/account/change-password-page";
 import { LoginPage } from "@/features/auth/login-page";
 import { meQueryKey, useMe } from "@/features/auth/use-me";
 import { PurchaseRequestListPage } from "@/features/purchase-requests/list-page";
@@ -30,6 +30,7 @@ function AppShell() {
       </p>
     );
   if (!me.data) return <LoginPage />;
+  if (me.data.mustChangePassword) return <ChangePasswordPage forced />;
 
   return (
     <div className="min-h-screen">
@@ -38,7 +39,8 @@ function AppShell() {
           <span className="font-semibold">Quản lý quy trình</span>
           <div className="flex items-center gap-3 text-sm">
             <span>
-              {me.data.fullName} · {ROLE_LABELS[me.data.role]}
+              {me.data.fullName}
+              {me.data.roles.length ? ` · ${me.data.roles.map((r) => r.name).join(", ")}` : ""}
             </span>
             <Button size="sm" variant="outline" onClick={() => logout.mutate()} disabled={logout.isPending}>
               Đăng xuất

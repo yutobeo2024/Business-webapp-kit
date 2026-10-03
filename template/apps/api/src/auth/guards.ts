@@ -5,7 +5,7 @@ import { BusinessError, Errors } from "../common/business-error.js";
 import type { AuthedRequest } from "../common/request-context.js";
 import { ENV, type Env } from "../config/env.js";
 import { AuthService } from "./auth.service.js";
-import { IS_PUBLIC } from "./decorators.js";
+import { ALLOW_PASSWORD_CHANGE, IS_PUBLIC } from "./decorators.js";
 
 export const SESSION_COOKIE = "sid";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -74,6 +74,16 @@ export class SessionGuard implements CanActivate {
       http
         .getResponse<Response>()
         .cookie(SESSION_COOKIE, token, sessionCookieOptions(this.env, result.renewedExpiresAt));
+    }
+    if (
+      result.user.mustChangePassword &&
+      !this.reflector.getAllAndOverride<boolean>(ALLOW_PASSWORD_CHANGE, [ctx.getHandler(), ctx.getClass()])
+    ) {
+      throw new BusinessError(
+        "AUTH_PASSWORD_CHANGE_REQUIRED",
+        "Tài khoản đang dùng mật khẩu tạm. Hãy đổi mật khẩu trước khi tiếp tục.",
+        403,
+      );
     }
     return true;
   }

@@ -1,12 +1,12 @@
 /**
  * Seed dữ liệu ban đầu. Idempotent: chạy nhiều lần không tạo trùng.
- *   pnpm db:seed            -> phòng ban mặc định + tài khoản ADMIN từ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
+ *   pnpm db:seed            -> vai trò mặc định, phòng ban mặc định, tài khoản quản trị từ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
  *   pnpm db:seed -- --demo  -> thêm tài khoản demo cho từng vai trò (CẤM ở production)
  */
 import { eq, sql } from "drizzle-orm";
-import { createDb, departments, users } from "@app/db";
-import type { Role } from "@app/shared";
+import { createDb, departments, userRoles, users } from "@app/db";
 import { hashPassword } from "../auth/crypto.js";
+import { type DefaultRoleKey, ensureDefaultRoles } from "../auth/default-roles.js";
 
 const url = process.env.DATABASE_URL;
 const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
@@ -33,10 +33,12 @@ async function upsertDepartment(code: string, name: string): Promise<string> {
   return d.id;
 }
 
+let roleIds: Record<DefaultRoleKey, string>;
+
 async function ensureUser(
   email: string,
   fullName: string,
-  role: Role,
+  role: DefaultRoleKey,
   password: string,
   departmentId: string | null,
 ) {
@@ -45,13 +47,16 @@ async function ensureUser(
     .from(users)
     .where(sql`lower(${users.email}) = ${email}`);
   if (existing) return;
-  await db
+  const [created] = await db
     .insert(users)
-    .values({ email, fullName, role, departmentId, passwordHash: await hashPassword(password) });
+    .values({ email, fullName, departmentId, passwordHash: await hashPassword(password) })
+    .returning({ id: users.id });
+  await db.insert(userRoles).values({ userId: created!.id, roleId: roleIds[role] });
   console.warn(`[seed] Tạo ${role} ${email}`);
 }
 
 try {
+  roleIds = await ensureDefaultRoles(db);
   const kd = await upsertDepartment("KD", "Phòng Kinh doanh");
   const kt = await upsertDepartment("KT", "Phòng Kế toán");
   await ensureUser(adminEmail, "Quản trị hệ thống", "ADMIN", adminPassword, null);
