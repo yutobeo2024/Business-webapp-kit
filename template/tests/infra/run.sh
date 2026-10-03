@@ -58,6 +58,8 @@ cat >"$BIN/curl" <<'SH'
 exit "${FAKE_HEALTH_EXIT:-0}"
 SH
 printf '#!/usr/bin/env bash\nexit 0\n' >"$BIN/sleep"
+# Dung lượng đĩa cố định, không phụ thuộc máy đang chạy test.
+printf '#!/usr/bin/env bash\necho "Filesystem 1024-blocks Used Available Capacity Mounted on"\necho "/dev/x 100 10 90 10%% /"\n' >"$BIN/df"
 # Git Bash trên Windows không có flock: dùng bản giả để chạy được ở máy dev (CI Linux dùng flock thật).
 command -v flock >/dev/null || printf '#!/usr/bin/env bash\nexit 0\n' >"$BIN/flock"
 chmod +x "$BIN"/*
@@ -122,6 +124,11 @@ echo v1.0.0 >"$CASE/infra/.deployed-tag"
 date +%s >"$CASE/backups/.last-success"
 run bash "$CASE/infra/alert-check.sh"
 check "alert-check không báo nhầm container không chạy" '! grep -q "không chạy" "$CASE/out.log"'
+check "alert-check cảnh báo khi chưa cấu hình sao lưu ra ngoài máy chủ" 'grep -q "BACKUP_REMOTE" "$CASE/out.log"'
+echo "BACKUP_REMOTE=offsite:bucket" >>"$CASE/infra/.env"
+: >"$CASE/infra/.alert-state"
+run bash "$CASE/infra/alert-check.sh"
+check "alert-check im lặng khi mọi thứ ổn" '! grep -q "CẢNH BÁO" "$CASE/out.log"'
 
 # 6. Lệnh tay theo runbook qua infra/dc.sh dùng tag đang chạy.
 fresh dc
@@ -136,7 +143,10 @@ echo v1.0.0 >"$CASE/infra/.deployed-tag"
 echo DUMP >"$CASE/backups/old.dump"
 echo app | run bash "$CASE/infra/restore-db.sh" "$CASE/backups/old.dump"
 code=$?
-check "restore-db.sh chạy được khi không có APP_TAG" '[[ $code -eq 0 ]] && grep -q "pg_restore -U" "$CALLS"'
+check "restore-db.sh chạy được khi không có APP_TAG" '[[ $code -eq 0 ]] && grep -q "pg_restore" "$CALLS"'
+# pg_restore --clean chỉ xóa object CÓ trong bản sao lưu: bảng sinh sau đó còn lại và làm migration lần sau lỗi.
+check "restore-db.sh xóa sạch schema và khôi phục trong một transaction" \
+  'grep -q "DROP SCHEMA IF EXISTS public CASCADE" "$CALLS" && grep -q -- "--single-transaction" "$CALLS"'
 
 printf '\ntests/infra: %d đúng, %d sai\n' "$PASSED" "$FAILED"
 [[ $FAILED -eq 0 ]]

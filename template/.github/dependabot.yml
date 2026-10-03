@@ -17,6 +17,11 @@ updates:
       actions:
         patterns: ["*"]
 
+  # Image nền trong infra/compose.*.yml ghim theo digest: bản vá đến qua PR, áp dụng ở lần phát hành kế tiếp.
+  - package-ecosystem: docker-compose
+    directory: /infra
+    schedule: { interval: weekly, day: monday, timezone: Asia/Ho_Chi_Minh }
+
   - package-ecosystem: docker
     directory: /infra/docker
     schedule: { interval: weekly, day: monday, timezone: Asia/Ho_Chi_Minh }

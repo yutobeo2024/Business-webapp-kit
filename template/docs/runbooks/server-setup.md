@@ -7,7 +7,7 @@
 5. Đăng nhập user `deploy`:
    - Tạo `/opt/app/infra/.env` từ `infra/.env.example`, sinh secret bằng `openssl rand -hex 32`, rồi `chmod 600`.
      Không dùng `-base64`: ký tự `/`, `+` trong mật khẩu làm hỏng `DATABASE_URL` và `REDIS_URL`.
-   - `rclone config` tạo remote cho `BACKUP_REMOTE` (S3/Google Drive/máy chủ khác; nên dùng remote `crypt` để mã hóa).
+   - `rclone config` tạo remote cho `BACKUP_REMOTE` (S3/Google Drive/máy chủ khác), bọc bằng remote `crypt` để mã hóa (bắt buộc, xem backup-restore.md).
    - `docker login ghcr.io` bằng token chỉ có quyền `read:packages`.
 6. Trên GitHub, Settings > Environments > production (và staging), thêm secret:
    `DEPLOY_HOST`, `DEPLOY_USER=deploy`, `DEPLOY_SSH_KEY` (nội dung `deploy_key`),

@@ -17,7 +17,8 @@ Dùng cho mỗi lần bàn giao. Mục chưa đạt phải vào danh sách hạn
 
 ## Dữ liệu
 
-- [ ] `BACKUP_REMOTE` đã cấu hình; sao lưu tự động chạy; đã diễn tập khôi phục thành công, ghi thời gian thực tế
+- [ ] `BACKUP_REMOTE` đã cấu hình và là remote `crypt` (mã hóa); sao lưu tự động chạy; đã diễn tập khôi phục thành công,
+      ghi thời gian thực tế; mật khẩu crypt được giữ ngoài máy chủ
 - [ ] Dữ liệu cũ của khách (nếu chuyển đổi) đã đối soát số lượng và tổng tiền
 - [ ] Audit log có cho mọi thao tác nhạy cảm
 

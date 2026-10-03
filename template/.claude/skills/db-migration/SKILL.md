@@ -11,7 +11,9 @@ description: Thay đổi schema PostgreSQL an toàn cho production theo mô hìn
 2. **Nguy hiểm thì tách release.** Vì rollback chỉ quay image, không đảo migration:
    - Release N (expand): thêm cấu trúc mới; code ghi cả cũ và mới; backfill bằng job theo lô, idempotent.
    - Release N+1 (contract): bỏ cấu trúc cũ khi đã xác nhận dữ liệu chuyển xong.
-     Ghi kế hoạch hai bước vào mô tả PR.
+     Ghi kế hoạch hai bước vào mô tả PR. Migration contract phải có dòng đầu
+     `-- contract: <release đã ngừng dùng cấu trúc cũ, lý do>`; thiếu dòng này CI chặn (`scripts/check-migrations.mjs`).
+     Không thêm dòng đó để lách khi release trước còn đọc/ghi cấu trúc cũ.
 3. **Sinh migration.** Sửa `packages/db/src/schema.ts` rồi `pnpm db:generate --name <ten_mo_ta>`.
    SQL tùy chỉnh: `pnpm --filter @app/db exec drizzle-kit generate --custom --name <ten>`, điền file mới tạo.
    Index trên bảng lớn: migrator chạy mọi migration trong MỘT transaction, nên `CONCURRENTLY` trong migration luôn lỗi.

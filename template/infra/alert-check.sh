@@ -23,6 +23,9 @@ else
   problems+=("Chưa có bản sao lưu thành công nào")
 fi
 
+# Bản sao lưu chỉ nằm trên chính máy chủ này thì mất máy là mất cả dữ liệu lẫn bản sao lưu.
+[[ -n "${BACKUP_REMOTE:-}" ]] || problems+=("BACKUP_REMOTE trống: bản sao lưu chưa được đẩy ra ngoài máy chủ")
+
 if [[ -f "$DIR/.last-drill" ]]; then
   age_d=$(( ( $(date +%s) - $(cat "$DIR/.last-drill") ) / 86400 ))
   (( age_d > 35 )) && problems+=("Đã ${age_d} ngày chưa diễn tập khôi phục thành công")

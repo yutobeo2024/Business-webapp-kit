@@ -56,6 +56,8 @@ wait_healthy 40 || rollback "health check qua HTTPS thất bại"
 
 echo "$NEW_TAG" > "$STATE_FILE"
 printf '%s %s (trước: %s)\n' "$(date -Is)" "$NEW_TAG" "${PREV_TAG:-none}" >> "$INFRA_DIR/deploy-history.log"
-docker image prune -f >/dev/null 2>&1 || true
+# Dọn image không còn dùng và đã cũ hơn 14 ngày (mỗi lần deploy để lại một bộ image, lâu ngày đầy đĩa).
+# Image đang chạy không bị xóa; rollback về tag đã bị dọn sẽ tự pull lại từ registry.
+docker image prune -af --filter "until=336h" >/dev/null 2>&1 || true
 log "Deploy $NEW_TAG thành công"
 alert "Đã deploy $NEW_TAG thành công"

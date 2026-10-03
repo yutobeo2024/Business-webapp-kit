@@ -41,7 +41,8 @@ log "User deploy (chỉ đăng nhập bằng SSH key, thuộc nhóm docker)"
 id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 touch /home/deploy/.ssh/authorized_keys
-grep -qxF "$CI_KEY" /home/deploy/.ssh/authorized_keys || echo "$CI_KEY" >> /home/deploy/.ssh/authorized_keys
+# restrict: khóa CI chỉ chạy lệnh và rsync, không mở terminal, không chuyển tiếp cổng/agent/X11.
+grep -qF "$CI_KEY" /home/deploy/.ssh/authorized_keys || echo "restrict $CI_KEY" >> /home/deploy/.ssh/authorized_keys
 chmod 600 /home/deploy/.ssh/authorized_keys && chown deploy:deploy /home/deploy/.ssh/authorized_keys
 
 log "Siết SSH (chỉ khi root đã có SSH key, tránh tự khóa mình ngoài)"
