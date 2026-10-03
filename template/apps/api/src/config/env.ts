@@ -19,6 +19,11 @@ const envSchema = z.object({
   /** Số reverse proxy đứng trước API (Caddy = 1). Cần đúng để lấy IP thật cho rate limit và audit. */
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
   DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+  /** Lưu tệp (ADR-0005). Hiện chỉ "local"; thư mục tuyệt đối, hoặc tương đối so với gốc repo khi chạy dev. */
+  STORAGE_DRIVER: z.enum(["local"]).default("local"),
+  STORAGE_DIR: z.string().min(1).default(".data/files"),
+  /** Dung lượng tối đa một tệp tải lên. Caddy (infra/Caddyfile) giới hạn body lớn hơn giá trị này một chút. */
+  FILE_MAX_MB: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 export type Env = z.infer<typeof envSchema>;

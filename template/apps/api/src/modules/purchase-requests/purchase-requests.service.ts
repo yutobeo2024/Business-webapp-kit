@@ -21,6 +21,7 @@ import { BusinessError, Errors } from "../../common/business-error.js";
 import { DB } from "../../db/db.module.js";
 import { enqueueAfterCommit, NOTIFICATIONS_QUEUE } from "../../queue/queue.module.js";
 import { canView, findViewablePurchaseRequest, listPurchaseRequests, viewScope } from "@app/server";
+import { canManageAttachments } from "./attachments.service.js";
 import { allowedEvents, decide } from "./state-machine.js";
 
 type PrRow = typeof purchaseRequests.$inferSelect;
@@ -53,6 +54,7 @@ export class PurchaseRequestsService {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       allowedEvents: allowedEvents(row, actor),
+      canManageAttachments: canManageAttachments(row, actor),
     };
   }
 

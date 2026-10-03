@@ -20,6 +20,7 @@ import { ApiError } from "@/lib/api";
 import { formatDateTime, formatVnd } from "@/lib/format";
 import { nextSearch } from "@/lib/list-search";
 import { usePurchaseRequests, useTransition } from "./api";
+import { AttachmentsButton } from "./attachments-dialog";
 import { CreatePurchaseRequestForm } from "./create-form";
 
 const route = getRouteApi("/");
@@ -175,7 +176,10 @@ export function PurchaseRequestListPage() {
               </td>
               <td className="p-3 whitespace-nowrap">{formatDateTime(pr.createdAt)}</td>
               <td className="p-3">
-                <Actions pr={pr} />
+                <div className="flex flex-wrap items-start gap-2">
+                  <Actions pr={pr} />
+                  <AttachmentsButton pr={pr} />
+                </div>
               </td>
             </tr>
           ))}

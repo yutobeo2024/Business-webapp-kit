@@ -16,8 +16,9 @@
 		-Server
 	}
 
+	# Lớn hơn FILE_MAX_MB (mặc định 10) một chút cho phần đầu multipart. Tăng FILE_MAX_MB thì tăng số này.
 	request_body {
-		max_size 10MB
+		max_size 11MB
 	}
 
 	handle /api/* {

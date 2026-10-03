@@ -13,12 +13,24 @@ export class ApiError extends Error {
 
 /** Gọi API cùng origin. Cookie phiên httpOnly được trình duyệt tự gửi. */
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    method: init.method ?? "GET",
-    credentials: "same-origin",
-    headers: init.body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-  });
+  return parse<T>(
+    await fetch(`/api${path}`, {
+      method: init.method ?? "GET",
+      credentials: "same-origin",
+      headers: init.body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    }),
+  );
+}
+
+/** Tải một tệp lên (multipart, trường "file"). Trình duyệt tự đặt Content-Type kèm boundary. */
+export async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  return parse<T>(await fetch(`/api${path}`, { method: "POST", credentials: "same-origin", body: form }));
+}
+
+async function parse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const data: unknown = await res.json().catch(() => null);
   if (!res.ok) {

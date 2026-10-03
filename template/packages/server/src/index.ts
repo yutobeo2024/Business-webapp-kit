@@ -6,3 +6,5 @@ export * from "./access.js";
 export * from "./list-query.js";
 export * from "./purchase-requests/policy.js";
 export * from "./purchase-requests/queries.js";
+export * from "./files.js";
+export * from "./storage.js";

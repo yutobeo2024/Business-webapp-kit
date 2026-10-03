@@ -156,6 +156,33 @@ export const purchaseRequests = pgTable(
   ],
 );
 
+/**
+ * Tệp đính kèm và tệp xuất (spec 002). Nội dung nằm trong storage theo `storage_key` (do hệ thống sinh, không chứa tên gốc).
+ * Gắn với bản ghi nghiệp vụ qua (entity_type, entity_id); quyền xem tệp = quyền xem bản ghi đó, do module kiểm.
+ */
+export const files = pgTable(
+  "files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    storageKey: text("storage_key").notNull().unique(),
+    /** Tên hiển thị đã làm sạch; chỉ dùng khi tải về, không bao giờ làm đường dẫn. */
+    originalName: text("original_name").notNull(),
+    /** Loại xác định theo NỘI DUNG tệp lúc tải lên. */
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    uploadedBy: uuid("uploaded_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Xóa mềm; job dọn dẹp xóa tệp vật lý sau 7 ngày. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => [index("files_entity_idx").on(t.entityType, t.entityId), index("files_deleted_idx").on(t.deletedAt)],
+);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {

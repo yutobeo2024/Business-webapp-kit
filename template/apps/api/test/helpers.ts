@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { createDb, departments, userRoles, users, type DbHandle } from "@app/db";
 import type { CurrentUser } from "@app/shared";
@@ -8,6 +11,8 @@ import type { Env } from "../src/config/env.js";
 
 export const TEST_PASSWORD = "mat-khau-test-123";
 export const TEST_ORIGIN = "http://app.test";
+/** Thư mục tệp riêng cho test (tạm, mỗi lần chạy một thư mục). */
+export const TEST_STORAGE_DIR = mkdtempSync(join(tmpdir(), "app-test-files-"));
 
 let ipCounter = 0;
 /** IP giả khác nhau cho mỗi lần gọi, đi qua X-Forwarded-For (app tin 1 proxy như sau Caddy). */
@@ -25,6 +30,9 @@ export function testEnv(): Env {
     LOG_LEVEL: "error",
     TRUST_PROXY_HOPS: 1,
     DB_POOL_MAX: 5,
+    STORAGE_DRIVER: "local",
+    STORAGE_DIR: TEST_STORAGE_DIR,
+    FILE_MAX_MB: 1,
   };
 }
 
@@ -32,7 +40,7 @@ export const openDb = (): DbHandle => createDb(process.env.DATABASE_URL!, { max:
 
 export async function resetDb(handle: DbHandle): Promise<void> {
   await handle.db.execute(
-    sql`truncate table audit_logs, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
+    sql`truncate table audit_logs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
   );
 }
 

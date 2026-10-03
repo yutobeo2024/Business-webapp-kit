@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { listQuerySchema } from "./api.js";
 import { isValidVnd, vndSchema } from "./money.js";
+import type { FileTypeKey } from "./files.js";
 import type { PermissionDef } from "./permissions.js";
 
 /** Ngưỡng tổng tiền (VND) phải qua Giám đốc duyệt. Xem BR-03 trong docs/specs/001-phieu-de-nghi-mua-hang.md */
@@ -130,7 +131,22 @@ export interface PurchaseRequestDto {
   updatedAt: string;
   /** Các sự kiện người dùng hiện tại được phép thực hiện, để UI hiển thị nút. Quyền thật do backend kiểm tra. */
   allowedEvents: PrEvent[];
+  /** Người dùng hiện tại thêm/xóa được đính kèm không (BR-09). Quyền thật do backend kiểm tra. */
+  canManageAttachments: boolean;
 }
+
+/** BR-09: loại tệp đính kèm phiếu (kiểm theo nội dung tệp) và số tệp tối đa. */
+export const PR_ATTACHMENT_TYPES = [
+  "pdf",
+  "jpg",
+  "png",
+  "webp",
+  "xlsx",
+  "docx",
+] as const satisfies readonly FileTypeKey[];
+export const PR_ATTACHMENT_LIMIT = 10;
+/** Trạng thái còn thêm/xóa đính kèm được (phiếu đã gửi thì chứng từ không được đổi). */
+export const PR_ATTACHMENT_EDITABLE_STATUSES: readonly PrStatus[] = ["DRAFT", "REJECTED"];
 
 /** Không ném lỗi (form gọi khi đang gõ); kết quả phải qua isValidVnd trước khi lưu, schema đã làm việc đó. */
 export function calcTotal(items: PrItem[]): number {

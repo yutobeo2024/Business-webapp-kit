@@ -13,3 +13,11 @@ const dateTime = new Intl.DateTimeFormat("vi-VN", {
 export const formatVnd = (amount: number): string => vnd.format(amount);
 /** ISO -> "dd/MM/yyyy HH:mm" theo giờ Việt Nam */
 export const formatDateTime = (iso: string): string => dateTime.format(new Date(iso));
+
+const decimal = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 });
+/** 1536 -> "1,5 KB"; 2400000 -> "2,3 MB" */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${decimal.format(bytes / 1024)} KB`;
+  return `${decimal.format(bytes / 1024 / 1024)} MB`;
+}

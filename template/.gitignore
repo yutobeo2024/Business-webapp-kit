@@ -19,3 +19,6 @@ secrets/
 .claude/hooks/.state/
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Tệp tải lên khi chạy dev (STORAGE_DIR)
+.data/

@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   CreatePurchaseRequestInput,
+  FileDto,
   ListPurchaseRequestsQuery,
   Paginated,
   PurchaseRequestDto,
   TransitionPurchaseRequestInput,
 } from "@app/shared";
-import { api } from "@/lib/api";
+import { api, uploadFile } from "@/lib/api";
 import { toQueryString } from "@/lib/query-string";
 
 const key = ["purchase-requests"] as const;
@@ -38,3 +39,36 @@ export function useTransition() {
     onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
+
+// ---------- Đính kèm (BR-09) ----------
+
+const attachmentsKey = (prId: string) => [...key, prId, "attachments"] as const;
+
+export function useAttachments(prId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: attachmentsKey(prId),
+    queryFn: () => api<FileDto[]>(`/purchase-requests/${prId}/attachments`),
+    enabled,
+  });
+}
+
+export function useUploadAttachment(prId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => uploadFile<FileDto>(`/purchase-requests/${prId}/attachments`, file),
+    onSettled: () => qc.invalidateQueries({ queryKey: attachmentsKey(prId) }),
+  });
+}
+
+export function useRemoveAttachment(prId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) =>
+      api<void>(`/purchase-requests/${prId}/attachments/${fileId}`, { method: "DELETE" }),
+    onSettled: () => qc.invalidateQueries({ queryKey: attachmentsKey(prId) }),
+  });
+}
+
+/** Liên kết tải về (GET cùng origin, cookie tự gửi; server trả Content-Disposition: attachment). */
+export const attachmentDownloadUrl = (prId: string, fileId: string) =>
+  `/api/purchase-requests/${prId}/attachments/${fileId}/download`;

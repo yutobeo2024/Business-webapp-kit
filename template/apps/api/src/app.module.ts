@@ -9,6 +9,7 @@ import { OriginGuard, SessionGuard } from "./auth/guards.js";
 import { HttpExceptionFilter } from "./common/http-exception.filter.js";
 import { ENV, type Env } from "./config/env.js";
 import { DbModule } from "./db/db.module.js";
+import { FilesModule } from "./files/files.module.js";
 import { HealthModule } from "./health/health.module.js";
 import { PurchaseRequestsModule } from "./modules/purchase-requests/purchase-requests.module.js";
 import { QueueModule } from "./queue/queue.module.js";
@@ -31,6 +32,7 @@ export class AppModule {
         }),
         ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 300 }]),
         DbModule,
+        FilesModule,
         QueueModule,
         HealthModule,
         AuthModule,
