@@ -35,11 +35,27 @@ export async function detectAllowedType(
 }
 
 /** Tên hiển thị an toàn: bỏ đường dẫn, ký tự điều khiển, giới hạn độ dài. Chỉ để hiển thị/tải về, không dùng làm đường dẫn. */
+/**
+ * Ký tự bị bỏ khỏi tên tệp: điều khiển (C0, DEL, C1), đổi hướng chữ (U+202E làm "hoadon<U+202E>fdp.exe" hiển thị như
+ * "hoadonexe.pdf") và ký tự không hợp lệ trong tên tệp trên Windows.
+ */
+function isUnsafeNameChar(c: string): boolean {
+  const code = c.codePointAt(0)!;
+  return (
+    code < 0x20 ||
+    (code >= 0x7f && code <= 0x9f) ||
+    code === 0x200e ||
+    code === 0x200f ||
+    (code >= 0x202a && code <= 0x202e) ||
+    (code >= 0x2066 && code <= 0x2069) ||
+    '"<>|*?:'.includes(c)
+  );
+}
+
 export function safeDisplayName(name: string, ext: string): string {
   const last = name.split(/[\\/]/).pop() ?? "";
-  // Bỏ ký tự điều khiển (mã < 32 và 127) và ký tự không hợp lệ trong tên tệp trên Windows.
   const base = [...last]
-    .filter((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) !== 127 && !'"<>|*?:'.includes(c))
+    .filter((c) => !isUnsafeNameChar(c))
     .join("")
     .trim()
     .slice(0, 150);
@@ -59,7 +75,12 @@ export function contentDisposition(name: string): string {
     .replace(/Đ/g, "D")
     .replace(/[^\x20-\x7e]/g, "_")
     .replace(/["\\]/g, "_");
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+  // encodeURIComponent để nguyên ' ( ) * ! nhưng RFC 5987 không cho phép trong filename*.
+  const encoded = encodeURIComponent(name).replace(
+    /['()*!]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
 export interface SaveFileInput {

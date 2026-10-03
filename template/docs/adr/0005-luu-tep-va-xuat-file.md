@@ -20,7 +20,9 @@ HTTP làm treo API và hết thời gian ở proxy; dữ liệu xuất mà đi �
   (nhỏ thì trả ngay, lớn thì chạy nền) và không có ngưỡng nào để đoán sai.
 - **PDF bằng HTML -> Chromium** (`playwright-core`, Chromium của Debian trong image worker, font Noto đủ dấu tiếng Việt).
   Mẫu in là HTML/CSS, agent và lập trình viên đều sửa được; thư viện vẽ PDF thủ công khó làm bảng và tiếng Việt.
-- Excel bằng `exceljs` dạng stream.
+- Excel bằng `exceljs` (WorkbookWriter): dữ liệu đọc theo trang 1.000 dòng, tệp kết quả gom trong RAM rồi mới lưu;
+  với giới hạn mặc định 100.000 dòng vẫn vừa giới hạn RAM worker. Tăng `EXPORT_MAX_ROWS` nhiều thì chuyển sang ghi
+  thẳng ra storage.
 
 ## Đánh đổi
 

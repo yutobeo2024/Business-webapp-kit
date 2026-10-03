@@ -9,6 +9,7 @@ Yêu cầu: Node 24 (xem `.nvmrc`), pnpm 10 (`corepack enable`), Docker.
 ```bash
 cp .env.example .env              # đổi SEED_ADMIN_PASSWORD
 pnpm install
+pnpm exec playwright install chromium  # in PDF ở worker, test tích hợp worker và E2E
 pnpm dev:services                 # PostgreSQL + Redis
 pnpm build && pnpm db:migrate
 pnpm db:seed -- --demo            # vai trò mặc định, tài khoản quản trị + tài khoản demo (mật khẩu = SEED_ADMIN_PASSWORD)

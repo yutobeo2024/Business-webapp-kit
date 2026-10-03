@@ -1,7 +1,9 @@
 import { Global, Inject, Module } from "@nestjs/common";
 import { MulterModule } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
+import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+import type { Readable } from "node:stream";
 import type { Response } from "express";
 import type { files } from "@app/db";
 import { contentDisposition, createStorage, FileRejectedError, type FileStorage } from "@app/server";
@@ -44,17 +46,26 @@ export async function sendFile(
   res: Response,
   file: typeof files.$inferSelect,
 ): Promise<void> {
-  const stream = await storage.open(file.storageKey);
+  let stream: Readable;
+  try {
+    stream = await storage.open(file.storageKey);
+  } catch (err) {
+    // Hàng còn mà tệp vật lý mất (khôi phục DB và tệp lệch thời điểm, hoặc đang dọn dẹp): báo đúng tệp đó.
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new BusinessError("FILE_GONE", "Tệp không còn trên máy chủ. Vui lòng báo quản trị viên.", 410);
+    }
+    throw err;
+  }
   res.setHeader("Content-Type", file.mimeType);
   res.setHeader("Content-Length", String(file.sizeBytes));
   res.setHeader("Content-Disposition", contentDisposition(file.originalName));
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
-  await new Promise<void>((resolve, reject) => {
-    stream.on("error", reject);
-    res.on("finish", resolve);
-    stream.pipe(res);
+  // pipeline hủy luồng đọc khi client ngắt giữa chừng (pipe() thì giữ file descriptor và bộ đệm mãi).
+  await pipeline(stream, res).catch((err: unknown) => {
+    if ((err as NodeJS.ErrnoException).code === "ERR_STREAM_PREMATURE_CLOSE") return; // người dùng hủy tải
+    throw err;
   });
 }
 

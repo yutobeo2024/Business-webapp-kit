@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { auditLogs, files, type DbHandle } from "@app/db";
+import { LocalFileStorage } from "@app/server";
 import { createApp } from "../src/bootstrap.js";
 import {
   nextIp,
@@ -11,6 +12,7 @@ import {
   seedFixture,
   TEST_ORIGIN,
   TEST_PASSWORD,
+  TEST_STORAGE_DIR,
   testEnv,
   type Fixture,
 } from "./helpers.js";
@@ -180,6 +182,26 @@ describe("BR-09 đính kèm phiếu đề nghị", () => {
     ).toBe(404);
     const [row] = await handle.db.select().from(files).where(eq(files.id, added.body.id));
     expect(row!.deletedAt).not.toBeNull();
+  });
+
+  it("hàng còn mà tệp vật lý đã mất: 410 rõ ràng, không 500; audit xóa ghi storageKey", async () => {
+    const staff = await login(f.staff.email);
+    const pr = await draftOf(staff);
+    const added = await upload(staff, pr.id, PDF, "a.pdf");
+    const [row] = await handle.db.select().from(files).where(eq(files.id, added.body.id));
+    await new LocalFileStorage(TEST_STORAGE_DIR).remove(row!.storageKey);
+    const dl = await staff.get(`/api/purchase-requests/${pr.id}/attachments/${added.body.id}/download`);
+    expect(dl.status).toBe(410);
+    expect(dl.body.code).toBe("FILE_GONE");
+
+    await staff
+      .delete(`/api/purchase-requests/${pr.id}/attachments/${added.body.id}`)
+      .set("Origin", TEST_ORIGIN);
+    const [audit] = await handle.db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.action, "pr.attachment_remove"));
+    expect(audit!.before).toMatchObject({ fileId: added.body.id, storageKey: row!.storageKey });
   });
 
   it("DTO phiếu cho biết người xem có quản lý đính kèm được không", async () => {

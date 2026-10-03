@@ -74,6 +74,15 @@ await exportsScheduler.upsertJobScheduler(
     },
   },
 );
+// Yêu cầu xuất bị kẹt (worker chết giữa chừng): đánh dấu lỗi mỗi 15 phút.
+await exportsScheduler.upsertJobScheduler(
+  EXPORT_MAINTENANCE_JOBS.markStuckExports,
+  { pattern: "*/15 * * * *", tz: "Asia/Ho_Chi_Minh" },
+  {
+    name: EXPORT_MAINTENANCE_JOBS.markStuckExports,
+    opts: { attempts: 2, removeOnComplete: 10, removeOnFail: 100 },
+  },
+);
 
 log.info(
   {

@@ -13,6 +13,7 @@ import { ExportUserError, type RunnerContext, runExportType } from "./runners.js
 
 export const EXPORT_MAINTENANCE_JOBS = {
   cleanupFiles: "maintenance.cleanup_files",
+  markStuckExports: "maintenance.mark_stuck_exports",
 } as const;
 
 export interface ExportDeps {
@@ -67,10 +68,13 @@ export async function runExport(
     return "skipped";
   }
   if (job.status === "DONE" || job.status === "FAILED") return "skipped";
-  await db
+  // Có điều kiện: API có thể vừa đánh dấu FAILED (không xếp được hàng) sau khi ta đọc QUEUED.
+  const [started] = await db
     .update(exportJobs)
     .set({ status: "RUNNING", startedAt: new Date() })
-    .where(eq(exportJobs.id, exportId));
+    .where(and(eq(exportJobs.id, exportId), inArray(exportJobs.status, ["QUEUED", "RUNNING"])))
+    .returning({ id: exportJobs.id });
+  if (!started) return "skipped";
 
   try {
     const parsed = createExportSchema.safeParse({ type: job.type, params: job.params });
@@ -134,13 +138,35 @@ export async function runExport(
 }
 
 /**
+ * Yêu cầu chờ/chạy quá 1 giờ (worker chết giữa chừng, job mất khỏi hàng đợi) thành FAILED, để người dùng thấy lỗi và
+ * không bị chiếm suất giới hạn số lần xuất. Chạy mỗi 15 phút.
+ */
+export async function markStuckExports(
+  deps: Pick<ExportDeps, "db" | "log">,
+  now = new Date(),
+): Promise<number> {
+  const stuck = await deps.db
+    .update(exportJobs)
+    .set({ status: "FAILED", error: "Quá thời gian xử lý. Vui lòng xuất lại.", finishedAt: now })
+    .where(
+      and(
+        inArray(exportJobs.status, ["QUEUED", "RUNNING"]),
+        lt(exportJobs.createdAt, new Date(now.getTime() - STUCK_AFTER_MS)),
+      ),
+    )
+    .returning({ id: exportJobs.id });
+  if (stuck.length) deps.log.warn({ ids: stuck.map((s) => s.id) }, "Đánh dấu lỗi yêu cầu xuất bị kẹt");
+  return stuck.length;
+}
+
+/**
  * Dọn dẹp hằng ngày: tệp xuất hết hạn, đính kèm đã xóa mềm quá 7 ngày (xóa tệp vật lý trước rồi mới xóa hàng; lỗi giữa
- * chừng thì lần sau làm tiếp), yêu cầu xuất bị kẹt.
+ * chừng thì lần sau làm tiếp).
  */
 export async function cleanupFiles(
   deps: Pick<ExportDeps, "db" | "log" | "storage">,
   now = new Date(),
-): Promise<{ removed: number; stuck: number }> {
+): Promise<{ removed: number }> {
   const { db, storage } = deps;
   const expiredExports = await db
     .select({ id: files.id, key: files.storageKey })
@@ -160,18 +186,8 @@ export async function cleanupFiles(
     await db.delete(files).where(eq(files.id, f.id)); // export_jobs.file_id -> NULL (ON DELETE SET NULL)
     removed++;
   }
-  const stuck = await db
-    .update(exportJobs)
-    .set({ status: "FAILED", error: "Quá thời gian xử lý. Vui lòng xuất lại.", finishedAt: now })
-    .where(
-      and(
-        inArray(exportJobs.status, ["QUEUED", "RUNNING"]),
-        lt(exportJobs.createdAt, new Date(now.getTime() - STUCK_AFTER_MS)),
-      ),
-    )
-    .returning({ id: exportJobs.id });
-  deps.log.info({ removed, stuck: stuck.length }, "Đã dọn tệp hết hạn");
-  return { removed, stuck: stuck.length };
+  deps.log.info({ removed }, "Đã dọn tệp hết hạn");
+  return { removed };
 }
 
 export function createExportProcessor(deps: ExportDeps) {
@@ -185,6 +201,8 @@ export function createExportProcessor(deps: ExportDeps) {
       }
       case EXPORT_MAINTENANCE_JOBS.cleanupFiles:
         return cleanupFiles(deps);
+      case EXPORT_MAINTENANCE_JOBS.markStuckExports:
+        return markStuckExports(deps);
       default:
         throw new Error(`Không có processor cho job "${job.name}"`);
     }

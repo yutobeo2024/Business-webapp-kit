@@ -28,7 +28,8 @@ Mỗi loại xuất khai báo quyền cần có (`EXPORT_TYPES[type].permission`
 | files       | storage_key, original_name, mime_type, size_bytes, sha256, entity_type, entity_id, uploaded_by | Có thể (nội dung chứng từ) |
 | export_jobs | type, params, status, row_count, error, file_id, requested_by, expires_at                      | Không (tham số lọc)        |
 
-Thời gian lưu: tệp đính kèm theo bản ghi chứa nó; xóa là xóa mềm, tệp vật lý xóa hẳn sau 7 ngày. Tệp xuất tải được trong
+Thời gian lưu: tệp đính kèm theo bản ghi chứa nó; xóa là xóa mềm, sau 7 ngày tệp vật lý và hàng `files` bị xóa hẳn
+(audit xóa giữ `storageKey` để lấy lại từ bản sao lưu). Tệp xuất tải được trong
 `EXPORT_TTL_HOURS` (mặc định 24 giờ) rồi bị xóa; hàng `export_jobs` giữ lại làm lịch sử.
 
 ## 5. Quy tắc
@@ -51,7 +52,7 @@ Thời gian lưu: tệp đính kèm theo bản ghi chứa nó; xóa là xóa m�
 - **BR-E6**: Mẫu PDF chỉ dựng bằng tagged template `html` (escape mọi giá trị). Chromium tắt JavaScript, chặn mọi request
   mạng của trang.
 - **BR-E7**: Chạy lại một yêu cầu đã DONE/FAILED không làm gì (job retry an toàn). Yêu cầu chờ/chạy quá 1 giờ bị đánh dấu
-  FAILED để người dùng xuất lại.
+  FAILED (kiểm mỗi 15 phút) để người dùng xuất lại.
 
 ## 6. Vận hành
 

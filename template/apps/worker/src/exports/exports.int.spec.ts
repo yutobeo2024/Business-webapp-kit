@@ -24,7 +24,7 @@ import {
 import { LocalFileStorage } from "@app/server";
 import type { CreateExportInput, Permission } from "@app/shared";
 import { PdfRenderer } from "./pdf.js";
-import { cleanupFiles, type ExportDeps, runExport } from "./processor.js";
+import { cleanupFiles, type ExportDeps, markStuckExports, runExport } from "./processor.js";
 
 let handle: DbHandle;
 let deps: ExportDeps;
@@ -212,6 +212,18 @@ describe("in PDF phiếu", () => {
   });
 });
 
+describe("trạng thái", () => {
+  it("yêu cầu đã bị API đánh dấu lỗi (không xếp được hàng): worker không chạy, giữ nguyên FAILED", async () => {
+    const staff = await makeUser("nv", deptKd, ["pr.create", "pr.export"]);
+    const id = await requestExport(staff.id, { type: "purchase-requests.xlsx", params: ALL_PARAMS });
+    await handle.db.update(exportJobs).set({ status: "FAILED", error: "x" }).where(eq(exportJobs.id, id));
+    expect(await runExport(deps, id)).toBe("skipped");
+    const [row] = await handle.db.select().from(exportJobs).where(eq(exportJobs.id, id));
+    expect(row!.status).toBe("FAILED");
+    expect(await handle.db.select().from(files)).toHaveLength(0);
+  });
+});
+
 describe("dọn dẹp", () => {
   it("xóa tệp xuất hết hạn và đính kèm đã xóa mềm quá 7 ngày; giữ tệp còn hạn; đánh dấu yêu cầu kẹt", async () => {
     const staff = await makeUser("nv", deptKd, ["pr.create", "pr.export"]);
@@ -232,8 +244,8 @@ describe("dọn dẹp", () => {
       .set({ createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) })
       .where(eq(exportJobs.id, stuck));
 
-    const result = await cleanupFiles(deps);
-    expect(result).toEqual({ removed: 1, stuck: 1 });
+    expect(await cleanupFiles(deps)).toEqual({ removed: 1 });
+    expect(await markStuckExports(deps)).toBe(1);
     expect(await storage.exists(expiredKey)).toBe(false);
     expect(await storage.exists(freshKey)).toBe(true);
     const [e] = await handle.db.select().from(exportJobs).where(eq(exportJobs.id, expired));

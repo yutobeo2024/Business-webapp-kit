@@ -128,7 +128,8 @@ export class PurchaseRequestAttachmentsService {
         action: "pr.attachment_remove",
         entityType: ENTITY,
         entityId: prId,
-        before: { fileId, name: deleted.originalName },
+        // storageKey: sau 7 ngày hàng files bị dọn, đây là cách duy nhất tìm lại tệp trong bản sao lưu (runbook).
+        before: { fileId, name: deleted.originalName, storageKey: deleted.storageKey },
         ip,
       });
     });

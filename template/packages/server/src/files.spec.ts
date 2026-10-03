@@ -66,11 +66,16 @@ describe("tên tệp", () => {
   it("bỏ đường dẫn, ký tự điều khiển; đuôi theo loại thật", () => {
     expect(safeDisplayName("..\\..\\Báo giá\u0000 Q4.exe", "pdf")).toBe("Báo giá Q4.pdf");
     expect(safeDisplayName("", "png")).toBe("tep.png");
+    // Ký tự đổi hướng chữ làm "hoadon\u202Efdp.jpg" hiển thị như "hoadongpj.pdf".
+    expect(safeDisplayName("hoadon\u202Efdp\u0085.jpg", "pdf")).toBe("hoadonfdp.pdf");
   });
   it("Content-Disposition luôn attachment, có tên tiếng Việt chuẩn RFC 5987 và tên ASCII dự phòng", () => {
     const h = contentDisposition('Báo giá "đợt 1".pdf');
     expect(h).toMatch(/^attachment; /);
     expect(h).toContain('filename="Bao gia _dot 1_.pdf"');
     expect(h).toContain("filename*=UTF-8''B%C3%A1o%20gi%C3%A1%20%22%C4%91%E1%BB%A3t%201%22.pdf");
+    expect(contentDisposition("Bảng (bản 2) 'cuối'.pdf")).toContain(
+      "filename*=UTF-8''B%E1%BA%A3ng%20%28b%E1%BA%A3n%202%29%20%27cu%E1%BB%91i%27.pdf",
+    );
   });
 });
