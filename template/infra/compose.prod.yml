@@ -11,6 +11,7 @@ x-app: &app
   env_file: .env
   environment:
     NODE_ENV: production
+    STORAGE_DIR: /data/files
   logging: *logging
   networks: [internal]
   depends_on:
@@ -42,6 +43,8 @@ services:
   api:
     <<: *app
     image: ${IMAGE_PREFIX:?Thiếu IMAGE_PREFIX}/api:${APP_TAG:?Thiếu APP_TAG}
+    # Tệp đính kèm/tệp xuất: thư mục trên host (ADR-0005), sao lưu bằng infra/backup-files.sh.
+    volumes: ["${FILES_DIR:-/opt/app-data/files}:/data/files"]
     deploy:
       resources:
         limits: { memory: 768M }
@@ -49,10 +52,12 @@ services:
   worker:
     <<: *app
     image: ${IMAGE_PREFIX:?Thiếu IMAGE_PREFIX}/worker:${APP_TAG:?Thiếu APP_TAG}
+    volumes: ["${FILES_DIR:-/opt/app-data/files}:/data/files"]
     stop_grace_period: 40s
     deploy:
       resources:
-        limits: { memory: 512M }
+        # Chromium (in PDF) cần thêm RAM; tăng EXPORT_CONCURRENCY thì tăng giới hạn này.
+        limits: { memory: 1G }
 
   # Chạy một lần mỗi lần deploy: docker compose run --rm migrate
   migrate:

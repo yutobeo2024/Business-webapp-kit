@@ -23,6 +23,16 @@ else
   problems+=("Chưa có bản sao lưu thành công nào")
 fi
 
+# Tệp đính kèm/tệp xuất (backup-files.sh): chỉ kiểm khi máy có thư mục tệp và đã cấu hình sao lưu ra ngoài.
+if [[ -d "${FILES_DIR:-/opt/app-data/files}" && -n "${BACKUP_REMOTE:-}" ]]; then
+  if [[ -f "$DIR/.last-success-files" ]]; then
+    age_h=$(( ( $(date +%s) - $(cat "$DIR/.last-success-files") ) / 3600 ))
+    (( age_h > 26 )) && problems+=("Bản sao lưu tệp gần nhất đã ${age_h} giờ")
+  else
+    problems+=("Chưa có bản sao lưu tệp thành công nào")
+  fi
+fi
+
 # Bản sao lưu chỉ nằm trên chính máy chủ này thì mất máy là mất cả dữ liệu lẫn bản sao lưu.
 [[ -n "${BACKUP_REMOTE:-}" ]] || problems+=("BACKUP_REMOTE trống: bản sao lưu chưa được đẩy ra ngoài máy chủ")
 

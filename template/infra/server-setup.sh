@@ -83,10 +83,15 @@ fi
 
 log "Thư mục ứng dụng, sao lưu, cron, logrotate"
 install -d -m 750 -o deploy -g deploy /opt/app /opt/app/infra /opt/backups /opt/backups/postgres
+# Thư mục tệp (FILES_DIR), mount vào api và worker. Chủ là uid 1000 (user node trong image); setgid nhóm deploy để
+# tệp mới thuộc nhóm deploy và backup-files.sh (chạy bằng deploy) đọc được.
+install -d -m 750 -o deploy -g deploy /opt/app-data
+install -d -m 2750 -o 1000 -g deploy /opt/app-data/files
 cat > /etc/cron.d/app <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 0 2 * * *   deploy bash /opt/app/infra/backup-db.sh daily     >> /var/log/app/backup.log 2>&1
+30 2 * * *  deploy bash /opt/app/infra/backup-files.sh        >> /var/log/app/backup.log 2>&1
 0 3 1 * *   deploy bash /opt/app/infra/restore-drill.sh       >> /var/log/app/restore-drill.log 2>&1
 */10 * * * * deploy bash /opt/app/infra/alert-check.sh        >> /var/log/app/alert-check.log 2>&1
 CRON

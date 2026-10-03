@@ -60,6 +60,16 @@ SH
 printf '#!/usr/bin/env bash\nexit 0\n' >"$BIN/sleep"
 # Dung lượng đĩa cố định, không phụ thuộc máy đang chạy test.
 printf '#!/usr/bin/env bash\necho "Filesystem 1024-blocks Used Available Capacity Mounted on"\necho "/dev/x 100 10 90 10%% /"\n' >"$BIN/df"
+# rclone giả: ghi lệnh; lsf liệt kê hai thư mục bản đã xóa (một quá hạn, một hôm nay); sync lỗi theo FAKE_RCLONE_EXIT.
+cat >"$BIN/rclone" <<'SH'
+#!/usr/bin/env bash
+echo "rclone $*" >>"$CALLS"
+case "${1:-}" in
+  lsf) printf '20200101/\n%s/\n' "$(date -u +%Y%m%d)" ;;
+  sync) exit "${FAKE_RCLONE_EXIT:-0}" ;;
+esac
+exit 0
+SH
 # Git Bash trên Windows không có flock: dùng bản giả để chạy được ở máy dev (CI Linux dùng flock thật).
 command -v flock >/dev/null || printf '#!/usr/bin/env bash\nexit 0\n' >"$BIN/flock"
 chmod +x "$BIN"/*
@@ -147,6 +157,40 @@ check "restore-db.sh chạy được khi không có APP_TAG" '[[ $code -eq 0 ]] 
 # pg_restore --clean chỉ xóa object CÓ trong bản sao lưu: bảng sinh sau đó còn lại và làm migration lần sau lỗi.
 check "restore-db.sh xóa sạch schema và khôi phục trong một transaction" \
   'grep -q "DROP SCHEMA IF EXISTS public CASCADE" "$CALLS" && grep -q -- "--single-transaction" "$CALLS"'
+
+# 8. Sao lưu tệp: rclone sync giữ bản bị xóa/ghi đè theo ngày, dọn bản quá hạn, ghi mốc thành công.
+fresh files
+mkdir -p "$CASE/files/2026/10"
+echo x >"$CASE/files/2026/10/a"
+printf 'FILES_DIR=%s\nBACKUP_REMOTE=offsite:bucket\n' "$CASE/files" >>"$CASE/infra/.env"
+run bash "$CASE/infra/backup-files.sh"
+code=$?
+check "backup-files.sh: rclone sync có --backup-dir theo ngày" \
+  '[[ $code -eq 0 ]] && grep -q "^rclone sync $CASE/files offsite:bucket/files/current --backup-dir offsite:bucket/files/deleted/[0-9]\{8\}" "$CALLS"'
+check "backup-files.sh: chỉ dọn bản đã xóa quá hạn" \
+  'grep -q "^rclone purge offsite:bucket/files/deleted/20200101" "$CALLS" && [[ $(grep -c "^rclone purge" "$CALLS") -eq 1 ]]'
+check "backup-files.sh: ghi mốc thành công" '[[ -s "$CASE/backups/.last-success-files" ]]'
+
+fresh files-fail
+mkdir -p "$CASE/files"
+printf 'FILES_DIR=%s\nBACKUP_REMOTE=offsite:bucket\n' "$CASE/files" >>"$CASE/infra/.env"
+FAKE_RCLONE_EXIT=1 run bash "$CASE/infra/backup-files.sh"
+code=$?
+check "backup-files.sh lỗi: thoát khác 0, có cảnh báo, không ghi mốc" \
+  '[[ $code -ne 0 ]] && grep -q "Sao lưu tệp THẤT BẠI" "$CASE/out.log" && [[ ! -e "$CASE/backups/.last-success-files" ]]'
+
+# 9. alert-check cảnh báo khi có thư mục tệp mà chưa sao lưu tệp được.
+fresh alert-files
+echo v1.0.0 >"$CASE/infra/.deployed-tag"
+date +%s >"$CASE/backups/.last-success"
+mkdir -p "$CASE/files"
+printf 'FILES_DIR=%s\nBACKUP_REMOTE=offsite:bucket\n' "$CASE/files" >>"$CASE/infra/.env"
+run bash "$CASE/infra/alert-check.sh"
+check "alert-check cảnh báo khi chưa có bản sao lưu tệp" 'grep -q "Chưa có bản sao lưu tệp" "$CASE/out.log"'
+date +%s >"$CASE/backups/.last-success-files"
+: >"$CASE/infra/.alert-state"
+run bash "$CASE/infra/alert-check.sh"
+check "alert-check im lặng khi sao lưu tệp còn mới" '! grep -q "CẢNH BÁO" "$CASE/out.log"'
 
 printf '\ntests/infra: %d đúng, %d sai\n' "$PASSED" "$FAILED"
 [[ $FAILED -eq 0 ]]

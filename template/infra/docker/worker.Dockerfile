@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1.7
 # Image production cho @app/worker. Build từ GỐC repo: docker build -f infra/docker/worker.Dockerfile .
 # Các bước đã được kiểm chứng: turbo prune -> cài frozen lockfile -> build -> pnpm deploy chỉ dependency production.
+# Debian (không phải Alpine): Chromium để in PDF (ADR-0005) chạy ổn định trên glibc. Build và runtime cùng nền để gói có
+# mã native (nếu có) khớp thư viện C.
 
-FROM node:24-alpine AS base
+FROM node:24-bookworm-slim AS base
 RUN npm install -g pnpm@10.34.6 turbo@2.11.6 && npm cache clean --force
 WORKDIR /repo
 
@@ -18,10 +20,18 @@ COPY --from=prune /repo/out/full/ .
 RUN turbo run build --filter=@app/worker... \
  && pnpm --filter @app/worker deploy --legacy --prod /out
 
-FROM node:24-alpine AS runtime
-ENV NODE_ENV=production
+FROM node:24-bookworm-slim AS runtime
+# Chromium + font Noto (đủ dấu tiếng Việt) cho PDF. Không tải trình duyệt lúc chạy.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends chromium fonts-noto-core \
+ && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production \
+    CHROMIUM_PATH=/usr/bin/chromium \
+    STORAGE_DIR=/data/files
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
+# Thư mục tệp (compose mount thư mục host vào đây).
+RUN mkdir -p /data/files && chown node:node /data/files
 USER node
 # Worker không có cổng HTTP. Docker tự khởi động lại khi tiến trình thoát (restart: unless-stopped).
 CMD ["node", "--enable-source-maps", "dist/main.js"]

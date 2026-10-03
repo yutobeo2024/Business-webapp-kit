@@ -89,6 +89,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Chromium cho test tích hợp worker (in PDF)
+        run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:integration
       - name: Khôi phục DB thật (bảng sinh sau bản sao lưu phải mất, file hỏng không đụng DB)
         run: bash tests/infra/restore-real.sh
@@ -206,6 +208,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image worker để kiểm trước khi đẩy
+        if: matrix.app == 'worker'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: infra/docker/worker.Dockerfile
+          load: true
+          tags: worker-smoke:local
+          cache-from: type=gha,scope=worker
+      - name: Chromium và font tiếng Việt trong image worker in được PDF
+        if: matrix.app == 'worker'
+        run: bash tests/infra/worker-pdf-smoke.sh worker-smoke:local
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .

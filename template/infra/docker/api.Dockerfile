@@ -22,6 +22,9 @@ FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
+# Thư mục tệp (compose mount thư mục host vào đây).
+RUN mkdir -p /data/files && chown node:node /data/files
+ENV STORAGE_DIR=/data/files
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
