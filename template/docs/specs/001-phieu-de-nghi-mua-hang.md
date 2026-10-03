@@ -22,16 +22,17 @@ quyền thành vai trò trên màn "Vai trò" (ADR-0004); mã chỉ kiểm quy�
 | `pr.view.all`           | Xem phiếu của mọi phòng ban                                                           |
 | `pr.approve.department` | Duyệt/từ chối phiếu chờ trưởng phòng cùng phòng ban; phiếu mình lập đi thẳng cấp cuối |
 | `pr.approve.final`      | Duyệt/từ chối phiếu chờ giám đốc                                                      |
+| `pr.export`             | Xuất Excel danh sách phiếu (chỉ các phiếu mình được xem)                              |
 
 Không có `pr.view.*` thì chỉ xem phiếu của mình. Vai trò mặc định do seed tạo (`apps/api/src/auth/default-roles.ts`):
 
-| Vai trò mặc định  | Quyền                                                             |
-| ----------------- | ----------------------------------------------------------------- |
-| Nhân viên         | `pr.create`                                                       |
-| Trưởng phòng      | `pr.create`, `pr.view.department`, `pr.approve.department`        |
-| Kế toán           | `pr.create`, `pr.view.all`                                        |
-| Giám đốc          | `pr.view.all`, `pr.approve.final`                                 |
-| Quản trị hệ thống | chỉ quyền quản trị (tách biệt nhiệm vụ, không có quyền nghiệp vụ) |
+| Vai trò mặc định  | Quyền                                                                   |
+| ----------------- | ----------------------------------------------------------------------- |
+| Nhân viên         | `pr.create`                                                             |
+| Trưởng phòng      | `pr.create`, `pr.view.department`, `pr.approve.department`, `pr.export` |
+| Kế toán           | `pr.create`, `pr.view.all`, `pr.export`                                 |
+| Giám đốc          | `pr.view.all`, `pr.approve.final`, `pr.export`                          |
+| Quản trị hệ thống | chỉ quyền quản trị (tách biệt nhiệm vụ, không có quyền nghiệp vụ)       |
 
 Giám đốc là người duyệt cuối nên vai trò mặc định không có `pr.create` (không ai duyệt được phiếu của giám đốc).
 
@@ -74,6 +75,10 @@ stateDiagram-v2
 - **BR-07**: Người ngoài phạm vi xem nhận "không tìm thấy", không lộ phiếu tồn tại.
 - **BR-08**: Không ai tự duyệt phiếu của mình. Phiếu do trưởng phòng lập bỏ qua bước trưởng phòng, gửi thẳng giám đốc
   duyệt (kể cả dưới ngưỡng); trưởng phòng hủy được phiếu đó khi còn chờ giám đốc. Giám đốc và Quản trị không lập phiếu.
+- **BR-09**: Đính kèm (lõi tệp, spec 002): ai xem được phiếu thì xem và tải được đính kèm; chỉ người lập (còn `pr.create`)
+  thêm/xóa, khi phiếu Nháp hoặc Bị từ chối; tối đa 10 tệp; loại cho phép PDF, JPG, PNG, WEBP, XLSX, DOCX.
+- **BR-10**: Xuất (lõi xuất file, spec 002): Excel danh sách theo bộ lọc đang xem cần `pr.export`; in PDF một phiếu không
+  cần quyền riêng, ai xem được phiếu thì in được.
 
 ## 7. Thông báo
 

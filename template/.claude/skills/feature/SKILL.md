@@ -28,8 +28,10 @@ Spec phải "Đã duyệt". Chưa thì dừng, đề nghị `/business-flow` ho�
 5. Controller (`@RequirePermission`, ZodPipe, CurrentUser). Module mới thì đăng ký vào `app.module.ts`.
 6. UI: hook trong `features/<module>/api.ts`, trang, form, đủ trạng thái tải/rỗng/lỗi. Danh sách theo mẫu danh sách
    (rule frontend); route mới thêm vào `router.tsx` và menu `NAV` kèm quyền.
-7. E2E nếu lát cắt thuộc AC chính.
-8. `pnpm verify:quick` xanh mới sang lát tiếp.
+7. Spec có đính kèm hoặc xuất Excel/PDF: dùng lõi tệp và xuất file (spec 002, mẫu ở module phiếu đề nghị), không tự
+   viết. Truy vấn đọc mà worker cũng cần đặt trong `packages/server`.
+8. E2E nếu lát cắt thuộc AC chính.
+9. `pnpm verify:quick` xanh mới sang lát tiếp.
 
 ## 3. Hoàn thành khi
 

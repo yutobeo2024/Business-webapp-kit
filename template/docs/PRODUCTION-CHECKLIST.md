@@ -19,6 +19,9 @@ Dùng cho mỗi lần bàn giao. Mục chưa đạt phải vào danh sách hạn
 
 - [ ] `BACKUP_REMOTE` đã cấu hình và là remote `crypt` (mã hóa); sao lưu tự động chạy; đã diễn tập khôi phục thành công,
       ghi thời gian thực tế; mật khẩu crypt được giữ ngoài máy chủ
+- [ ] Thư mục tệp `FILES_DIR` tồn tại đúng quyền (uid 1000, nhóm deploy); `backup-files.sh` chạy thành công một lần và
+      đã thử lấy lại một tệp từ remote; `FILE_MAX_MB` khớp `max_size` trong `infra/Caddyfile`
+- [ ] Đã in thử một PDF trên máy chủ (font tiếng Việt đúng) và xuất thử một Excel
 - [ ] Dữ liệu cũ của khách (nếu chuyển đổi) đã đối soát số lượng và tổng tiền
 - [ ] Audit log có cho mọi thao tác nhạy cảm
 

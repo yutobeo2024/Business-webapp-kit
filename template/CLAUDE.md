@@ -11,8 +11,10 @@ Spec nghiệp vụ: `docs/specs/`. Quyết định kiến trúc: `docs/adr/`. V�
 Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
 
 - `apps/api`: NestJS 12, xác thực session cookie, guard mặc định bắt đăng nhập.
-- `apps/worker`: BullMQ (thông báo, job định kỳ). `apps/web`: React 19 + Vite, TanStack Router/Query, Tailwind, React Hook Form.
+- `apps/worker`: BullMQ (thông báo, xuất Excel/PDF, job định kỳ). `apps/web`: React 19 + Vite, TanStack Router/Query, Tailwind, React Hook Form.
 - `packages/db`: Drizzle ORM + PostgreSQL 17 (schema, migration). `packages/shared`: Zod schema + type dùng chung FE/BE.
+- `packages/server`: logic phía server dùng chung api và worker (truy vấn đọc, phạm vi xem, list-query, lưu tệp).
+  Thứ gì worker cũng cần thì đặt ở đây, không chép sang worker.
 
 ## Lệnh
 
@@ -28,14 +30,22 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
   tên vai trò. Module mới khai báo quyền của mình như `PR_PERMISSIONS` rồi đăng ký vào `PERMISSIONS`.
 - Quản trị người dùng, vai trò, phòng ban, đổi mật khẩu: `apps/api/src/modules/admin/`, `apps/web/src/features/admin/`
   (spec 000). Không sửa chốt chặn trong `safeguards.ts` khi chưa có spec duyệt.
-- Danh sách: `listQuerySchema` (shared) + `searchCondition`/`orderBy`/`paginated` (`apps/api/src/common/list-query.ts`) +
+- Danh sách: `listQuerySchema` (shared) + `searchCondition`/`orderBy`/`paginated` (`@app/server`) +
   `DataTable`/`SortTh`/`Pagination`/`SearchInput` và bộ lọc trên URL (`searchValidator`, `nextSearch`) ở web.
+- Tệp đính kèm (spec 002, ADR-0005): lưu bằng `storeFile` trong `withStoredFile` + transaction có audit (kiểm loại theo
+  nội dung, giới hạn dung lượng), tải về chỉ qua `sendFile` sau khi kiểm quyền xem bản ghi chứa tệp. Mẫu:
+  `modules/purchase-requests/attachments.service.ts`, web `attachments-dialog.tsx`.
+- Xuất Excel/PDF (spec 002): luôn chạy nền. Loại xuất mới = một mục trong `createExportSchema` + `EXPORT_TYPES`
+  (`packages/shared/src/exports.ts`), nhánh kiểm trước trong `ExportsService.assertCanRequest`, runner trong
+  `apps/worker/src/exports/runners.ts` lấy dữ liệu bằng truy vấn đọc của `@app/server`. Mẫu in PDF: tagged template
+  `html` trong `apps/worker/src/exports/templates/`. Web: `ExportButton`, trang "Tệp đã xuất".
+- Định dạng hiển thị (web và tệp xuất): `formatVnd`, `formatDateTime`, `formatDate`, `formatBytes` từ `@app/shared`.
 
 ## Mẫu nghiệp vụ: copy theo module `apps/api/src/modules/purchase-requests/`
 
 - `state-machine.ts`: bảng chuyển trạng thái tường minh + hàm thuần `decide()`; ai được làm gì khai báo bằng quyền;
   test từng quy tắc BR-xx.
-- `policy.ts`: phạm vi xem dữ liệu theo quyền, áp ở tầng query (người ngoài phạm vi nhận 404).
+- `packages/server/src/purchase-requests/`: `policy.ts` (phạm vi xem theo quyền, áp ở tầng query, ngoài phạm vi nhận 404) và `queries.ts` (truy vấn đọc dùng chung cho màn hình và xuất file).
 - `*.service.ts`: ghi trong `db.transaction`, khóa dòng `.for("update")`, kiểm `version`, `writeAudit(tx, ...)` cùng transaction,
   đẩy job SAU commit.
 - `*.controller.ts`: mỏng, `@RequirePermission(...)`, input qua `new ZodPipe(schemaTừShared)`, user qua `@CurrentUser()`.

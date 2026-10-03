@@ -21,7 +21,9 @@ Khoảng thay đổi cần rà: `$ARGUMENTS` (để trống thì dùng `main...H
    3. CSRF: request ghi đi qua OriginGuard; không có endpoint ghi dùng GET.
    4. Validate input ở mọi biên, kể cả webhook và payload job.
    5. Injection: `sql` nối chuỗi, lệnh shell ghép từ input, HTML không escape (`dangerouslySetInnerHTML`).
-   6. Upload/tải file: MIME thật, dung lượng, đường dẫn, URL ký có hạn.
+   6. Upload/tải file: loại kiểm theo nội dung (`storeFile`), dung lượng, khóa lưu do hệ thống sinh, tải về qua `sendFile`
+      sau khi kiểm quyền xem bản ghi chứa tệp. Xuất dữ liệu: cùng phạm vi xem với màn hình, quyền kiểm lại lúc worker chạy,
+      chỉ người yêu cầu tải được, mẫu PDF escape bằng `html`.
    7. Lộ thông tin: response lỗi, log chứa dữ liệu nhạy cảm, secret trong mã hoặc lịch sử git; thông báo lỗi
       khác nhau làm lộ dữ liệu tồn tại hay không (email, mã phiếu).
    8. Audit: thao tác nhạy cảm có ghi đủ ai, khi nào, IP, trước, sau, trong cùng transaction.

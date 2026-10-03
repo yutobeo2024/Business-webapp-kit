@@ -16,5 +16,8 @@ paths:
 - Xác nhận dùng `ConfirmDialog` / form trong `Dialog` (`components/ui/dialog.tsx`), không dùng `window.confirm/prompt`.
 - Mọi danh sách có trạng thái đang tải, rỗng, lỗi (kèm nút thử lại). Mọi thao tác ghi khóa nút khi đang gửi.
 - Thao tác không hoàn tác được phải xác nhận, nêu rõ hậu quả. Sau lỗi 409 tải lại dữ liệu.
-- Tiền `formatVnd`, thời gian `formatDateTime` (`src/lib/format.ts`). Văn bản giao diện tiếng Việt có dấu.
+- Tiền `formatVnd`, thời gian `formatDateTime`/`formatDate`, dung lượng `formatBytes` (từ `@app/shared`, dùng chung với
+  tệp xuất). Văn bản giao diện tiếng Việt có dấu.
+- Tải tệp lên: `uploadFile` (`src/lib/api.ts`); tải về: thẻ `<a href download>` tới endpoint tải. Xuất Excel/PDF:
+  `ExportButton` (`features/exports`), kết quả ở trang "Tệp đã xuất". Mẫu: `attachments-dialog.tsx`, nút ở `list-page.tsx`.
 - Component cơ bản trong `src/components/ui`. Thêm component shadcn: `pnpm dlx shadcn@latest add <ten>` (hỏi trước khi thêm thư viện).

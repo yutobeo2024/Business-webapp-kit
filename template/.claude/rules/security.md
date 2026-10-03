@@ -10,6 +10,10 @@
 - Không trả stack trace, SQL, đường dẫn nội bộ trong response. HttpExceptionFilter đã chuẩn hóa, không bypass.
 - Không log mật khẩu, token, cookie, số CCCD, số tài khoản, dữ liệu sức khỏe. Pino đã redact cookie/authorization.
 - SQL thô chỉ qua template `sql\`...\`` của Drizzle (tham số hóa). Cấm nối chuỗi vào câu SQL.
-- Upload: giới hạn dung lượng, kiểm MIME thật, lưu object storage tên ngẫu nhiên, tải xuống qua URL ký có hạn.
+- Upload/tải tệp chỉ qua lõi tệp (spec 002): loại kiểm theo NỘI DUNG (`storeFile` + danh sách cho phép của module),
+  giới hạn `FILE_MAX_MB`, khóa lưu do hệ thống sinh; tải về qua `sendFile` (luôn attachment, nosniff, CSP sandbox) sau khi
+  kiểm quyền xem bản ghi chứa tệp. Không bao giờ phục vụ tệp người dùng tải lên dạng inline.
+- Xuất dữ liệu (spec 002): cùng truy vấn và phạm vi xem với màn hình, quyền kiểm cả lúc yêu cầu lẫn lúc worker chạy, chỉ
+  người yêu cầu tải được, audit yêu cầu và tải về. Mẫu PDF chỉ dựng bằng `html` (escape), không ghép chuỗi HTML.
 - Thao tác nhạy cảm (duyệt, xóa, đổi quyền, xuất hàng loạt) phải `writeAudit` trong cùng transaction.
 - Dữ liệu cá nhân: chỉ thu thập trường cần cho nghiệp vụ, ghi mục đích và thời gian lưu trong spec.
