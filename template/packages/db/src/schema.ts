@@ -296,6 +296,21 @@ export const userNotificationSettings = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.channel] })],
 );
 
+/**
+ * Token của dịch vụ ngoài (Zalo OA...), MÃ HÓA bằng APP_ENCRYPTION_KEY (packages/server/src/secrets.ts). Làm mới token
+ * trong transaction khóa dòng: refresh token Zalo chỉ dùng được một lần, hai tiến trình làm mới cùng lúc sẽ mất token.
+ */
+export const integrationTokens = pgTable("integration_tokens", {
+  provider: text("provider").primaryKey(),
+  accessTokenEnc: text("access_token_enc"),
+  refreshTokenEnc: text("refresh_token_enc").notNull(),
+  accessExpiresAt: timestamp("access_expires_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
 export const auditLogs = pgTable(
   "audit_logs",
   {

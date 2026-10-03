@@ -12,6 +12,8 @@ export interface OutgoingNotification {
   /** Đường dẫn trong app ("/..."), kênh tự ghép với APP_ORIGIN. */
   link: string | null;
   data: NotificationData<NotificationType>;
+  /** Id lần giao: gửi kèm nhà cung cấp (tracking_id) để đối soát. */
+  trackingId: string;
 }
 
 export interface Recipient {

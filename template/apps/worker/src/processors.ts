@@ -12,10 +12,12 @@ import {
 } from "@app/shared";
 import type { NotificationSender } from "./notifications/channel.js";
 import { deliver, sweepDeliveries } from "./notifications/deliver.js";
+import type { ZaloZnsSender } from "./notifications/zalo.js";
 
 export const MAINTENANCE_JOBS = {
   purgeSessions: "maintenance.purge_sessions",
   sweepDeliveries: "maintenance.sweep_deliveries",
+  refreshZaloToken: "maintenance.refresh_zalo_token",
 } as const;
 
 export interface ProcessorDeps {
@@ -25,6 +27,8 @@ export interface ProcessorDeps {
   senders?: Partial<Record<NotificationChannel, NotificationSender>>;
   /** Đẩy job gửi cho các lần giao (gọi SAU commit). `retry`: lượt quét lại, cần jobId mới. */
   enqueueDeliveries?: (deliveryIds: string[], opts?: { retry?: boolean }) => Promise<void>;
+  /** Có khi bật Zalo: job làm mới token hằng ngày. */
+  zalo?: Pick<ZaloZnsSender, "accessToken"> | null;
 }
 
 /**
@@ -102,6 +106,11 @@ export function createProcessor(deps: ProcessorDeps) {
         if (ids.length) await deps.enqueueDeliveries?.(ids, { retry: true });
         return ids.length;
       }
+      case MAINTENANCE_JOBS.refreshZaloToken:
+        if (!deps.zalo) return "disabled";
+        await deps.zalo.accessToken(true);
+        deps.log.info("Đã làm mới token Zalo");
+        return "refreshed";
       case MAINTENANCE_JOBS.purgeSessions:
         return purgeSessions(deps);
       default:

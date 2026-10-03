@@ -7,6 +7,7 @@ const n = {
   body: `Mua <script>alert(1)</script>. Lý do: "thiếu" & sai`,
   link: "/?q=PR-2026-000001",
   data: {} as never,
+  trackingId: "t",
 };
 
 describe("email thông báo", () => {

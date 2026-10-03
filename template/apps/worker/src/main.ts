@@ -3,7 +3,7 @@ import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import pino from "pino";
 import { createDb } from "@app/db";
-import { createStorage } from "@app/server";
+import { createStorage, parseEncryptionKey } from "@app/server";
 import { JOBS, type NotificationChannel, type NotificationDeliverJob, QUEUES } from "@app/shared";
 import { loadEnv } from "./env.js";
 import { createExportProcessor, EXPORT_MAINTENANCE_JOBS } from "./exports/processor.js";
@@ -11,6 +11,7 @@ import { PdfRenderer } from "./exports/pdf.js";
 import type { NotificationSender } from "./notifications/channel.js";
 import { MAX_DELIVERY_ATTEMPTS } from "./notifications/deliver.js";
 import { EmailSender } from "./notifications/email.js";
+import { ZaloZnsSender } from "./notifications/zalo.js";
 import { createProcessor, MAINTENANCE_JOBS } from "./processors.js";
 
 const env = loadEnv();
@@ -20,8 +21,19 @@ const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
 
 // Kênh ngoài chỉ bật khi đã cấu hình (SMTP_URL). Thông báo trong app luôn có.
 const email = env.SMTP_URL ? new EmailSender(env.SMTP_URL, env.MAIL_FROM, env.APP_ORIGIN) : null;
+const zalo = env.ZALO_ENABLED
+  ? new ZaloZnsSender(handle.db, {
+      appId: env.ZALO_APP_ID!,
+      secretKey: env.ZALO_SECRET_KEY!,
+      templates: env.ZALO_TEMPLATES,
+      oauthUrl: env.ZALO_OAUTH_URL,
+      znsUrl: env.ZALO_ZNS_URL,
+      encryptionKey: parseEncryptionKey(env.APP_ENCRYPTION_KEY!),
+    })
+  : null;
 const senders: Partial<Record<NotificationChannel, NotificationSender>> = {
   ...(email ? { email } : {}),
+  ...(zalo ? { zalo } : {}),
 };
 const scheduler = new Queue(QUEUES.notifications, { connection });
 async function enqueueDeliveries(ids: string[], opts: { retry?: boolean } = {}): Promise<void> {
@@ -44,7 +56,7 @@ async function enqueueDeliveries(ids: string[], opts: { retry?: boolean } = {}):
 
 const worker = new Worker(
   QUEUES.notifications,
-  createProcessor({ db: handle.db, log, senders, enqueueDeliveries }),
+  createProcessor({ db: handle.db, log, senders, enqueueDeliveries, zalo }),
   { connection, concurrency: env.WORKER_CONCURRENCY },
 );
 
@@ -92,6 +104,25 @@ await scheduler.upsertJobScheduler(
   { pattern: "*/10 * * * *", tz: "Asia/Ho_Chi_Minh" },
   { name: MAINTENANCE_JOBS.sweepDeliveries, opts: { attempts: 2, removeOnComplete: 10, removeOnFail: 100 } },
 );
+
+// Zalo: làm mới token hằng ngày để refresh token (hạn khoảng 3 tháng) không hết hạn khi lâu không gửi tin.
+if (zalo) {
+  await scheduler.upsertJobScheduler(
+    MAINTENANCE_JOBS.refreshZaloToken,
+    { pattern: "30 5 * * *", tz: "Asia/Ho_Chi_Minh" },
+    {
+      name: MAINTENANCE_JOBS.refreshZaloToken,
+      opts: {
+        attempts: 5,
+        backoff: { type: "exponential", delay: 60_000 },
+        removeOnComplete: 10,
+        removeOnFail: 100,
+      },
+    },
+  );
+} else {
+  await scheduler.removeJobScheduler(MAINTENANCE_JOBS.refreshZaloToken);
+}
 
 // Dọn tệp xuất hết hạn và đính kèm đã xóa quá 7 ngày lúc 04:00 hằng ngày.
 const exportsScheduler = new Queue(QUEUES.exports, { connection });

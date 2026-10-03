@@ -68,6 +68,7 @@ export async function deliver(
         body: row.n.body,
         link: row.n.link,
         data: row.n.data as NotificationData<NotificationType>,
+        trackingId: deliveryId,
       },
     );
     await finish("SENT", { sentAt: new Date(), providerMessageId: res.providerMessageId, error: null });

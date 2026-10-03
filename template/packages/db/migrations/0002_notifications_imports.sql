@@ -1,5 +1,13 @@
 CREATE TYPE "public"."delivery_status" AS ENUM('PENDING', 'SENDING', 'SENT', 'FAILED', 'SKIPPED');--> statement-breakpoint
 CREATE TYPE "public"."notification_channel" AS ENUM('email', 'zalo');--> statement-breakpoint
+CREATE TABLE "integration_tokens" (
+	"provider" text PRIMARY KEY NOT NULL,
+	"access_token_enc" text,
+	"refresh_token_enc" text NOT NULL,
+	"access_expires_at" timestamp with time zone,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "notification_deliveries" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"notification_id" uuid NOT NULL,
