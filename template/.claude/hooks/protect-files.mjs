@@ -1,5 +1,5 @@
 // PreToolUse (Edit, Write, MultiEdit, NotebookEdit): bảo vệ file nhạy cảm và chính cơ chế bảo vệ.
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { block, isGitTracked, pass, projectDir, readInputStrict, resolveTarget } from "./_lib.mjs";
@@ -60,5 +60,42 @@ if (/^(\.github\/workflows\/|infra\/)/.test(key) && process.env.ALLOW_INFRA_EDIT
     `Không tự sửa ${rel} (CI/CD, hạ tầng production). Trình bày thay đổi đề xuất. ` +
       "Người dùng có thể mở phiên với ALLOW_INFRA_EDIT=1 nếu muốn giao việc này.",
   );
+}
+
+// package.json gốc: các script dưới đây là cổng kiểm tra (hook Stop và CI gọi chúng). Sửa "verify:quick" thành
+// "echo ok" là cách dễ nhất để báo xong khi test còn đỏ. Các phần khác của file vẫn sửa được.
+if (key === "package.json") {
+  const GUARDED = ["verify:quick", "lint", "typecheck", "test", "test:integration", "claude:selftest"];
+  const scriptsOf = (text) => {
+    try {
+      return JSON.parse(text).scripts ?? {};
+    } catch {
+      return null; // nội dung mới không phải JSON hợp lệ
+    }
+  };
+  let before = "";
+  try {
+    before = readFileSync(abs, "utf8");
+  } catch {
+    /* file chưa tồn tại */
+  }
+  // Nội dung sau khi áp dụng thao tác: Write (content), Edit (old/new_string), MultiEdit (edits[]).
+  const ti = input.tool_input ?? {};
+  const edits = Array.isArray(ti.edits) ? ti.edits : ti.old_string !== undefined ? [ti] : [];
+  let after = typeof ti.content === "string" ? ti.content : before;
+  for (const e of edits) {
+    const from = String(e.old_string ?? "");
+    const to = String(e.new_string ?? "");
+    after = e.replace_all ? after.split(from).join(to) : after.replace(from, () => to);
+  }
+  const a = scriptsOf(before);
+  const b = scriptsOf(after);
+  const changed = a && GUARDED.filter((k) => k in a && (!b || a[k] !== b[k]));
+  if (changed?.length) {
+    block(
+      `Không tự sửa script ${changed.join(", ")} trong package.json: đây là cổng kiểm tra của dự án. ` +
+        "Trình bày thay đổi đề xuất để người dùng tự sửa.",
+    );
+  }
 }
 pass();

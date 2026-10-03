@@ -1,7 +1,7 @@
 // Tự kiểm hook: chạy guard-bash và protect-files với các tình huống mẫu, so với kết quả mong đợi.
 // Chạy: pnpm claude:selftest (CI chạy ở mọi PR). Hook đặt sai đường dẫn sẽ âm thầm vô hiệu, nên phải kiểm.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -144,6 +144,13 @@ const bash = [
   ["docker --context x volume rm pg_data", BLOCK],
   ["bash -o errexit infra/deploy.sh v1", BLOCK],
   ["ssh host bash /opt/app/infra/deploy.sh v1", BLOCK],
+  // Tự làm yếu cổng kiểm tra (verify:quick, lint) qua shell.
+  ["pnpm pkg set scripts.verify:quick=true", BLOCK],
+  ["npm pkg delete scripts.lint", BLOCK],
+  ["sed -i 's/eslint ./true/' package.json", BLOCK],
+  ["git diff --output=.claude/settings.json", BLOCK],
+  ["sed -i 's/a/b/' apps/api/package.json", PASS],
+  ["pnpm pkg get scripts", PASS],
   ["curl -fsS https://x/y -o .claude/hooks/guard-bash.mjs", BLOCK],
   ["wget -O .claude/settings.json https://x/y", BLOCK],
   ["tar -xf x.tar -C .claude/hooks", BLOCK],
@@ -247,7 +254,9 @@ if (process.platform === "win32") {
 }
 
 let failed = 0;
+let total = 0;
 const check = (label, got, want) => {
+  total++;
   if (got !== want) {
     failed++;
     console.error(`SAI  ${label}: nhận ${got}, mong đợi ${want === BLOCK ? "CHẶN" : "CHO QUA"}`);
@@ -257,6 +266,92 @@ for (const [c, want] of bash) check(`Bash: ${c}`, run("guard-bash.mjs", { comman
 for (const [c, want] of powershell)
   check(`PowerShell: ${c}`, run("guard-bash.mjs", { command: c }, "PowerShell"), want);
 for (const [f, want] of files) check(`Edit: ${f}`, run("protect-files.mjs", { file_path: f }, "Edit"), want);
+
+// package.json gốc: sửa được (thêm trường, dependency) nhưng không được đổi các script là cổng kiểm tra.
+const pkgEdit = (toolInput, tool = "Edit") =>
+  run("protect-files.mjs", { file_path: "package.json", ...toolInput }, tool);
+check(
+  "Edit package.json: đổi script lint",
+  pkgEdit({ old_string: '"lint": "eslint . --max-warnings 0"', new_string: '"lint": "true"' }),
+  BLOCK,
+);
+check(
+  "Edit package.json: xóa bước trong verify:quick",
+  pkgEdit({ old_string: "pnpm lint && pnpm typecheck && turbo run test", new_string: "pnpm lint" }),
+  BLOCK,
+);
+check(
+  "Edit package.json: thêm trường khác",
+  pkgEdit({ old_string: '"private": true,', new_string: '"private": true,\n  "description": "x",' }),
+  PASS,
+);
+check(
+  "Write package.json: nội dung mới bỏ verify:quick",
+  pkgEdit(
+    { content: JSON.stringify({ name: "app", scripts: { lint: "eslint . --max-warnings 0" } }) },
+    "Write",
+  ),
+  BLOCK,
+);
+
+// stop-verify: đỏ thì chặn tối đa 3 lần, sau đó nhả kèm thông báo cho NGƯỜI DÙNG; không chạy lại khi mã không đổi.
+if (spawnSync("pnpm --version", { shell: true }).status === 0) {
+  const proj = mkdtempSync(join(tmpdir(), "stop-verify-"));
+  try {
+    const sh = (cmd, args) => spawnSync(cmd, args, { cwd: proj, encoding: "utf8" });
+    const setVerify = (code) =>
+      writeFileSync(
+        join(proj, "package.json"),
+        JSON.stringify({
+          name: "t",
+          private: true,
+          scripts: { "verify:quick": `node -e "process.exit(${code})"` },
+        }),
+      );
+    mkdirSync(join(proj, "node_modules"));
+    writeFileSync(join(proj, ".gitignore"), "node_modules\n");
+    setVerify(1);
+    sh("git", ["init", "-q"]);
+    sh("git", ["add", "-A"]);
+    sh("git", [
+      "-c",
+      "user.email=t@t",
+      "-c",
+      "user.name=t",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-qm",
+      "x",
+    ]);
+    const session = `selftest-${process.pid}`;
+    const stop = () =>
+      spawnSync(process.execPath, [join(here, "stop-verify.mjs")], {
+        input: JSON.stringify({ session_id: session, cwd: proj }),
+        env: { ...process.env, CLAUDE_PROJECT_DIR: proj },
+        encoding: "utf8",
+      });
+    check("stop-verify: cây thư mục sạch thì cho qua", stop().status, PASS);
+    writeFileSync(join(proj, "a.ts"), "export const a = 1;\n");
+    check("stop-verify: đỏ lần 1 chặn", stop().status, BLOCK);
+    check("stop-verify: đỏ lần 2 chặn", stop().status, BLOCK);
+    check("stop-verify: đỏ lần 3 chặn", stop().status, BLOCK);
+    const gaveUp = stop();
+    check("stop-verify: lần 4 nhả ra", gaveUp.status, PASS);
+    check(
+      "stop-verify: nhả ra kèm systemMessage cho người dùng",
+      /"systemMessage"/.test(gaveUp.stdout) ? PASS : BLOCK,
+      PASS,
+    );
+    check("stop-verify: mã không đổi thì không ép sửa lại từ đầu", stop().status, PASS);
+    writeFileSync(join(proj, "a.ts"), "export const a = 2;\n");
+    check("stop-verify: mã đổi thì kiểm lại", stop().status, BLOCK);
+    setVerify(0);
+    check("stop-verify: xanh thì cho qua", stop().status, PASS);
+  } finally {
+    rmSync(proj, { recursive: true, force: true });
+  }
+}
 
 // Migration đã commit phải bị khóa (chỉ kiểm khi repo có git và đã có migration được track).
 const tracked = spawnSync("git", ["ls-files", "packages/db/migrations"], {
@@ -284,7 +379,6 @@ check("guard-bash: stdin hỏng", broken("guard-bash.mjs"), BLOCK);
 check("protect-files: stdin hỏng", broken("protect-files.mjs"), BLOCK);
 
 // post-edit phải BẮT được lỗi lint thật (lỗi trước đây: không tìm thấy eslint thì âm thầm bỏ qua).
-let extra = 0;
 if (existsSync(join(root, "node_modules"))) {
   const probe = join(root, "apps", "api", "src", "__selftest_probe__.ts");
   writeFileSync(probe, "const khongDung = 1;\nexport const coDung = 2;\n");
@@ -292,11 +386,11 @@ if (existsSync(join(root, "node_modules"))) {
     check("post-edit bắt lỗi lint thật", run("post-edit.mjs", { file_path: probe }, "Edit"), BLOCK);
     writeFileSync(probe, "export   const   daFormat   =   1\n");
     check("post-edit cho qua file sạch", run("post-edit.mjs", { file_path: probe }, "Edit"), PASS);
-    if (readFileSync(probe, "utf8") !== "export const daFormat = 1;\n") {
-      failed++;
-      console.error("SAI  post-edit không format file bằng prettier");
-    }
-    extra = 3;
+    check(
+      "post-edit format file bằng prettier",
+      readFileSync(probe, "utf8") === "export const daFormat = 1;\n" ? PASS : BLOCK,
+      PASS,
+    );
   } finally {
     rmSync(probe, { force: true });
   }
@@ -316,8 +410,6 @@ for (const groups of Object.values(settings.hooks)) {
   }
 }
 
-const trackedCases = tracked ? (process.platform === "win32" ? 3 : 2) : 0;
-const total = bash.length + powershell.length + files.length + trackedCases + 2 + extra;
 if (failed) {
   console.error(`\nselftest: ${failed}/${total} tình huống SAI`);
   process.exit(1);

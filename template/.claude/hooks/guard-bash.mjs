@@ -246,6 +246,9 @@ function protectedReason(tok) {
   if (key === ".claude" || /^\.claude\/(hooks(\/|$)|settings(\.local)?\.json$)/.test(key))
     return `${rel} là cơ chế bảo vệ của dự án (hook, settings).`;
   if (/(^|\/)pnpm-lock\.yaml$/.test(key)) return "pnpm-lock.yaml chỉ được đổi qua pnpm add/remove.";
+  // package.json gốc chứa các script là cổng kiểm tra (verify:quick, lint...). Sửa bằng công cụ Edit để
+  // protect-files soát được nội dung; dependency thì dùng pnpm add/remove.
+  if (key === "package.json") return "package.json gốc chỉ sửa bằng công cụ Edit hoặc pnpm add/remove.";
   if (
     key === "packages/db/migrations" ||
     (key.startsWith("packages/db/migrations/") && isGitTracked(rel, root))
@@ -294,7 +297,14 @@ function writeTargets(name, args) {
   if ((name === "sed" || name === "perl") && args.some((a) => /^-[a-z]*i/i.test(a) || a === "--in-place"))
     out.push(...pos);
   if (name === "dd") out.push(...args.filter((a) => a.startsWith("of=")).map((a) => a.slice(3)));
-  if (name === "git") out.push(...gitSub(args).paths);
+  if (name === "git") {
+    out.push(...gitSub(args).paths);
+    // git diff/log/show --output=<file> ghi ra file bất kỳ.
+    args.forEach((a, i) => {
+      if (a === "--output") out.push(args[i + 1] ?? "");
+      if (a.startsWith("--output=")) out.push(a.slice(9));
+    });
+  }
   return out;
 }
 
@@ -464,6 +474,13 @@ function checkCommand(tokens, depth = 0) {
   }
   if (["npm", "pnpm", "yarn", "bun"].includes(name) && pos.includes("publish"))
     return "Không publish package từ phiên AI.";
+  if (
+    ["npm", "pnpm", "yarn", "bun"].includes(name) &&
+    pos[0] === "pkg" &&
+    /^(set|delete)$/.test(pos[1] ?? "") &&
+    pos.slice(2).some((a) => /^scripts(\.|\[|=|$)/.test(a))
+  )
+    return "Không sửa script trong package.json qua shell (cổng kiểm tra của dự án).";
 
   if (!READERS.has(name) && t.some((tok) => /^(deploy|restore-db)\.sh$/.test(base(tok))))
     return "Deploy và khôi phục DB chỉ chạy qua CI hoặc do người vận hành chạy tay.";
