@@ -44,6 +44,7 @@ stateDiagram-v2
   REJECTED --> DRAFT: REVISE
   DRAFT --> CANCELLED: CANCEL
   PENDING_MANAGER --> CANCELLED: CANCEL
+  PENDING_DIRECTOR --> CANCELLED: CANCEL (người lập là trưởng phòng)
   APPROVED --> [*]
   CANCELLED --> [*]
 ```
@@ -54,7 +55,7 @@ stateDiagram-v2
 - **BR-02**: Trưởng phòng chỉ duyệt/từ chối phiếu của phòng ban mình và không xử lý phiếu do chính mình lập.
 - **BR-03**: Tổng tiền > 20.000.000 ₫ phải qua giám đốc sau trưởng phòng. Đúng bằng 20.000.000 ₫ thì trưởng phòng duyệt là xong.
 - **BR-04**: Từ chối bắt buộc có lý do tối thiểu 10 ký tự; phiếu bị từ chối được người lập sửa lại về Nháp.
-- **BR-05**: Người lập được hủy phiếu khi Nháp hoặc Chờ trưởng phòng duyệt.
+- **BR-05**: Người lập được hủy phiếu khi Nháp hoặc Chờ trưởng phòng duyệt (ngoại lệ cho trưởng phòng: xem BR-08).
 - **BR-06**: Mọi thay đổi khóa dòng và kiểm phiên bản; hai người thao tác cùng lúc thì chỉ một người thành công, người còn lại
   nhận thông báo tải lại. Audit ghi cùng transaction.
 - **BR-07**: Người ngoài phạm vi xem nhận "không tìm thấy", không lộ phiếu tồn tại.

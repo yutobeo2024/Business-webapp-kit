@@ -248,7 +248,11 @@ function protectedReason(tok) {
   if (/(^|\/)pnpm-lock\.yaml$/.test(key)) return "pnpm-lock.yaml chỉ được đổi qua pnpm add/remove.";
   // package.json gốc chứa các script là cổng kiểm tra (verify:quick, lint...). Sửa bằng công cụ Edit để
   // protect-files soát được nội dung; dependency thì dùng pnpm add/remove.
-  if (key === "package.json") return "package.json gốc chỉ sửa bằng công cụ Edit hoặc pnpm add/remove.";
+  // Tương tự cho package.json của từng app/package (verify:quick gọi script test, typecheck của chúng) và turbo.json.
+  if (/^((apps|packages)\/[^/]+\/)?package\.json$/.test(key))
+    return `${rel} chỉ sửa bằng công cụ Edit hoặc pnpm add/remove.`;
+  if (key === "turbo.json") return "turbo.json điều khiển verify:quick, không sửa qua shell.";
+  if (/^\.claude\/hooks\/\.state(\/|$)/.test(key)) return "trạng thái của hook.";
   if (
     key === "packages/db/migrations" ||
     (key.startsWith("packages/db/migrations/") && isGitTracked(rel, root))
@@ -476,9 +480,10 @@ function checkCommand(tokens, depth = 0) {
     return "Không publish package từ phiên AI.";
   if (
     ["npm", "pnpm", "yarn", "bun"].includes(name) &&
-    pos[0] === "pkg" &&
-    /^(set|delete)$/.test(pos[1] ?? "") &&
-    pos.slice(2).some((a) => /^scripts(\.|\[|=|$)/.test(a))
+    ((pos.includes("pkg") &&
+      /^(set|delete)$/.test(pos[pos.indexOf("pkg") + 1] ?? "") &&
+      pos.slice(pos.indexOf("pkg") + 2).some((a) => /^scripts(\.|\[|=|$)/.test(a))) ||
+      pos.includes("set-script"))
   )
     return "Không sửa script trong package.json qua shell (cổng kiểm tra của dự án).";
 

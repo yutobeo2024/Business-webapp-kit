@@ -4,8 +4,7 @@
 // (lượt chỉ hỏi đáp không tốn vài phút verify; đã bó tay với một lỗi thì không ép sửa lại từ đầu ở lượt sau).
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pass, projectDir, readInput, tail } from "./_lib.mjs";
 
@@ -22,7 +21,7 @@ function passWithMessage(message) {
 
 // Thay đổi chưa commit, trừ tài liệu. Tính cả file cấu hình ở gốc (package.json, eslint, turbo): sửa chúng cũng
 // có thể làm verify đỏ hoặc làm yếu chính verify.
-const SCOPE = ["--", ".", ":(exclude)docs", ":(exclude)*.md"];
+const SCOPE = ["--", ".", ":(exclude)docs", ":(exclude)*.md", ":(exclude).claude/hooks/.state"];
 const status = git(["status", "--porcelain", ...SCOPE]);
 if (status.status !== 0)
   passWithMessage("stop-verify: thư mục dự án chưa phải repo git, bỏ qua kiểm tra tự động.");
@@ -32,9 +31,11 @@ if (!existsSync(join(root, "node_modules"))) {
 }
 
 function fingerprint() {
+  // diff --cached + diff (không dùng "diff HEAD": repo vừa git init chưa có HEAD, lệnh lỗi và dấu vân tay đứng yên).
   const h = createHash("sha256")
     .update(status.stdout)
-    .update(git(["diff", "HEAD", ...SCOPE]).stdout ?? "");
+    .update(git(["diff", "--cached", ...SCOPE]).stdout ?? "")
+    .update(git(["diff", ...SCOPE]).stdout ?? "");
   // File chưa track không có trong git diff: lấy kích thước và thời điểm sửa.
   for (const f of (git(["ls-files", "-o", "--exclude-standard", ...SCOPE]).stdout ?? "").split("\n")) {
     if (!f) continue;
@@ -48,10 +49,10 @@ function fingerprint() {
   return h.digest("hex");
 }
 
-const stateFile = join(
-  tmpdir(),
-  `claude-verify-${String(input.session_id || "default").replace(/\W/g, "")}.json`,
-);
+// Lưu trong .claude/hooks/.state (gitignore): protect-files và guard-bash đã khóa thư mục hooks, nên không tự ghi
+// "green" vào đây để bỏ qua verify được. Thư mục tạm của hệ thống thì ghi được tự do.
+const stateDir = join(root, ".claude", "hooks", ".state");
+const stateFile = join(stateDir, `verify-${String(input.session_id || "default").replace(/\W/g, "")}.json`);
 function loadState() {
   try {
     return JSON.parse(readFileSync(stateFile, "utf8"));
@@ -61,6 +62,7 @@ function loadState() {
 }
 function saveState(state) {
   try {
+    mkdirSync(stateDir, { recursive: true });
     writeFileSync(stateFile, JSON.stringify(state));
   } catch {
     /* không ghi được trạng thái thì lần sau kiểm lại, vẫn an toàn */

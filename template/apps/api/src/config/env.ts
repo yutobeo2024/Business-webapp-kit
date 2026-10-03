@@ -4,7 +4,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   /** Origin hợp lệ của frontend, dùng cho kiểm tra CSRF và CORS. Ví dụ https://app.congty.vn */
-  APP_ORIGIN: z.url().transform((u) => new URL(u).origin), // bỏ dấu "/" cuối: so khớp chính xác với header Origin
+  // Chỉ http/https: "localhost:5173" (thiếu scheme) vẫn là URL hợp lệ nhưng origin của nó là chuỗi "null".
+  // Chuẩn hóa về origin (bỏ dấu "/" cuối) để so khớp chính xác với header Origin.
+  APP_ORIGIN: z
+    .url({ protocol: /^https?$/, error: "phải là địa chỉ http(s), ví dụ https://app.congty.vn" })
+    .transform((u) => new URL(u).origin),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
   /** Phiên hết hạn sau ngần này giờ KHÔNG hoạt động (trượt theo thao tác). */

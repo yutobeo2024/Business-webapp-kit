@@ -3,7 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 // E2E chạy trên app đã build: API (cổng 3000) + web preview (cổng 4173, proxy /api).
 // Local: `pnpm build && pnpm db:migrate && pnpm db:seed -- --demo` rồi `pnpm test:e2e`; hai server tự khởi động.
-// CI khởi động sẵn hai server (để in log khi lỗi), Playwright dùng lại.
+// CI khởi động sẵn hai server (để in log khi lỗi), Playwright dùng lại. Ở máy dev thì KHÔNG dùng lại: API của
+// `pnpm dev` kiểm Origin theo cổng 5173 nên mọi request ghi từ web preview (4173) sẽ bị 403. Tắt `pnpm dev` trước.
 if (existsSync(".env")) process.loadEnvFile(".env"); // SEED_ADMIN_PASSWORD, DATABASE_URL... (không ghi đè biến đã có)
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:4173";
@@ -27,7 +28,7 @@ export default defineConfig({
         {
           command: "node --enable-source-maps apps/api/dist/main.js",
           url: "http://localhost:3000/api/health/live",
-          reuseExistingServer: true,
+          reuseExistingServer: Boolean(process.env.CI),
           timeout: 60_000,
           // API kiểm Origin chống CSRF: phải trùng địa chỉ web preview.
           env: { APP_ORIGIN: baseURL },
@@ -35,7 +36,7 @@ export default defineConfig({
         {
           command: "pnpm --filter @app/web exec vite preview --port 4173 --strictPort",
           url: baseURL,
-          reuseExistingServer: true,
+          reuseExistingServer: Boolean(process.env.CI),
           timeout: 60_000,
         },
       ],

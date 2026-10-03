@@ -4,26 +4,48 @@
 // cột mà bản trước còn dùng, bản trước lỗi 500 trên schema mới trong khi health check vẫn xanh.
 // Quy trình đúng (skill /db-migration): release N thêm cấu trúc mới (expand), release N+1 mới bỏ cấu trúc cũ (contract).
 // Migration contract phải có dòng chú thích:  -- contract: <release đã ngừng dùng cấu trúc cũ, lý do>
+// (dòng này miễn trừ cả file: mỗi file migration là một đơn vị, bước contract nên nằm riêng một file).
+// Đây là lưới bắt lỗi thường gặp, không thay cho việc đọc SQL: ràng buộc UNIQUE/CHECK mới cũng có thể phá bản cũ.
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DESTRUCTIVE = [
+// So trên từng câu lệnh đã chuẩn hóa: định danh trong nháy kép thành ID, chuỗi thành '', bỏ chú thích.
+const RULES = [
   [/\bDROP\s+TABLE\b/i, "DROP TABLE"],
-  [/\bDROP\s+COLUMN\b/i, "DROP COLUMN"],
-  [/\bRENAME\s+(COLUMN|TO)\b/i, "RENAME"],
-  [/\bSET\s+NOT\s+NULL\b/i, "SET NOT NULL"],
-  [/\bALTER\s+COLUMN\b[^;]*\b(SET\s+DATA\s+)?TYPE\b/i, "ALTER COLUMN TYPE"],
+  [/\bDROP\s+SCHEMA\b/i, "DROP SCHEMA"],
   [/\bDROP\s+TYPE\b/i, "DROP TYPE"],
+  [/\bTRUNCATE\b/i, "TRUNCATE"],
+  [/\bDROP\s+(COLUMN\s+(IF\s+EXISTS\s+)?)?ID\b/i, "DROP COLUMN"],
+  [/\bRENAME\s+(COLUMN\s+|VALUE\s+)?(ID\s+|''\s+)?TO\b/i, "RENAME"],
+  [/\bALTER\s+COLUMN\s+ID\s+SET\s+NOT\s+NULL\b/i, "SET NOT NULL"],
+  [/\bALTER\s+COLUMN\s+ID\s+(SET\s+DATA\s+)?TYPE\b/i, "ALTER COLUMN TYPE"],
+  // Bản cũ INSERT không có cột này sẽ lỗi.
+  [
+    (s) => /\bADD\s+COLUMN\b/i.test(s) && /\bNOT\s+NULL\b/i.test(s) && !/\bDEFAULT\b/i.test(s),
+    "ADD COLUMN NOT NULL không có DEFAULT",
+  ],
 ];
 const CONTRACT_MARK = /^\s*--\s*contract:\s*\S+/im;
 
 /** Danh sách thao tác phá tương thích trong một file migration; rỗng nếu an toàn hoặc đã đánh dấu contract. */
 export function findUnmarkedDestructive(sql) {
   if (CONTRACT_MARK.test(sql)) return [];
-  // Bỏ chú thích và chuỗi để không bắt nhầm chữ trong comment hay dữ liệu.
-  const code = sql.replace(/--.*$/gm, "").replace(/'(?:[^']|'')*'/g, "''");
-  return DESTRUCTIVE.filter(([re]) => re.test(code)).map(([, label]) => label);
+  const statements = sql
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--.*$/gm, "")
+    .replace(/'(?:[^']|'')*'/g, "''")
+    .replace(/"(?:[^"]|"")*"/g, "ID")
+    .split(";")
+    // Đổi tên index không ảnh hưởng mã ứng dụng.
+    .filter((s) => s.trim() && !/^\s*ALTER\s+INDEX\b/i.test(s));
+  const found = new Set();
+  for (const s of statements) {
+    for (const [rule, label] of RULES) {
+      if (typeof rule === "function" ? rule(s) : rule.test(s)) found.add(label);
+    }
+  }
+  return [...found];
 }
 
 function main() {

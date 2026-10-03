@@ -10,6 +10,7 @@ import { getDummyHash, hashToken, newSessionToken, verifyPassword } from "./cryp
 
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
+const FAILED_LOGIN_MIN_MS = 200;
 /** Gia hạn phiên trượt: chỉ ghi DB khi lần hoạt động trước cách quá mốc này, tránh ghi DB mỗi request. */
 const TOUCH_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -43,7 +44,26 @@ export class AuthService {
     return new Date(Math.min(sliding, absolute));
   }
 
+  /**
+   * Đăng nhập. Mọi lần THẤT BẠI mất tối thiểu FAILED_LOGIN_MIN_MS: các nhánh thất bại làm lượng việc khác nhau
+   * (email không tồn tại và tài khoản đang khóa không ghi DB, sai mật khẩu thì có), chênh vài mili giây đủ để dò
+   * email nào tồn tại. Kéo tất cả về cùng một mốc thì không còn phân biệt được.
+   */
   async login(
+    input: LoginInput,
+    meta: { ip: string | null; userAgent: string | null },
+  ): Promise<LoginResult> {
+    const started = Date.now();
+    try {
+      return await this.attemptLogin(input, meta);
+    } catch (err) {
+      const remaining = FAILED_LOGIN_MIN_MS - (Date.now() - started);
+      if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+      throw err;
+    }
+  }
+
+  private async attemptLogin(
     input: LoginInput,
     meta: { ip: string | null; userAgent: string | null },
   ): Promise<LoginResult> {

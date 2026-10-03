@@ -44,7 +44,10 @@ jobs:
           for app in api worker web; do
             # Pull bằng docker của runner (đã login). Container trivy không có thông tin đăng nhập registry:
             # để nó tự kéo image private thì lỗi và mỗi tuần mở một issue "lỗ hổng" không có thật.
-            docker pull --quiet "$prefix/$app:release" || { echo "::error::Không pull được $app:release"; exit 2; }
+            if ! docker pull --quiet "$prefix/$app:release"; then
+              echo "::warning::Không pull được $app:release (chưa phát hành lần nào?). Bỏ qua quét image này."
+              continue
+            fi
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "aquasec/trivy:${TRIVY_VERSION}" \
               image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$prefix/$app:release" || status=1
           done

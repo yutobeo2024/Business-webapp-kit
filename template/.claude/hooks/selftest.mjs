@@ -149,7 +149,13 @@ const bash = [
   ["npm pkg delete scripts.lint", BLOCK],
   ["sed -i 's/eslint ./true/' package.json", BLOCK],
   ["git diff --output=.claude/settings.json", BLOCK],
-  ["sed -i 's/a/b/' apps/api/package.json", PASS],
+  ["sed -i 's/a/b/' apps/api/package.json", BLOCK],
+  ["pnpm -C . pkg set scripts.lint=true", BLOCK],
+  ["pnpm --filter @app/api pkg set scripts.test=true", BLOCK],
+  ["npm set-script lint true", BLOCK],
+  ["sed -i 's/a/b/' turbo.json", BLOCK],
+  ["echo {} > .claude/hooks/.state/verify-x.json", BLOCK],
+  ["sed -i 's/a/b/' apps/api/src/main.ts", PASS],
   ["pnpm pkg get scripts", PASS],
   ["curl -fsS https://x/y -o .claude/hooks/guard-bash.mjs", BLOCK],
   ["wget -O .claude/settings.json https://x/y", BLOCK],
@@ -294,6 +300,35 @@ check(
   BLOCK,
 );
 
+check(
+  "Edit apps/api/package.json: đổi script test",
+  run(
+    "protect-files.mjs",
+    {
+      file_path: "apps/api/package.json",
+      old_string: '"test": "vitest run"',
+      new_string: '"test": "echo ok"',
+    },
+    "Edit",
+  ),
+  BLOCK,
+);
+check(
+  "Edit apps/api/package.json: sửa phần khác",
+  run(
+    "protect-files.mjs",
+    { file_path: "apps/api/package.json", old_string: '"private": true', new_string: '"private":  true' },
+    "Edit",
+  ),
+  PASS,
+);
+check("Edit turbo.json", run("protect-files.mjs", { file_path: "turbo.json" }, "Edit"), BLOCK);
+check(
+  "Write .claude/hooks/.state (trạng thái stop-verify)",
+  run("protect-files.mjs", { file_path: ".claude/hooks/.state/verify-x.json" }, "Write"),
+  BLOCK,
+);
+
 // stop-verify: đỏ thì chặn tối đa 3 lần, sau đó nhả kèm thông báo cho NGƯỜI DÙNG; không chạy lại khi mã không đổi.
 if (spawnSync("pnpm --version", { shell: true }).status === 0) {
   const proj = mkdtempSync(join(tmpdir(), "stop-verify-"));
@@ -348,6 +383,17 @@ if (spawnSync("pnpm --version", { shell: true }).status === 0) {
     check("stop-verify: mã đổi thì kiểm lại", stop().status, BLOCK);
     setVerify(0);
     check("stop-verify: xanh thì cho qua", stop().status, PASS);
+
+    // Repo vừa git init, file đã git add nhưng chưa có commit nào (đúng trạng thái ngay sau khi cài kit).
+    rmSync(join(proj, ".git"), { recursive: true, force: true });
+    rmSync(join(proj, ".claude"), { recursive: true, force: true });
+    setVerify(1);
+    sh("git", ["init", "-q"]);
+    sh("git", ["add", "-A"]);
+    for (let i = 0; i < 4; i++) stop();
+    check("stop-verify (chưa có commit): đã bó tay, mã không đổi thì cho qua", stop().status, PASS);
+    writeFileSync(join(proj, "a.ts"), "export const a = 3;\n");
+    check("stop-verify (chưa có commit): mã đổi thì kiểm lại", stop().status, BLOCK);
   } finally {
     rmSync(proj, { recursive: true, force: true });
   }

@@ -22,6 +22,24 @@ test("xóa cột, đổi tên, NOT NULL, đổi kiểu bị bắt", () => {
   assert.deepEqual(findUnmarkedDestructive('DROP TABLE "old";'), ["DROP TABLE"]);
 });
 
+test("cột tên type, đổi tên index, block comment không bị bắt nhầm", () => {
+  assert.deepEqual(findUnmarkedDestructive(`ALTER TABLE "t" ALTER COLUMN "type" SET DEFAULT 'a';`), []);
+  assert.deepEqual(findUnmarkedDestructive(`ALTER TABLE "t" ALTER COLUMN "type" DROP NOT NULL;`), []);
+  assert.deepEqual(findUnmarkedDestructive(`ALTER INDEX "a_idx" RENAME TO "b_idx";`), []);
+  assert.deepEqual(findUnmarkedDestructive(`/* DROP TABLE x */ CREATE TABLE "y" ("id" int);`), []);
+});
+
+test("thêm cột NOT NULL không có DEFAULT, đổi tên/xóa không có chữ COLUMN, đổi giá trị enum bị bắt", () => {
+  assert.deepEqual(findUnmarkedDestructive(`ALTER TABLE "t" ADD COLUMN "a" text NOT NULL;`), [
+    "ADD COLUMN NOT NULL không có DEFAULT",
+  ]);
+  assert.deepEqual(findUnmarkedDestructive(`ALTER TABLE "t" ADD COLUMN "a" text DEFAULT 'x' NOT NULL;`), []);
+  assert.deepEqual(findUnmarkedDestructive(`ALTER TABLE "t" RENAME "a" TO "b";`), ["RENAME"]);
+  assert.deepEqual(findUnmarkedDestructive(`ALTER TABLE "t" DROP "a";`), ["DROP COLUMN"]);
+  assert.deepEqual(findUnmarkedDestructive(`ALTER TYPE "role" RENAME VALUE 'A' TO 'B';`), ["RENAME"]);
+  assert.deepEqual(findUnmarkedDestructive(`TRUNCATE "t";`), ["TRUNCATE"]);
+});
+
 test("đã đánh dấu contract thì cho qua", () => {
   const sql = `-- contract: v1.4.0 đã ngừng đọc cột phone\nALTER TABLE "users" DROP COLUMN "phone";`;
   assert.deepEqual(findUnmarkedDestructive(sql), []);

@@ -1,5 +1,43 @@
 # Báo cáo kiểm chứng kit
 
+## 1.0.2: lỗi mức Medium và kiểm thật các phần chưa từng chạy (03/10/2026)
+
+Danh sách sửa đổi: [CHANGELOG.md](../CHANGELOG.md). Test viết trước, đỏ trên 1.0.1:
+
+| Nhóm | Test tái hiện | Kết quả trên 1.0.2 |
+|---|---|---|
+| Phiên, khóa tài khoản, BR-08, hàng đợi treo, body quá lớn | 8 test tích hợp mới (`http.int.spec.ts`, `purchase-requests.int.spec.ts`) | 26/26 |
+| State machine BR-08, năm theo giờ Việt Nam, thông báo ô số, payload job, 401 toàn cục ở web | 13 unit test mới | 51/51 |
+| Script vận hành (cảnh báo sao lưu ngoài, khôi phục) | `tests/infra/run.sh` | 16/16 (15 trên Linux, không có ca compose thật) |
+| Hook (stop-verify, bảo vệ `package.json`, ghi qua option) | `pnpm claude:selftest` | 249/249 trên Windows |
+
+Những phần lần đầu được chạy THẬT, và lỗi chúng bắt được:
+- **Khôi phục DB trên PostgreSQL 17** (`tests/infra/restore-real.sh`): cách viết đầu tiên của bản sửa (nối thẳng
+  `pg_restore | psql`) báo thành công với file sao lưu hỏng và để lại DB trống. Đã đổi sang hai bước, test giữ lại trong CI.
+- **Caddy của image web**: luật 404 cho source map và asset không tồn tại không có tác dụng vì Caddy xếp `try_files`
+  trước `respond` (1.0.0 ghi "source map 404" nhưng chỉ đúng với file có thật). Đã sửa bằng `route`, kiểm trên image đã build.
+- **E2E Playwright** (AC-01): chạy xanh trên máy dev với `webServer` tự khởi động API và web preview.
+- **Image production**: build lại cả ba; `web` trả đúng mã và cache; `api` lên `healthy`, chấp nhận `APP_ORIGIN` có `/` cuối.
+- Cài sạch trên Linux `node:24-bookworm` với `engine-strict`: format, build, verify, selftest, tích hợp, hạ tầng,
+  kiểm migration, migration khớp schema đều xanh. Hai trình cài chạy lại trên PowerShell 5.1 và Git Bash.
+
+Còn chưa kiểm: workflow chạy thật trên GitHub (chỉ actionlint), hook trong một phiên Claude Code thật, script vận hành
+trên máy chủ thật.
+
+Một agent độc lập rà diff của bản này và tìm thêm 13 điểm (không có lỗi chặn), đã sửa: dò email qua thời gian phản hồi
+(đo thật: chênh 6 ms giữa các nhánh; nay mọi lần thất bại mất tối thiểu 200 ms), lách bảo vệ script bằng
+`pnpm -C . pkg set` và qua `package.json` của từng app, `stop-verify` không chặn khi repo chưa có commit và file
+trạng thái tự ghi được, `check-migrations` bắt nhầm cột tên `type` và bắt sót `ADD COLUMN NOT NULL`, `APP_ORIGIN`
+thiếu scheme thành chuỗi `null`, cache của người dùng cũ sau 401, quyền schema sau khôi phục, vài chỗ spec và seed lệch mã.
+
+Giới hạn đã biết của hook (không sửa được ở mức hook): thay đổi đã commit trong lượt làm việc không được `stop-verify`
+kiểm lại (CI kiểm); mã chạy trong `node -e`, `python -c` không được soát; sửa `eslint.config.mjs` hay cấu hình vitest
+để nới kiểm tra không bị chặn (review và CI là lớp chặn).
+
+Còn để lại (đã cân nhắc, chưa làm): rate limit lưu trong bộ nhớ (cần Redis khi chạy nhiều bản), bảng outbox cho
+thông báo, health check kiểm phiên bản schema, giới hạn lệnh cho khóa SSH của CI ngoài `restrict`, script phát hành
+không sống sót khi SSH đứt giữa chừng, `/api/health` công khai, ghim digest cho image gitleaks/trivy.
+
 ## 1.0.1: sửa lỗi sau review toàn bộ (02/10/2026)
 
 Review 1.0.0 tìm ra 1 lỗi Critical (deploy production không chạy được) và các lỗi High ở khóa tài khoản, tiền,

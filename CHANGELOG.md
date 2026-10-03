@@ -1,5 +1,45 @@
 # Nhật ký thay đổi của kit
 
+## 1.0.2 (03/10/2026)
+
+Sửa các lỗi mức Medium còn lại từ review 1.0.0 và vài lỗi mới lộ ra khi kiểm thật. Mỗi mục có test tái hiện.
+
+Ứng dụng
+
+- Sửa: tài khoản bị khóa trả mã 423 làm lộ email nào tồn tại; nay mọi lần đăng nhập thất bại trả cùng một thông báo 401.
+- Sửa: phiên không có hạn tuyệt đối (thêm `SESSION_MAX_DAYS`, mặc định 7 ngày) và cookie không được gia hạn theo phiên.
+- Sửa: phiếu do trưởng phòng lập bị kẹt vĩnh viễn (BR-08: gửi thẳng giám đốc); Giám đốc, Quản trị không lập phiếu;
+  spec mẫu và seed khớp với mã.
+- Sửa: Redis mất kết nối làm request đã ghi DB bị treo (`enqueueAfterCommit` có giới hạn thời gian).
+- Sửa: worker không kiểm payload job; PostgreSQL khởi động lại có thể làm tiến trình chết; body quá lớn trả 500;
+  mã phiếu lấy năm theo UTC.
+- Sửa (web): hết phiên không quay về trang đăng nhập; form không hiện lỗi ô số lượng, đơn giá; thông báo lỗi tiếng Anh.
+- Thêm: `businessYear`, `prStatusChangedJobSchema`, `updatePurchaseRequestSchema`, `PR_CREATOR_ROLES` trong `@app/shared`.
+
+Kiểm thử
+
+- Sửa: `pnpm test:e2e` ở máy dev không chạy được (thiếu `webServer`, listener hộp thoại thừa). E2E AC-01 đã chạy thật.
+- Thêm: `tests/infra/restore-real.sh` kiểm khôi phục trên PostgreSQL thật; `scripts/check-migrations.mjs`.
+
+Vận hành và CI
+
+- Sửa: khôi phục DB để sót bảng sinh sau bản sao lưu (lần phát hành sau lỗi); nay xóa sạch và nạp lại trong một
+  transaction, file hỏng không đụng DB.
+- Sửa: web trả `index.html` kèm cache vĩnh viễn cho file `/assets` không tồn tại; source map không tồn tại trả 200.
+- Thêm: CI chặn migration phá tương thích chưa đánh dấu `-- contract:` (rollback chỉ quay image).
+- Thay đổi: image nền ghim digest và action ghim SHA, cập nhật qua Dependabot; cảnh báo khi chưa có sao lưu ngoài máy
+  chủ; dọn image cũ; khóa SSH của CI có `restrict`; quét hằng tuần hết báo lỗi giả.
+
+Lớp Claude Code
+
+- Sửa: `stop-verify` chạy lại verify ở mọi lượt và ép sửa lại từ đầu sau khi đã bó tay; thông báo bó tay không ai thấy.
+- Sửa: allow rule có wildcard ở giữa cho phép chạy lệnh tùy ý; `/release` rà bảo mật trên một diff rỗng.
+- Thêm: không cho đổi script `verify:quick`, `lint`, `typecheck`, `test`, `build` trong `package.json` gốc và của từng
+  app/package, không cho sửa `turbo.json` (Edit, Write và shell).
+- Sửa: mọi lần đăng nhập thất bại mất tối thiểu 200 ms (trước: dò được email tồn tại qua thời gian phản hồi).
+
+Đã kiểm lại và bỏ: mục "thứ tự shutdown" trong review không phải lỗi (Nest đóng HTTP server trước khi đóng DB, Redis).
+
 ## 1.0.1 (02/10/2026)
 
 Sửa các lỗi Critical/High tìm thấy khi review toàn bộ kit 1.0.0. Mỗi lỗi có test tái hiện (đỏ trên 1.0.0, xanh trên 1.0.1).

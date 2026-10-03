@@ -8,7 +8,10 @@ import { ApiError } from "./api";
  */
 export function createQueryClient(): QueryClient {
   const onError = (err: unknown) => {
-    if (err instanceof ApiError && err.status === 401) client.setQueryData(meQueryKey, null);
+    if (!(err instanceof ApiError) || err.status !== 401) return;
+    client.setQueryData(meQueryKey, null);
+    // Dữ liệu đã tải thuộc về người vừa hết phiên: xóa để người đăng nhập sau trên cùng máy không thấy.
+    client.removeQueries({ predicate: (q) => q.queryKey[0] !== meQueryKey[0] });
   };
   const client: QueryClient = new QueryClient({
     queryCache: new QueryCache({ onError }),

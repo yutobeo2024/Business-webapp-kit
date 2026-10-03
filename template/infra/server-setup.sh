@@ -42,7 +42,10 @@ id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 touch /home/deploy/.ssh/authorized_keys
 # restrict: khóa CI chỉ chạy lệnh và rsync, không mở terminal, không chuyển tiếp cổng/agent/X11.
-grep -qF "$CI_KEY" /home/deploy/.ssh/authorized_keys || echo "restrict $CI_KEY" >> /home/deploy/.ssh/authorized_keys
+# Ghi lại dòng của khóa này: máy chủ cài từ bản kit cũ có dòng chưa restrict, chạy lại script phải siết được.
+AUTH=/home/deploy/.ssh/authorized_keys
+{ grep -vF "$CI_KEY" "$AUTH" || true; echo "restrict $CI_KEY"; } > "$AUTH.new"
+mv "$AUTH.new" "$AUTH"
 chmod 600 /home/deploy/.ssh/authorized_keys && chown deploy:deploy /home/deploy/.ssh/authorized_keys
 
 log "Siết SSH (chỉ khi root đã có SSH key, tránh tự khóa mình ngoài)"

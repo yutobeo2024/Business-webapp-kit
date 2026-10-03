@@ -95,6 +95,20 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
     expect(a.body).toEqual(b.body);
   });
 
+  it("đăng nhập thất bại luôn mất tối thiểu một khoảng cố định (không dò được email qua thời gian phản hồi)", async () => {
+    const timeOf = async (email: string) => {
+      const started = Date.now();
+      await agent()
+        .post("/api/auth/login")
+        .set("Origin", TEST_ORIGIN)
+        .set("X-Forwarded-For", nextIp())
+        .send({ email, password: "sai-mat-khau" });
+      return Date.now() - started;
+    };
+    expect(await timeOf("khong-ton-tai@test.vn")).toBeGreaterThanOrEqual(190);
+    expect(await timeOf(f.staff.email)).toBeGreaterThanOrEqual(190);
+  });
+
   it("khóa tài khoản sau 5 lần sai", async () => {
     for (let i = 0; i < 5; i++) {
       await agent()

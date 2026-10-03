@@ -62,10 +62,24 @@ if (/^(\.github\/workflows\/|infra\/)/.test(key) && process.env.ALLOW_INFRA_EDIT
   );
 }
 
-// package.json gốc: các script dưới đây là cổng kiểm tra (hook Stop và CI gọi chúng). Sửa "verify:quick" thành
-// "echo ok" là cách dễ nhất để báo xong khi test còn đỏ. Các phần khác của file vẫn sửa được.
-if (key === "package.json") {
-  const GUARDED = ["verify:quick", "lint", "typecheck", "test", "test:integration", "claude:selftest"];
+if (key === "turbo.json") {
+  block(
+    "Không tự sửa turbo.json: nó quyết định verify:quick chạy những gì. Trình bày thay đổi đề xuất để người dùng tự sửa.",
+  );
+}
+// package.json gốc và của từng app/package: các script dưới đây là cổng kiểm tra (hook Stop và CI gọi chúng, gốc gọi
+// qua turbo tới từng package). Sửa "verify:quick" hay "test" thành "echo ok" là cách dễ nhất để báo xong khi test
+// còn đỏ. Các phần khác của file vẫn sửa được.
+if (/^((apps|packages)\/[^/]+\/)?package\.json$/.test(key)) {
+  const GUARDED = [
+    "verify:quick",
+    "lint",
+    "typecheck",
+    "test",
+    "test:integration",
+    "claude:selftest",
+    "build",
+  ];
   const scriptsOf = (text) => {
     try {
       return JSON.parse(text).scripts ?? {};
@@ -93,7 +107,7 @@ if (key === "package.json") {
   const changed = a && GUARDED.filter((k) => k in a && (!b || a[k] !== b[k]));
   if (changed?.length) {
     block(
-      `Không tự sửa script ${changed.join(", ")} trong package.json: đây là cổng kiểm tra của dự án. ` +
+      `Không tự sửa script ${changed.join(", ")} trong ${rel}: đây là cổng kiểm tra của dự án. ` +
         "Trình bày thay đổi đề xuất để người dùng tự sửa.",
     );
   }

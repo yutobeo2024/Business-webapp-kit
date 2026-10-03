@@ -3,7 +3,7 @@ name: security-audit
 description: Rà soát bảo mật một khoảng thay đổi (mặc định nhánh hiện tại so với main) theo OWASP và đặc thù app nghiệp vụ (phân quyền, IDOR, CSRF, audit, dữ liệu cá nhân). Dùng trước release hoặc khi đụng xác thực, phân quyền, upload, thanh toán, xuất dữ liệu.
 argument-hint: "[khoảng git, ví dụ v1.4.0..HEAD; để trống = main...HEAD]"
 context: fork
-agent: Explore
+agent: code-reviewer
 background: false
 ---
 

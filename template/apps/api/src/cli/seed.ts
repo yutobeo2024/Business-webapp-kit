@@ -60,6 +60,7 @@ try {
     await ensureUser("truongphong@example.com", "Trần Thị Trưởng", "MANAGER", adminPassword, kd);
     await ensureUser("giamdoc@example.com", "Lê Văn Giám", "DIRECTOR", adminPassword, null);
     await ensureUser("ketoan@example.com", "Phạm Thị Toán", "ACCOUNTANT", adminPassword, kt);
+    await ensureUser("truongphong.kt@example.com", "Hoàng Thị Kế", "MANAGER", adminPassword, kt);
   }
   console.warn("[seed] Xong");
 } finally {
