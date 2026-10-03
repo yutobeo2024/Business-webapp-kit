@@ -18,7 +18,7 @@ import type { z } from "zod";
 import { writeAudit } from "../../common/audit.js";
 import { BusinessError, Errors } from "../../common/business-error.js";
 import { isUniqueViolation } from "../../common/db-errors.js";
-import { orderBy, pageOffset, paginated, searchCondition } from "../../common/list-query.js";
+import { orderBy, pageOffset, paginated, searchCondition } from "@app/server";
 import { DB } from "../../db/db.module.js";
 import { assertAdminRemains, assertNoEscalation, lockAdminInvariant } from "./safeguards.js";
 

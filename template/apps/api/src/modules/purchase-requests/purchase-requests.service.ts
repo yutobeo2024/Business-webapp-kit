@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { and, count, eq, isNull, or, type SQL, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Queue } from "bullmq";
 import { prCodeSeq, purchaseRequests, users, type Db, type DbOrTx } from "@app/db";
 import {
@@ -17,37 +17,15 @@ import {
   type UpdatePurchaseRequestInput,
 } from "@app/shared";
 import { writeAudit } from "../../common/audit.js";
-import { orderBy, pageOffset, paginated, searchCondition } from "../../common/list-query.js";
 import { BusinessError, Errors } from "../../common/business-error.js";
 import { DB } from "../../db/db.module.js";
 import { enqueueAfterCommit, NOTIFICATIONS_QUEUE } from "../../queue/queue.module.js";
-import { canView, type ViewScope, viewScope } from "./policy.js";
+import { canView, findViewablePurchaseRequest, listPurchaseRequests, viewScope } from "@app/server";
 import { allowedEvents, decide } from "./state-machine.js";
 
 type PrRow = typeof purchaseRequests.$inferSelect;
 
-/** Cột được sắp xếp: khóa khớp `sortable` của listPurchaseRequestsQuerySchema (TypeScript bắt lệch). */
-const SORTABLE = {
-  createdAt: purchaseRequests.createdAt,
-  code: purchaseRequests.code,
-  totalAmount: purchaseRequests.totalAmount,
-  status: purchaseRequests.status,
-} satisfies Record<ListPurchaseRequestsQuery["sort"], unknown>;
 const ENTITY = "purchase_request";
-
-function scopeCondition(scope: ViewScope): SQL | undefined {
-  switch (scope.kind) {
-    case "all":
-      return undefined;
-    case "department":
-      return or(
-        eq(purchaseRequests.departmentId, scope.departmentId),
-        eq(purchaseRequests.requesterId, scope.userId),
-      );
-    case "own":
-      return eq(purchaseRequests.requesterId, scope.userId);
-  }
-}
 
 @Injectable()
 export class PurchaseRequestsService {
@@ -127,38 +105,13 @@ export class PurchaseRequestsService {
   }
 
   async list(actor: CurrentUser, q: ListPurchaseRequestsQuery): Promise<Paginated<PurchaseRequestDto>> {
-    const where = and(
-      isNull(purchaseRequests.deletedAt),
-      scopeCondition(viewScope(actor)),
-      q.status ? eq(purchaseRequests.status, q.status) : undefined,
-      searchCondition(q.q, [purchaseRequests.code, purchaseRequests.title]),
-    );
-    const [rows, totals] = await Promise.all([
-      this.db
-        .select({ pr: purchaseRequests, requesterName: users.fullName })
-        .from(purchaseRequests)
-        .innerJoin(users, eq(users.id, purchaseRequests.requesterId))
-        .where(where)
-        .orderBy(...orderBy(q.sort, q.order, SORTABLE, purchaseRequests.id))
-        .limit(q.pageSize)
-        .offset(pageOffset(q)),
-      this.db.select({ total: count() }).from(purchaseRequests).where(where),
-    ]);
-    return paginated(
-      rows.map((r) => this.toDto(r.pr, r.requesterName, actor)),
-      totals[0]?.total ?? 0,
-      q,
-    );
+    const page = await listPurchaseRequests(this.db, actor, q);
+    return { ...page, items: page.items.map((r) => this.toDto(r.pr, r.requesterName, actor)) };
   }
 
   async get(actor: CurrentUser, id: string): Promise<PurchaseRequestDto> {
-    const [r] = await this.db
-      .select({ pr: purchaseRequests, requesterName: users.fullName })
-      .from(purchaseRequests)
-      .innerJoin(users, eq(users.id, purchaseRequests.requesterId))
-      .where(and(eq(purchaseRequests.id, id), isNull(purchaseRequests.deletedAt)))
-      .limit(1);
-    if (!r || !canView(viewScope(actor), r.pr)) throw Errors.notFound("PR");
+    const r = await findViewablePurchaseRequest(this.db, actor, id);
+    if (!r) throw Errors.notFound("PR");
     return this.toDto(r.pr, r.requesterName, actor);
   }
 

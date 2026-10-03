@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@app/db": "workspace:*",
+    "@app/server": "workspace:*",
     "@app/shared": "workspace:*",
     "@nestjs/common": "12.1.2",
     "@nestjs/core": "12.1.2",
