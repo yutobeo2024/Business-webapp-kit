@@ -1,5 +1,37 @@
 # Báo cáo kiểm chứng kit
 
+## 1.2.0: tệp đính kèm và xuất Excel/PDF (03/10/2026)
+
+Spec `template/docs/specs/002-tep-va-xuat-file.md`, ADR-0005. Bước tách `packages/server` chỉ đổi chỗ: toàn bộ test cũ
+xanh lại trước khi thêm tính năng.
+
+| Hạng mục | Kiểm bằng | Kết quả |
+|---|---|---|
+| Lưu trữ (khóa lạ, thoát thư mục, không ghi đè), loại tệp theo nội dung, tên tệp (bidi, C1), Content-Disposition | unit `packages/server` (17) | xanh |
+| Đính kèm: đúng loại, sai nội dung 415, quá dung lượng 413, quá 10 tệp, ngoài phạm vi 404, không phải người lập 403, phiếu đã gửi, xóa mềm, tệp mất 410, audit | `test/attachments.int.spec.ts` (9) | xanh |
+| Xuất qua API: thiếu quyền 403, tham số sai 400, in phiếu ngoài phạm vi 404, giới hạn 3 lần, chỉ người yêu cầu tải, hết hạn 410, chưa xong 409, audit | `test/exports.int.spec.ts` (5) | xanh |
+| Worker (DB + Chromium thật): Excel chỉ chứa phiếu trong phạm vi xem, mất quyền/bị khóa giữa chừng, vượt giới hạn dòng, chạy lại, yêu cầu đã lỗi không chạy, PDF thật, dọn dẹp, yêu cầu kẹt | `apps/worker/src/exports/exports.int.spec.ts` (8) | xanh |
+| Mẫu in escape dữ liệu người dùng | unit worker (7) | xanh |
+| Luồng thật trên trình duyệt | E2E: đính kèm và tải lại, tệp giả đuôi bị từ chối, xuất Excel chạy nền rồi tải ở "Tệp đã xuất", cùng 3 E2E cũ | 5/5 |
+| Image worker in được PDF (Chromium Debian, font Noto Sans nhúng, chạy user `node`, không mạng) | `tests/infra/worker-pdf-smoke.sh` trên image đã build | ĐÚNG |
+| Sao lưu tệp, cảnh báo | `tests/infra/run.sh` | 22/22 Windows, 21/21 Linux |
+| Cài sạch Linux `node:24-bookworm` | format, build, 79 unit, 82 tích hợp (74 api + 8 worker), selftest 239, hạ tầng, migration, drift | xanh |
+| Image production | build 3 image (worker 1,48 GB do Chromium, ghi trong ADR-0005) | xanh |
+
+Bản PDF mẫu được mở ra xem: bố cục A4, dấu tiếng Việt đúng, chuỗi `<khẩn>` trong tiêu đề hiện nguyên văn (đã escape).
+
+Agent độc lập rà bước này bằng tấn công thật: không có lỗi mức cao (IDOR, xuất vượt phạm vi, lách kiểm loại tệp, thoát
+thư mục, chèn header, chèn HTML vào PDF, Chromium gọi mạng hay đọc `file://` đều bị chặn). Đã sửa:
+(1) client hủy tải làm luồng đọc giữ file descriptor và bộ đệm mãi, lặp lại được để làm cạn tài nguyên api (đã tái hiện
+với tệp 80 MB); (2) yêu cầu xuất kẹt chỉ được dọn lúc 04:00, chiếm suất giới hạn hơn một ngày; (3) worker có thể chạy và
+đổi thành "Xong" một yêu cầu API đã đánh dấu lỗi; (4) runbook khôi phục tệp xóa nhầm không làm được sau 7 ngày; (5) tên
+tệp còn ký tự đổi hướng chữ; (6) tệp vật lý mất trả 500; (7) tài liệu thiếu bước cài Chromium khi dev.
+
+Chạy lặp trên Linux lộ thêm một lỗi chập chờn có từ 1.1.0: `resetDb` không reset sequence mã phiếu, mã tăng qua các test
+tới lúc chứa chuỗi đang tìm ("50") thì test tìm kiếm đỏ. Đã sửa, chạy lại 4 lần liền xanh. Một lần chạy khác có hook
+`beforeEach` chờ khóa quá 60 giây cùng lúc máy Docker quá tải (migration mất kết nối, test đồng bộ 5 giây); không tái
+hiện được trong 7 lần chạy sau, ghi lại để theo dõi trên CI.
+
 ## 1.1.0: lõi quản trị và phân quyền động (03/10/2026)
 
 Spec `template/docs/specs/000-quan-tri-nguoi-dung.md`, ADR-0004. Test viết trước mỗi bước.

@@ -42,6 +42,9 @@ export async function resetDb(handle: DbHandle): Promise<void> {
   await handle.db.execute(
     sql`truncate table audit_logs, export_jobs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
   );
+  // Sequence đứng riêng (không thuộc cột) không được "restart identity" reset: mã phiếu tăng mãi qua các test và tới lúc
+  // chứa chuỗi đang tìm (PR-2026-000150 khớp "50") thì test tìm kiếm đỏ chập chờn.
+  await handle.db.execute(sql`alter sequence pr_code_seq restart with 1`);
 }
 
 export interface Fixture {

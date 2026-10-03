@@ -2,13 +2,13 @@
 # File lưu UTF-8 CÓ BOM: thiếu BOM thì PowerShell 5.1 đọc theo bảng mã ANSI, tiếng Việt bị lỗi font cả trong commit.
 param([Parameter(Mandatory = $true)][string]$Dest)
 $ErrorActionPreference = "Stop"
-$Version = "1.1.0"
+$Version = "1.2.0"
 $Src = Join-Path $PSScriptRoot "template"
 if ((Test-Path $Dest) -and (Get-ChildItem -Force $Dest | Select-Object -First 1)) {
   Write-Error "Thư mục $Dest không trống. Kit chỉ tạo dự án mới."
 }
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
-robocopy $Src $Dest /E /NFL /NDL /NJH /NJS /NP /XD node_modules dist .turbo .git test-results playwright-report coverage /XF .env | Out-Null
+robocopy $Src $Dest /E /NFL /NDL /NJH /NJS /NP /XD node_modules dist .turbo .git test-results playwright-report coverage .data /XF .env | Out-Null
 if ($LASTEXITCODE -ge 8) { Write-Error "Sao chép thất bại (robocopy $LASTEXITCODE)" }
 Copy-Item (Join-Path $Dest ".env.example") (Join-Path $Dest ".env")
 

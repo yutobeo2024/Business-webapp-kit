@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tạo dự án mới từ kit. Dùng: ./install.sh <thư-mục-dự-án-mới>
 set -Eeuo pipefail
-VERSION="1.1.0"
+VERSION="1.2.0"
 SRC="$(cd "$(dirname "$0")/template" && pwd)"
 DEST="${1:-}"
 [[ -n "$DEST" ]] || { echo "Dùng: ./install.sh <thư-mục-dự-án-mới>"; exit 1; }
@@ -10,7 +10,7 @@ if [[ -d "$DEST" && -n "$(ls -A "$DEST" 2>/dev/null)" ]]; then
 fi
 mkdir -p "$DEST"
 tar -C "$SRC" --exclude=node_modules --exclude=dist --exclude=.turbo --exclude=.git --exclude=.env \
-  --exclude=test-results --exclude=playwright-report --exclude=coverage -cf - . | tar -C "$DEST" -xf -
+  --exclude=test-results --exclude=playwright-report --exclude=coverage --exclude=.data -cf - . | tar -C "$DEST" -xf -
 chmod +x "$DEST"/infra/*.sh
 cp "$DEST/.env.example" "$DEST/.env"
 # Git trên Windows (core.filemode=false) bỏ bit +x: đặt lại trong index để máy chủ Linux chạy được script.

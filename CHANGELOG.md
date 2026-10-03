@@ -1,5 +1,40 @@
 # Nhật ký thay đổi của kit
 
+## 1.2.0 (03/10/2026)
+
+Bước 2b: tệp đính kèm và xuất Excel/PDF, lõi dùng chung cho mọi dự án. Spec: `template/docs/specs/002-tep-va-xuat-file.md`,
+ADR-0005.
+
+Thêm
+
+- Gói `packages/server`: logic phía server dùng chung api và worker (truy vấn đọc, phạm vi xem, list-query, lưu tệp), để
+  dữ liệu xuất đi qua đúng truy vấn và phạm vi xem của màn hình.
+- Lưu tệp qua interface `FileStorage` (driver đĩa máy chủ; thêm S3 không phải sửa module), bảng `files`. Kiểm loại theo
+  nội dung tệp, giới hạn `FILE_MAX_MB`, khóa lưu do hệ thống sinh, tệp vật lý bị xóa khi transaction lỗi; tải về luôn
+  `attachment` với `nosniff` và CSP `sandbox`, tên tiếng Việt chuẩn RFC 5987.
+- Xuất file chạy nền: danh mục loại xuất kèm quyền, bảng `export_jobs`, API `/exports` (chỉ người yêu cầu thấy/tải, hết
+  hạn 410, tối đa 3 lần chưa xong mỗi người, audit yêu cầu và tải về), worker hàng đợi `exports` nạp lại quyền hiện tại
+  của người yêu cầu; Excel bằng `exceljs` (giờ Việt Nam, tiền là số, giới hạn `EXPORT_MAX_ROWS`); PDF bằng Chromium
+  (tắt JavaScript, chặn mạng, mẫu HTML qua `html` tự escape); dọn tệp hết hạn và đính kèm đã xóa quá 7 ngày lúc 04:00.
+- Mẫu trên phiếu đề nghị: đính kèm (BR-09), Excel danh sách theo bộ lọc đang xem (quyền mới `pr.export`), in PDF từng
+  phiếu; web có hộp thoại đính kèm, nút xuất và trang "Tệp đã xuất".
+- Hạ tầng: thư mục tệp trên host mount vào api và worker, `infra/backup-files.sh` (rclone sync, giữ bản bị xóa theo
+  ngày) chạy 02:30, cảnh báo khi quá 26 giờ chưa sao lưu tệp; image worker có Chromium và font Noto, CI kiểm image in
+  được PDF trước khi đẩy.
+- Lớp agent: CLAUDE.md, rule backend/security/frontend, skill `/feature` và `/security-audit` theo lõi mới.
+
+Sửa
+
+- Test tích hợp đỏ chập chờn: `resetDb` không reset sequence mã phiếu.
+
+Thay đổi phá tương thích (dự án tạo từ 1.1.x)
+
+- `loadAccess`, `list-query`, `policy.ts` của phiếu chuyển sang `@app/server`; `formatVnd`, `formatDateTime` chuyển từ
+  `apps/web/src/lib/format.ts` sang `@app/shared`. Sửa import theo.
+- Image worker chuyển từ Alpine sang Debian slim (lớn hơn đáng kể vì Chromium); giới hạn RAM worker trong compose lên 1G.
+- Máy chủ đang chạy cần tạo thư mục tệp (`server-setup.sh` mới, hoặc tạo tay theo runbook) trước khi deploy bản này.
+- Vai trò mặc định có thêm `pr.export`; `ensureDefaultRoles` không sửa vai trò đã có, dự án đang chạy tự cấp trên giao diện.
+
 ## 1.1.0 (03/10/2026)
 
 Bước 2a: lõi quản trị dùng chung cho mọi dự án. Spec: `template/docs/specs/000-quan-tri-nguoi-dung.md`, ADR-0004.
