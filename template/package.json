@@ -17,7 +17,7 @@
     "verify:quick": "pnpm lint && pnpm typecheck && turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:generate": "pnpm --filter @app/db run generate",
+    "db:generate": "pnpm --filter @app/shared build && pnpm --filter @app/db run generate",
     "db:migrate": "pnpm --filter @app/db run migrate",
     "db:seed": "pnpm --filter @app/api run seed",
     "dev:services": "docker compose -f infra/compose.dev.yml up -d",

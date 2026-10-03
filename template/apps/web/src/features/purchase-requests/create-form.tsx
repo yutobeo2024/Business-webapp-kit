@@ -47,35 +47,57 @@ export function CreatePurchaseRequestForm({ onDone }: { onDone: () => void }) {
         </Field>
         <div className="space-y-2">
           <span className="text-sm font-medium">Danh sách hàng</span>
-          {items.fields.map((f, i) => (
-            <div key={f.id} className="grid grid-cols-[1fr_100px_160px_auto] gap-2">
-              <Input
-                placeholder="Tên hàng"
-                {...form.register(`items.${i}.name`)}
-                aria-invalid={Boolean(errors.items?.[i]?.name)}
-              />
-              <Input
-                type="number"
-                min={1}
-                {...form.register(`items.${i}.quantity`, { valueAsNumber: true })}
-              />
-              <Input
-                type="number"
-                min={0}
-                step={1000}
-                {...form.register(`items.${i}.unitPrice`, { valueAsNumber: true })}
-              />
-              <Button
-                variant="ghost"
-                onClick={() => items.remove(i)}
-                disabled={items.fields.length === 1}
-                aria-label="Xóa dòng"
-              >
-                ✕
-              </Button>
-            </div>
-          ))}
-          {errors.items?.message ? <p className="text-sm text-red-600">{errors.items.message}</p> : null}
+          {items.fields.map((f, i) => {
+            const rowErrors = errors.items?.[i];
+            // Lỗi của cả ba ô hiện ngay dưới dòng: bấm Lưu mà không thấy gì xảy ra là lỗi UX nặng nhất của form.
+            const rowMessage =
+              rowErrors?.name?.message ?? rowErrors?.quantity?.message ?? rowErrors?.unitPrice?.message;
+            return (
+              <div key={f.id} className="space-y-1">
+                <div className="grid grid-cols-[1fr_100px_160px_auto] gap-2">
+                  <Input
+                    placeholder="Tên hàng"
+                    {...form.register(`items.${i}.name`)}
+                    aria-invalid={Boolean(rowErrors?.name)}
+                  />
+                  <Input
+                    type="number"
+                    min={1}
+                    aria-label="Số lượng"
+                    {...form.register(`items.${i}.quantity`, { valueAsNumber: true })}
+                    aria-invalid={Boolean(rowErrors?.quantity)}
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    aria-label="Đơn giá"
+                    {...form.register(`items.${i}.unitPrice`, { valueAsNumber: true })}
+                    aria-invalid={Boolean(rowErrors?.unitPrice)}
+                  />
+                  <Button
+                    variant="ghost"
+                    onClick={() => items.remove(i)}
+                    disabled={items.fields.length === 1}
+                    aria-label="Xóa dòng"
+                  >
+                    ✕
+                  </Button>
+                </div>
+                {rowMessage ? (
+                  <p role="alert" className="text-sm text-red-600">
+                    {rowMessage}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+          {/* Lỗi cấp danh sách (tổng tiền vượt giới hạn, thiếu dòng): react-hook-form đặt ở items.root. */}
+          {(errors.items?.root?.message ?? errors.items?.message) ? (
+            <p role="alert" className="text-sm text-red-600">
+              {errors.items?.root?.message ?? errors.items?.message}
+            </p>
+          ) : null}
           <Button
             variant="outline"
             size="sm"

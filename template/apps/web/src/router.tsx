@@ -12,14 +12,23 @@ function AppShell() {
   const qc = useQueryClient();
   const logout = useMutation({
     mutationFn: () => api<void>("/auth/logout", { method: "POST" }),
-    onSettled: () => {
+    // Chỉ khi server đã xóa phiên. Lỗi mạng mà vẫn xóa trạng thái thì phiên còn sống, F5 là vào lại.
+    onSuccess: () => {
       qc.setQueryData(meQueryKey, null);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== meQueryKey[0] });
     },
   });
 
   if (me.isPending) return <p className="p-6 text-sm text-neutral-500">Đang tải...</p>;
-  if (me.isError) return <p className="p-6 text-sm text-red-600">Không kết nối được máy chủ.</p>;
+  if (me.isError)
+    return (
+      <p role="alert" className="p-6 text-sm text-red-600">
+        Không kết nối được máy chủ.{" "}
+        <button className="underline" onClick={() => me.refetch()}>
+          Thử lại
+        </button>
+      </p>
+    );
   if (!me.data) return <LoginPage />;
 
   return (
@@ -34,6 +43,11 @@ function AppShell() {
             <Button size="sm" variant="outline" onClick={() => logout.mutate()} disabled={logout.isPending}>
               Đăng xuất
             </Button>
+            {logout.isError ? (
+              <span role="alert" className="text-red-600">
+                Chưa đăng xuất được, thử lại
+              </span>
+            ) : null}
           </div>
         </div>
       </header>

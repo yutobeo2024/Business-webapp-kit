@@ -46,7 +46,11 @@ export const PR_EVENT_LABELS: Record<PrEvent, string> = {
 
 export const prItemSchema = z.object({
   name: z.string().trim().min(1, "Tên hàng không được trống").max(200),
-  quantity: z.number().int().min(1, "Số lượng tối thiểu là 1").max(1_000_000),
+  quantity: z
+    .number("Nhập số lượng")
+    .int("Số lượng phải là số nguyên")
+    .min(1, "Số lượng tối thiểu là 1")
+    .max(1_000_000, "Số lượng tối đa là 1.000.000"),
   unitPrice: vndSchema,
 });
 export type PrItem = z.infer<typeof prItemSchema>;

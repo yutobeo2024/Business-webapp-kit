@@ -1,13 +1,16 @@
 import { useState } from "react";
 import {
+  PR_CREATOR_ROLES,
   PR_EVENT_LABELS,
   PR_STATUS_LABELS,
   type PrEvent,
   type PrStatus,
   type PurchaseRequestDto,
+  transitionPurchaseRequestSchema,
 } from "@app/shared";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useMe } from "@/features/auth/use-me";
 import { ApiError } from "@/lib/api";
 import { formatDateTime, formatVnd } from "@/lib/format";
 import { usePurchaseRequests, useTransition } from "./api";
@@ -31,13 +34,21 @@ const CONFIRM: Partial<Record<PrEvent, string>> = {
 
 function Actions({ pr }: { pr: PurchaseRequestDto }) {
   const t = useTransition();
+  const [inputError, setInputError] = useState<string | null>(null);
   const run = (event: PrEvent) => {
+    setInputError(null);
     let reason: string | undefined;
     if (event === "REJECT") {
       reason = window.prompt("Lý do từ chối (tối thiểu 10 ký tự):") ?? undefined;
-      if (!reason) return;
+      if (reason === undefined) return;
     } else if (CONFIRM[event] && !window.confirm(CONFIRM[event])) return;
-    t.mutate({ id: pr.id, event, version: pr.version, reason });
+    // Kiểm bằng schema dùng chung trước khi gửi, để người dùng thấy đúng câu lỗi (không phải "Dữ liệu không hợp lệ").
+    const parsed = transitionPurchaseRequestSchema.safeParse({ event, version: pr.version, reason });
+    if (!parsed.success) {
+      setInputError(parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ");
+      return;
+    }
+    t.mutate({ id: pr.id, ...parsed.data });
   };
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -52,9 +63,9 @@ function Actions({ pr }: { pr: PurchaseRequestDto }) {
           {PR_EVENT_LABELS[e]}
         </Button>
       ))}
-      {t.error ? (
+      {inputError || t.error ? (
         <span role="alert" className="text-sm text-red-600">
-          {t.error instanceof ApiError ? t.error.message : "Có lỗi xảy ra"}
+          {inputError ?? (t.error instanceof ApiError ? t.error.message : "Có lỗi xảy ra")}
         </span>
       ) : null}
     </div>
@@ -65,12 +76,15 @@ export function PurchaseRequestListPage() {
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const q = usePurchaseRequests({ page });
+  // BR-08: chỉ hiện nút cho vai trò được lập phiếu. Quyền thật do backend kiểm.
+  const me = useMe();
+  const canCreate = Boolean(me.data && PR_CREATOR_ROLES.includes(me.data.role));
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Phiếu đề nghị mua hàng</h1>
-        {!showForm ? <Button onClick={() => setShowForm(true)}>Lập phiếu</Button> : null}
+        {canCreate && !showForm ? <Button onClick={() => setShowForm(true)}>Lập phiếu</Button> : null}
       </div>
       {showForm ? <CreatePurchaseRequestForm onDone={() => setShowForm(false)} /> : null}
       <Card className="overflow-x-auto p-0">

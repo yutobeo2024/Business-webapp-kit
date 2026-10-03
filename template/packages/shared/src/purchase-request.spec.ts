@@ -40,6 +40,15 @@ describe("createPurchaseRequestSchema", () => {
     expect(() => createPurchaseRequestSchema.extend({ version: z.number() })).not.toThrow();
   });
 
+  it("ô số bỏ trống (NaN) báo lỗi tiếng Việt, không phải thông báo mặc định tiếng Anh", () => {
+    const r = createPurchaseRequestSchema.safeParse({
+      title: "Mua máy in",
+      items: [{ name: "Máy in", quantity: Number.NaN, unitPrice: Number.NaN }],
+    });
+    const messages = r.success ? [] : r.error.issues.map((i) => i.message);
+    expect(messages).toEqual(["Nhập số lượng", "Nhập số tiền"]);
+  });
+
   it("từ chối phiếu không có dòng hàng", () => {
     expect(createPurchaseRequestSchema.safeParse({ title: "Mua máy in", items: [] }).success).toBe(false);
   });

@@ -8,7 +8,7 @@ export const MAX_VND = 1_000_000_000_000_000;
 
 /** Số tiền VND nhập vào: số nguyên, không âm, không vượt MAX_VND. Dùng cho mọi trường tiền. */
 export const vndSchema = z
-  .number()
+  .number("Nhập số tiền")
   .int("Số tiền phải là số nguyên (VND)")
   .min(0, "Số tiền không được âm")
   .max(MAX_VND, "Số tiền vượt giới hạn cho phép");
