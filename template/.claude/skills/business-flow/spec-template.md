@@ -11,12 +11,18 @@
 
 Vấn đề cần giải quyết, kết quả đo được. Trong phạm vi / ngoài phạm vi.
 
-## 2. Vai trò và quyền
+## 2. Quyền
 
-| Hành động | Nhân viên | Trưởng phòng | Kế toán | Giám đốc | Quản trị |
-| --------- | --------- | ------------ | ------- | -------- | -------- |
+Quyền module khai báo (vai trò do quản trị viên tự gom trên giao diện, xem ADR-0004):
 
-Phạm vi xem dữ liệu theo vai trò (của mình / phòng ban / toàn công ty). Người ngoài phạm vi nhận "không tìm thấy".
+| Quyền (`module.hanh_dong`) | Cho phép |
+| -------------------------- | -------- |
+
+Phạm vi xem dữ liệu: quyền có cấp (`x.view.all` / `x.view.department` / mặc định của mình). Người ngoài phạm vi nhận
+"không tìm thấy". Đề xuất vai trò mặc định (vai trò nào có quyền nào) để seed tạo:
+
+| Vai trò mặc định | Quyền |
+| ---------------- | ----- |
 
 ## 3. Thực thể dữ liệu
 
@@ -35,8 +41,8 @@ stateDiagram-v2
   DA_DUYET --> [*]
 ```
 
-| Từ  | Sự kiện | Đến | Vai trò được phép | Điều kiện | Tác động phụ (thông báo, tích hợp) |
-| --- | ------- | --- | ----------------- | --------- | ---------------------------------- |
+| Từ  | Sự kiện | Đến | Quyền cần có | Điều kiện | Tác động phụ (thông báo, tích hợp) |
+| --- | ------- | --- | ------------ | --------- | ---------------------------------- |
 
 ## 5. Quy tắc nghiệp vụ
 

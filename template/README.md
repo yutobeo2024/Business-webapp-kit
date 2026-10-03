@@ -11,9 +11,11 @@ cp .env.example .env              # đổi SEED_ADMIN_PASSWORD
 pnpm install
 pnpm dev:services                 # PostgreSQL + Redis
 pnpm build && pnpm db:migrate
-pnpm db:seed -- --demo            # tài khoản admin + tài khoản demo mỗi vai trò (mật khẩu = SEED_ADMIN_PASSWORD)
+pnpm db:seed -- --demo            # vai trò mặc định, tài khoản quản trị + tài khoản demo (mật khẩu = SEED_ADMIN_PASSWORD)
 pnpm dev                          # API :3000, web :5173
 ```
+
+Đăng nhập bằng `SEED_ADMIN_EMAIL`: menu Người dùng, Vai trò, Phòng ban để tạo tài khoản thật và cấu hình quyền.
 
 ## Kiểm tra
 

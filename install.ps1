@@ -2,7 +2,7 @@
 # File lưu UTF-8 CÓ BOM: thiếu BOM thì PowerShell 5.1 đọc theo bảng mã ANSI, tiếng Việt bị lỗi font cả trong commit.
 param([Parameter(Mandatory = $true)][string]$Dest)
 $ErrorActionPreference = "Stop"
-$Version = "1.0.2"
+$Version = "1.1.0"
 $Src = Join-Path $PSScriptRoot "template"
 if ((Test-Path $Dest) -and (Get-ChildItem -Force $Dest | Select-Object -First 1)) {
   Write-Error "Thư mục $Dest không trống. Kit chỉ tạo dự án mới."

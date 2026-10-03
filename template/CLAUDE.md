@@ -21,13 +21,24 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
 - `pnpm test:integration` (cần `DATABASE_URL=.../app_test`, `REDIS_URL=redis://localhost:6379/15`)
 - DB: sửa `packages/db/src/schema.ts` rồi `pnpm db:generate --name <ten_thay_doi>`; áp dụng: `pnpm db:migrate`.
 
-## Mẫu chuẩn: copy theo module `apps/api/src/modules/purchase-requests/`
+## Lõi có sẵn: dùng lại, không viết lại
 
-- `state-machine.ts`: bảng chuyển trạng thái tường minh + hàm thuần `decide()`; test từng quy tắc BR-xx.
-- `policy.ts`: phạm vi xem dữ liệu theo vai trò, áp ở tầng query (người ngoài phạm vi nhận 404).
+- Phân quyền (ADR-0004): QUYỀN khai báo trong mã (`packages/shared/src/permissions.ts`), VAI TRÒ là tập quyền do quản trị
+  viên cấu hình trên giao diện. Mã chỉ kiểm quyền bằng `can(user, "...")` / `@RequirePermission(...)`, KHÔNG BAO GIỜ kiểm
+  tên vai trò. Module mới khai báo quyền của mình như `PR_PERMISSIONS` rồi đăng ký vào `PERMISSIONS`.
+- Quản trị người dùng, vai trò, phòng ban, đổi mật khẩu: `apps/api/src/modules/admin/`, `apps/web/src/features/admin/`
+  (spec 000). Không sửa chốt chặn trong `safeguards.ts` khi chưa có spec duyệt.
+- Danh sách: `listQuerySchema` (shared) + `searchCondition`/`orderBy`/`paginated` (`apps/api/src/common/list-query.ts`) +
+  `DataTable`/`SortTh`/`Pagination`/`SearchInput` và bộ lọc trên URL (`searchValidator`, `nextSearch`) ở web.
+
+## Mẫu nghiệp vụ: copy theo module `apps/api/src/modules/purchase-requests/`
+
+- `state-machine.ts`: bảng chuyển trạng thái tường minh + hàm thuần `decide()`; ai được làm gì khai báo bằng quyền;
+  test từng quy tắc BR-xx.
+- `policy.ts`: phạm vi xem dữ liệu theo quyền, áp ở tầng query (người ngoài phạm vi nhận 404).
 - `*.service.ts`: ghi trong `db.transaction`, khóa dòng `.for("update")`, kiểm `version`, `writeAudit(tx, ...)` cùng transaction,
   đẩy job SAU commit.
-- `*.controller.ts`: mỏng, input qua `new ZodPipe(schemaTừShared)`, user qua `@CurrentUser()`.
+- `*.controller.ts`: mỏng, `@RequirePermission(...)`, input qua `new ZodPipe(schemaTừShared)`, user qua `@CurrentUser()`.
 
 ## Quy ước bắt buộc
 
@@ -39,6 +50,7 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
    Thời gian: lưu UTC, hiển thị `Asia/Ho_Chi_Minh`.
 6. Không hard-code secret; env mới phải thêm vào schema env (`apps/api/src/config/env.ts`) và `.env.example`.
 7. Endpoint công khai phải gắn `@Public()` và có lý do trong spec.
+8. Không kiểm tên vai trò trong mã. Không thêm cột/enum vai trò. Quyền mới: thêm vào danh mục, có nhãn tiếng Việt.
 
 ## Quy trình làm việc
 

@@ -1,13 +1,14 @@
 # Business Web App Kit
 
 Bộ khởi tạo production cho web app quy trình nghiệp vụ giao cho doanh nghiệp, làm việc cùng Claude Code.
-Phiên bản kit: 1.0.2 (03/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
+Phiên bản kit: 1.1.0 (03/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
 
 ## Kit gồm gì
 
 | Phần | Nội dung | Vị trí trong `template/` |
 |---|---|---|
 | Skeleton chạy được | NestJS 12 + React 19 + PostgreSQL 17 + Redis/BullMQ, đăng nhập session, module mẫu có state machine, phân quyền, audit | `apps/`, `packages/` |
+| Lõi quản trị | Phân quyền động (quyền trong mã, vai trò cấu hình trên giao diện), quản lý người dùng, vai trò, phòng ban, mật khẩu tạm, mẫu danh sách tìm/lọc/sắp xếp | `apps/api/src/modules/admin`, `apps/web/src/features/admin` |
 | Kiểm thử | Unit, tích hợp trên DB thật, E2E Playwright, kiểm script vận hành bằng docker giả | `*.spec.ts`, `*.int.spec.ts`, `e2e/`, `tests/infra/` |
 | CI/CD | Kiểm tra mọi PR; merge main -> staging; tag -> production có người duyệt; rollback một nút | `.github/workflows/` |
 | Hạ tầng | Dockerfile 3 app, Compose production, Caddy HTTPS tự động | `infra/` |
@@ -29,7 +30,8 @@ Sau đó trong thư mục dự án: làm theo `README.md` của dự án (cài, 
 rồi kiểm `pnpm verify:quick` và `pnpm claude:selftest` đều xanh. Mở Claude Code, gõ `/hooks` để thấy 4 hook đã được nạp.
 
 Dự án đầu tiên: giữ module mẫu `purchase-requests` làm khuôn cho đến khi có module thật đầu tiên, rồi xóa module mẫu,
-spec `001`, migration mẫu (tạo lại migration `init` từ schema thật).
+spec `001`, quyền `PR_PERMISSIONS` và vai trò mặc định nghiệp vụ, migration mẫu (tạo lại migration `init` từ schema thật).
+Lõi quản trị (spec `000`, module `admin`) giữ lại.
 
 ## Quy trình làm việc hằng ngày
 

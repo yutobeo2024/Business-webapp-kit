@@ -20,12 +20,14 @@ Spec phải "Đã duyệt". Chưa thì dừng, đề nghị `/business-flow` ho�
 
 ## 2. Mỗi lát cắt
 
-1. Zod schema + type trong `packages/shared`.
+1. Zod schema + type trong `packages/shared`. Lát cắt đầu của module mới: khai báo quyền (`XXX_PERMISSIONS`, nhãn tiếng
+   Việt) và đăng ký vào `PERMISSIONS`; đề xuất vai trò mặc định trong `apps/api/src/auth/default-roles.ts`.
 2. Đổi schema DB thì theo `/db-migration`.
 3. State machine/policy (hàm thuần) + unit test cho từng BR, kể cả trường hợp bị chặn. Viết test trước, code sau.
 4. Service (transaction, khóa dòng, version, audit) + test tích hợp trên DB thật.
-5. Controller (ZodPipe, CurrentUser). Module mới thì đăng ký vào `app.module.ts`.
-6. UI: hook trong `features/<module>/api.ts`, trang, form, đủ trạng thái tải/rỗng/lỗi.
+5. Controller (`@RequirePermission`, ZodPipe, CurrentUser). Module mới thì đăng ký vào `app.module.ts`.
+6. UI: hook trong `features/<module>/api.ts`, trang, form, đủ trạng thái tải/rỗng/lỗi. Danh sách theo mẫu danh sách
+   (rule frontend); route mới thêm vào `router.tsx` và menu `NAV` kèm quyền.
 7. E2E nếu lát cắt thuộc AC chính.
 8. `pnpm verify:quick` xanh mới sang lát tiếp.
 

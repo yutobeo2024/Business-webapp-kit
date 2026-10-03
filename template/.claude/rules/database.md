@@ -14,4 +14,7 @@ paths:
 - Migrator chạy MỌI migration trong một transaction: cấm `CREATE INDEX CONCURRENTLY` trong migration (luôn lỗi).
   Index trên bảng lớn: xem bước 3 của `/db-migration`.
 - Đổi tên/xóa cột, thêm NOT NULL cho cột đã có dữ liệu: bắt buộc expand/contract qua 2 release (xem `/db-migration`).
+- Truy vấn con tương quan (`sql` đếm số dòng liên quan...): ghi rõ bảng cho MỌI cột, kiểu
+  `${users}.${sql.identifier("department_id")} = ${departments}.${sql.identifier("id")}`. Cột `id` không kèm tên bảng bị
+  hiểu là cột của bảng trong truy vấn con, kết quả sai mà không báo lỗi.
 - Cấm `drizzle-kit push` (bỏ qua lịch sử migration). Không đặt logic nghiệp vụ trong trigger.

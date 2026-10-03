@@ -1,5 +1,30 @@
 # Nhật ký thay đổi của kit
 
+## 1.1.0 (03/10/2026)
+
+Bước 2a: lõi quản trị dùng chung cho mọi dự án. Spec: `template/docs/specs/000-quan-tri-nguoi-dung.md`, ADR-0004.
+
+Thêm
+
+- Phân quyền động: quyền khai báo trong mã (mỗi module tự khai báo), vai trò là tập quyền do quản trị viên cấu hình trên
+  giao diện; một người nhiều vai trò; đổi vai trò có hiệu lực ngay. `can()`, `@RequirePermission`, `PermissionGuard`.
+- Quản trị người dùng, vai trò, phòng ban (API + giao diện) với chốt chặn: quyền quản trị chỉ người đang có mới cấp được và
+  không thao tác được trên tài khoản mạnh hơn mình; luôn còn người quản trị; vai trò hệ thống bảo vệ; không tự khóa mình;
+  khóa/đặt lại mật khẩu thu hồi phiên; audit không chứa mã băm.
+- Mật khẩu tạm bắt đổi ở lần đăng nhập đầu, tự đổi mật khẩu (thu hồi phiên khác), chính sách mật khẩu dùng chung.
+- Mẫu danh sách dùng chung: tìm kiếm, lọc, sắp xếp (chỉ cột cho phép), phân trang, bộ lọc nằm trên URL; component
+  `DataTable`, `SortTh`, `Pagination`, `SearchInput`, `Select`, `Checkbox`, `Badge`, `Dialog`, `ConfirmDialog` (không thêm
+  thư viện). Danh sách phiếu mẫu dùng mẫu này; hộp thoại xác nhận thay `window.confirm/prompt`.
+- Lớp agent: CLAUDE.md mục "Lõi có sẵn", rule backend/frontend/security/database, skill `/feature` và mẫu spec ghi quyền
+  thay cho bảng vai trò, code-reviewer kiểm phân quyền.
+
+Thay đổi phá tương thích (dự án tạo từ 1.0.x)
+
+- Bỏ enum vai trò (`ROLES`, `users.role`, `PR_CREATOR_ROLES`); `CurrentUser` có `roles`, `permissions`,
+  `mustChangePassword` thay cho `role`. Migration `0000_init` được tạo lại: dự án đã chạy thật cần viết migration chuyển
+  dữ liệu (tạo bảng vai trò, gán vai trò theo `users.role` cũ rồi mới bỏ cột).
+- `loginSchema` không còn đòi mật khẩu tối thiểu 8 ký tự khi đăng nhập (chính sách áp dụng lúc đặt mật khẩu).
+
 ## 1.0.2 (03/10/2026)
 
 Sửa các lỗi mức Medium còn lại từ review 1.0.0 và vài lỗi mới lộ ra khi kiểm thật. Mỗi mục có test tái hiện.

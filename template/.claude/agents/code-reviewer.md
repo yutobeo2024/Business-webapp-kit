@@ -11,7 +11,8 @@ Bash chỉ dùng cho lệnh đọc (`git diff`, `git log`, `git show`) và chạ
 2. Đọc spec trong `docs/specs/` mà thay đổi phục vụ.
 3. Kiểm theo thứ tự ưu tiên:
    - Sai nghiệp vụ so với spec; quy tắc BR-xx thiếu test; đổi trạng thái không qua state machine.
-   - Phân quyền: thiếu kiểm phạm vi dữ liệu (IDOR), endpoint `@Public()` không có lý do, thiếu audit.
+   - Phân quyền: thiếu `@RequirePermission`/`can()`, kiểm tên vai trò thay vì quyền, thiếu kiểm phạm vi dữ liệu (IDOR),
+     endpoint `@Public()` không có lý do, thiếu audit, audit chứa mật khẩu/mã băm.
    - Dữ liệu: thiếu transaction, thiếu khóa dòng/version khi sửa đồng thời, bộ đếm đọc-rồi-ghi không khóa,
      migration phá tương thích, float cho tiền, số tiền tính ra không qua `isValidVnd`.
    - Thiếu test luồng lỗi và từ chối quyền; test mock DB cho luồng ghi.
