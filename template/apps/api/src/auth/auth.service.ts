@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, gt, lt, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { sessions, users, type Db } from "@app/db";
 import type { CurrentUser, LoginInput } from "@app/shared";
 import { writeAudit } from "../common/audit.js";
-import { BusinessError, Errors } from "../common/business-error.js";
+import { BusinessError } from "../common/business-error.js";
 import { ENV, type Env } from "../config/env.js";
 import { DB } from "../db/db.module.js";
 import { getDummyHash, hashToken, newSessionToken, verifyPassword } from "./crypto.js";
@@ -19,6 +19,13 @@ export interface LoginResult {
   user: CurrentUser;
 }
 
+export interface ValidatedSession {
+  user: CurrentUser;
+  tokenHash: string;
+  /** Có giá trị khi phiên vừa được gia hạn: guard đặt lại cookie với hạn mới. */
+  renewedExpiresAt?: Date;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -26,8 +33,14 @@ export class AuthService {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
-  private ttlMs(): number {
-    return this.env.SESSION_TTL_HOURS * 60 * 60 * 1000;
+  /**
+   * Hạn của phiên tạo lúc `createdAt`: trượt SESSION_TTL_HOURS kể từ lần hoạt động cuối, nhưng không bao giờ quá
+   * SESSION_MAX_DAYS kể từ lúc đăng nhập (token bị đánh cắp không dùng được mãi bằng cách gọi API đều đặn).
+   */
+  private expiryFor(createdAt: Date, now: Date): Date {
+    const sliding = now.getTime() + this.env.SESSION_TTL_HOURS * 3600_000;
+    const absolute = createdAt.getTime() + this.env.SESSION_MAX_DAYS * 86_400_000;
+    return new Date(Math.min(sliding, absolute));
   }
 
   async login(
@@ -40,18 +53,19 @@ export class AuthService {
       .where(sql`lower(${users.email}) = ${input.email}`)
       .limit(1);
 
-    const invalid = new BusinessError("AUTH_INVALID_CREDENTIALS", "Email hoặc mật khẩu không đúng", 401);
-    const locked = new BusinessError(
-      "AUTH_LOCKED",
-      `Tài khoản tạm khóa do đăng nhập sai nhiều lần. Thử lại sau ${LOCK_MINUTES} phút.`,
-      423,
+    // MỘT thông báo cho mọi trường hợp thất bại (sai email, sai mật khẩu, đang bị khóa): không lộ email nào tồn tại.
+    const invalid = new BusinessError(
+      "AUTH_INVALID_CREDENTIALS",
+      `Email hoặc mật khẩu không đúng. Sai ${MAX_FAILED_LOGINS} lần liên tiếp, tài khoản tạm khóa ${LOCK_MINUTES} phút.`,
+      401,
     );
+    const isLocked = (lockedUntil: Date | null | undefined) => !!lockedUntil && lockedUntil > new Date();
 
-    if (!user) {
+    if (!user || isLocked(user.lockedUntil)) {
+      // Vẫn chấm một mật khẩu giả để thời gian phản hồi giống trường hợp sai mật khẩu.
       await verifyPassword(await getDummyHash(), input.password);
       throw invalid;
     }
-    if (user.lockedUntil && user.lockedUntil > new Date()) throw locked;
     const ok = await verifyPassword(user.passwordHash, input.password);
     if (!ok || !user.isActive) {
       await this.recordFailedLogin(user.id, meta.ip);
@@ -59,7 +73,8 @@ export class AuthService {
     }
 
     const token = newSessionToken();
-    const expiresAt = new Date(Date.now() + this.ttlMs());
+    const now = new Date();
+    const expiresAt = this.expiryFor(now, now);
     await this.db.transaction(async (tx) => {
       // Kiểm lại khóa sau khi khóa dòng: một request sai song song có thể vừa khóa tài khoản trong lúc
       // request này đang chấm mật khẩu. Không kiểm lại thì lần đoán đúng vẫn vào được và còn xóa khóa.
@@ -68,12 +83,13 @@ export class AuthService {
         .from(users)
         .where(eq(users.id, user.id))
         .for("update");
-      if (current?.lockedUntil && current.lockedUntil > new Date()) throw locked;
+      if (isLocked(current?.lockedUntil)) throw invalid;
       await tx.update(users).set({ failedLoginCount: 0, lockedUntil: null }).where(eq(users.id, user.id));
       await tx.insert(sessions).values({
         userId: user.id,
         tokenHash: hashToken(token),
         expiresAt,
+        createdAt: now,
         ip: meta.ip,
         userAgent: meta.userAgent?.slice(0, 500) ?? null,
       });
@@ -131,14 +147,15 @@ export class AuthService {
     });
   }
 
-  /** Trả về user nếu token hợp lệ, null nếu không. Tự gia hạn phiên trượt. */
-  async validate(token: string): Promise<{ user: CurrentUser; tokenHash: string } | null> {
+  /** Trả về phiên nếu token hợp lệ, null nếu không. Tự gia hạn phiên trượt trong giới hạn tuyệt đối. */
+  async validate(token: string): Promise<ValidatedSession | null> {
     const tokenHash = hashToken(token);
     const now = new Date();
     const [row] = await this.db
       .select({
         sessionId: sessions.id,
         lastSeenAt: sessions.lastSeenAt,
+        createdAt: sessions.createdAt,
         id: users.id,
         email: users.email,
         fullName: users.fullName,
@@ -150,15 +167,18 @@ export class AuthService {
       .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, now), eq(users.isActive, true)))
       .limit(1);
     if (!row) return null;
+    const { sessionId, lastSeenAt, createdAt, ...user } = row;
+    if (this.expiryFor(createdAt, now) <= now) return null; // quá hạn tuyệt đối
 
-    if (now.getTime() - row.lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
+    let renewedExpiresAt: Date | undefined;
+    if (now.getTime() - lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
+      renewedExpiresAt = this.expiryFor(createdAt, now);
       await this.db
         .update(sessions)
-        .set({ lastSeenAt: now, expiresAt: new Date(now.getTime() + this.ttlMs()) })
-        .where(eq(sessions.id, row.sessionId));
+        .set({ lastSeenAt: now, expiresAt: renewedExpiresAt })
+        .where(eq(sessions.id, sessionId));
     }
-    const { sessionId: _s, lastSeenAt: _l, ...user } = row;
-    return { user, tokenHash };
+    return { user, tokenHash, renewedExpiresAt };
   }
 
   async logout(tokenHash: string, actorId: string, ip: string | null): Promise<void> {
@@ -166,16 +186,5 @@ export class AuthService {
       await tx.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
       await writeAudit(tx, { actorId, action: "auth.logout", entityType: "user", entityId: actorId, ip });
     });
-  }
-
-  /** Dọn phiên hết hạn. Gọi định kỳ từ worker. */
-  async purgeExpiredSessions(): Promise<number> {
-    const res = await this.db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
-    return res.rowCount ?? 0;
-  }
-
-  assertAuthenticated(user: CurrentUser | undefined): CurrentUser {
-    if (!user) throw Errors.unauthenticated();
-    return user;
   }
 }

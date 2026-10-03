@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "dev": "node --env-file-if-exists=../../.env --watch dist/main.js",
+    "dev": "node scripts/dev.mjs",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"

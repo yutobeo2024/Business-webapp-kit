@@ -28,8 +28,11 @@ interface TransitionRule {
   who: "REQUESTER" | readonly Role[];
   /** Kiểm tra thêm ngoài vai trò. Trả về lỗi nếu vi phạm. */
   check?: (pr: PrSnapshot, actor: Actor) => BusinessError | null;
-  to: (pr: PrSnapshot) => PrStatus;
+  to: (pr: PrSnapshot, actor: Actor) => PrStatus;
 }
+
+const invalidTransition = () =>
+  new BusinessError("PR_INVALID_TRANSITION", "Thao tác không hợp lệ ở trạng thái hiện tại của phiếu", 409);
 
 const notSelf = (pr: PrSnapshot, actor: Actor) =>
   actor.id === pr.requesterId
@@ -42,8 +45,16 @@ const sameDepartment = (pr: PrSnapshot, actor: Actor) =>
     : null;
 
 export const TRANSITIONS: Record<PrEvent, TransitionRule[]> = {
-  // BR-01: chỉ người tạo được gửi phiếu nháp
-  SUBMIT: [{ from: ["DRAFT"], who: "REQUESTER", to: () => "PENDING_MANAGER" }],
+  // BR-01: chỉ người tạo được gửi phiếu nháp.
+  // BR-08: phiếu do trưởng phòng lập đi thẳng lên giám đốc (không ai tự duyệt phiếu của mình, nên bước trưởng phòng
+  // sẽ không có người xử lý và phiếu kẹt vĩnh viễn).
+  SUBMIT: [
+    {
+      from: ["DRAFT"],
+      who: "REQUESTER",
+      to: (_pr, actor) => (actor.role === "MANAGER" ? "PENDING_DIRECTOR" : "PENDING_MANAGER"),
+    },
+  ],
   // BR-02 + BR-03
   MANAGER_APPROVE: [
     {
@@ -66,7 +77,16 @@ export const TRANSITIONS: Record<PrEvent, TransitionRule[]> = {
   ],
   REVISE: [{ from: ["REJECTED"], who: "REQUESTER", to: () => "DRAFT" }],
   // BR-05
-  CANCEL: [{ from: ["DRAFT", "PENDING_MANAGER"], who: "REQUESTER", to: () => "CANCELLED" }],
+  CANCEL: [
+    { from: ["DRAFT", "PENDING_MANAGER"], who: "REQUESTER", to: () => "CANCELLED" },
+    // BR-08: trưởng phòng hủy được phiếu của mình khi còn chờ cấp duyệt đầu tiên (với họ là giám đốc).
+    {
+      from: ["PENDING_DIRECTOR"],
+      who: "REQUESTER",
+      check: (_pr, actor) => (actor.role === "MANAGER" ? null : invalidTransition()),
+      to: () => "CANCELLED",
+    },
+  ],
 };
 
 export type Decision = { ok: true; to: PrStatus } | { ok: false; error: BusinessError };
@@ -74,14 +94,7 @@ export type Decision = { ok: true; to: PrStatus } | { ok: false; error: Business
 export function decide(pr: PrSnapshot, event: PrEvent, actor: Actor): Decision {
   const rules = TRANSITIONS[event].filter((r) => r.from.includes(pr.status));
   if (rules.length === 0) {
-    return {
-      ok: false,
-      error: new BusinessError(
-        "PR_INVALID_TRANSITION",
-        "Thao tác không hợp lệ ở trạng thái hiện tại của phiếu",
-        409,
-      ),
-    };
+    return { ok: false, error: invalidTransition() };
   }
   let lastError: BusinessError = Errors.forbidden();
   for (const rule of rules) {
@@ -95,7 +108,7 @@ export function decide(pr: PrSnapshot, event: PrEvent, actor: Actor): Decision {
       lastError = err;
       continue;
     }
-    return { ok: true, to: rule.to(pr) };
+    return { ok: true, to: rule.to(pr, actor) };
   }
   return { ok: false, error: lastError };
 }

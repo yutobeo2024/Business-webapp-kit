@@ -53,13 +53,13 @@ async function ensureUser(
 
 try {
   const kd = await upsertDepartment("KD", "Phòng Kinh doanh");
-  await upsertDepartment("KT", "Phòng Kế toán");
+  const kt = await upsertDepartment("KT", "Phòng Kế toán");
   await ensureUser(adminEmail, "Quản trị hệ thống", "ADMIN", adminPassword, null);
   if (demo) {
     await ensureUser("nhanvien@example.com", "Nguyễn Văn Nhân", "STAFF", adminPassword, kd);
     await ensureUser("truongphong@example.com", "Trần Thị Trưởng", "MANAGER", adminPassword, kd);
     await ensureUser("giamdoc@example.com", "Lê Văn Giám", "DIRECTOR", adminPassword, null);
-    await ensureUser("ketoan@example.com", "Phạm Thị Toán", "ACCOUNTANT", adminPassword, null);
+    await ensureUser("ketoan@example.com", "Phạm Thị Toán", "ACCOUNTANT", adminPassword, kt);
   }
   console.warn("[seed] Xong");
 } finally {

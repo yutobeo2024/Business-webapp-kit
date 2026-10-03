@@ -60,6 +60,15 @@ describe("PurchaseRequestsService (PostgreSQL thật)", () => {
     expect(done.status).toBe("APPROVED");
   });
 
+  it("hàng đợi treo (Redis mất kết nối) không làm treo thao tác đã commit", async () => {
+    const stuck = new PurchaseRequestsService(handle.db, { add: () => new Promise(() => {}) } as never);
+    const pr = await stuck.create(f.staff, input(), null);
+    const started = Date.now();
+    const r = await stuck.transition(f.staff, pr.id, { event: "SUBMIT", version: 1 }, null);
+    expect(r.status).toBe("PENDING_MANAGER");
+    expect(Date.now() - started).toBeLessThan(4000);
+  });
+
   it("BR-06: sai version bị từ chối 409 và không ghi audit", async () => {
     const pr = await service.create(f.staff, input(), null);
     expect(await codeOf(service.transition(f.staff, pr.id, { event: "SUBMIT", version: 99 }, null))).toBe(

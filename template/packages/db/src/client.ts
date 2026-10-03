@@ -27,6 +27,9 @@ export function createDb(
     statement_timeout: opts.statementTimeoutMs ?? 30_000,
     ...(opts.lockTimeoutMs ? { lock_timeout: opts.lockTimeoutMs } : {}),
   });
+  // Kết nối nhàn rỗi bị đứt (PostgreSQL khởi động lại, mạng chập chờn) phát sự kiện "error" trên pool.
+  // Không có listener thì Node coi là lỗi không bắt được và tiến trình chết; pool tự tạo kết nối mới khi cần.
+  pool.on("error", (err) => console.error("[db] Mất một kết nối nhàn rỗi trong pool:", err.message));
   const db = drizzle(pool, { schema, casing: "snake_case" });
   return { db, pool, close: () => pool.end() };
 }

@@ -1,8 +1,8 @@
-import type { Job } from "bullmq";
+import { type Job, UnrecoverableError } from "bullmq";
 import { lt } from "drizzle-orm";
 import type { Logger } from "pino";
 import { sessions, type Db } from "@app/db";
-import { JOBS, type PrStatusChangedJob } from "@app/shared";
+import { JOBS, type PrStatusChangedJob, prStatusChangedJobSchema } from "@app/shared";
 
 export const MAINTENANCE_JOBS = {
   purgeSessions: "maintenance.purge_sessions",
@@ -17,11 +17,12 @@ export interface ProcessorDeps {
  * Điểm mở rộng: gửi email / Zalo ZNS / thông báo trong app.
  * Processor phải idempotent: job có thể chạy lại khi retry. Dùng job.id làm khóa chống gửi trùng.
  */
-async function onPrStatusChanged(job: Job<PrStatusChangedJob>, deps: ProcessorDeps): Promise<void> {
-  deps.log.info(
-    { jobId: job.id, pr: job.data.code, from: job.data.from, to: job.data.to },
-    "Phiếu đề nghị đổi trạng thái",
-  );
+async function onPrStatusChanged(
+  jobId: string | undefined,
+  data: PrStatusChangedJob,
+  deps: ProcessorDeps,
+): Promise<void> {
+  deps.log.info({ jobId, pr: data.code, from: data.from, to: data.to }, "Phiếu đề nghị đổi trạng thái");
 }
 
 async function purgeSessions(deps: ProcessorDeps): Promise<number> {
@@ -34,8 +35,16 @@ async function purgeSessions(deps: ProcessorDeps): Promise<number> {
 export function createProcessor(deps: ProcessorDeps) {
   return async (job: Job): Promise<unknown> => {
     switch (job.name) {
-      case JOBS.prStatusChanged:
-        return onPrStatusChanged(job as Job<PrStatusChangedJob>, deps);
+      case JOBS.prStatusChanged: {
+        // Payload là input ở biên: API bản khác (lệch phiên bản lúc phát hành) hoặc job rác không được đi tiếp.
+        const parsed = prStatusChangedJobSchema.safeParse(job.data);
+        if (!parsed.success) {
+          throw new UnrecoverableError(
+            `Job ${job.name} sai định dạng: ${parsed.error.issues[0]?.message ?? ""}`,
+          );
+        }
+        return onPrStatusChanged(job.id, parsed.data, deps);
+      }
       case MAINTENANCE_JOBS.purgeSessions:
         return purgeSessions(deps);
       default:

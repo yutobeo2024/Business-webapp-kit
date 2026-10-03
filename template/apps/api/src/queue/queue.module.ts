@@ -1,8 +1,32 @@
 import { Global, Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
-import { Queue } from "bullmq";
+import { type JobsOptions, Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { QUEUES } from "@app/shared";
 import { ENV, type Env } from "../config/env.js";
+
+/**
+ * Đẩy job SAU khi transaction đã commit, có giới hạn thời gian chờ. Khi Redis mất kết nối, queue.add không lỗi mà
+ * chờ vô hạn (ioredis xếp lệnh vào hàng chờ nội bộ): thiếu giới hạn thì request đã ghi DB xong vẫn treo, người dùng
+ * bấm lại và nhận lỗi xung đột phiên bản. Quá hạn thì ném lỗi để nơi gọi ghi log; lệnh vẫn nằm trong hàng chờ và
+ * được gửi khi Redis kết nối lại.
+ */
+export async function enqueueAfterCommit(
+  queue: Pick<Queue, "add">,
+  name: string,
+  data: unknown,
+  opts: JobsOptions,
+  timeoutMs = 2000,
+): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`Hàng đợi không phản hồi sau ${timeoutMs}ms`)), timeoutMs);
+  });
+  try {
+    await Promise.race([queue.add(name, data, opts), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export const REDIS = Symbol("REDIS");
 export const NOTIFICATIONS_QUEUE = Symbol("NOTIFICATIONS_QUEUE");

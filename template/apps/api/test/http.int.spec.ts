@@ -1,7 +1,8 @@
 import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { DbHandle } from "@app/db";
+import { eq } from "drizzle-orm";
+import { sessions, users, type DbHandle } from "@app/db";
 import { createApp } from "../src/bootstrap.js";
 import {
   nextIp,
@@ -43,6 +44,14 @@ async function login(email: string) {
     .send({ email, password: TEST_PASSWORD });
   expect(res.status).toBe(200);
   return a;
+}
+
+/** Tài khoản bị khóa trả đúng thông báo của sai mật khẩu (không lộ email tồn tại), và DB ghi nhận khóa. */
+async function expectLocked(res: request.Response) {
+  expect(res.status).toBe(401);
+  expect(res.body.code).toBe("AUTH_INVALID_CREDENTIALS");
+  const [u] = await handle.db.select().from(users).where(eq(users.id, f.staff.id));
+  expect(u!.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
 }
 
 describe("HTTP API (app thật, DB + Redis thật)", () => {
@@ -99,7 +108,7 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
       .set("Origin", TEST_ORIGIN)
       .set("X-Forwarded-For", nextIp())
       .send({ email: f.staff.email, password: TEST_PASSWORD });
-    expect(res.status).toBe(423);
+    await expectLocked(res);
   });
 
   it("khóa tài khoản khi đăng nhập sai song song (bộ đếm không bị ghi đè)", async () => {
@@ -118,7 +127,48 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
       .set("Origin", TEST_ORIGIN)
       .set("X-Forwarded-For", nextIp())
       .send({ email: f.staff.email, password: TEST_PASSWORD });
-    expect(res.status).toBe(423);
+    await expectLocked(res);
+  });
+
+  it("phiên quá hạn tuyệt đối bị từ chối dù vẫn đang hoạt động", async () => {
+    const a = await login(f.staff.email);
+    expect((await a.get("/api/auth/me")).status).toBe(200);
+    await handle.db
+      .update(sessions)
+      .set({ createdAt: new Date(Date.now() - 8 * 24 * 3600_000) })
+      .where(eq(sessions.userId, f.staff.id));
+    expect((await a.get("/api/auth/me")).status).toBe(401);
+  });
+
+  it("phiên được gia hạn thì cookie cũng được gia hạn", async () => {
+    const a = await login(f.staff.email);
+    expect((await a.get("/api/auth/me")).headers["set-cookie"]).toBeUndefined();
+    await handle.db
+      .update(sessions)
+      .set({ lastSeenAt: new Date(Date.now() - 20 * 60_000) })
+      .where(eq(sessions.userId, f.staff.id));
+    const res = await a.get("/api/auth/me");
+    expect(res.status).toBe(200);
+    expect(String(res.headers["set-cookie"])).toMatch(/sid=.*HttpOnly/i);
+  });
+
+  it("body quá 1MB trả 413, không phải lỗi 500", async () => {
+    const a = await login(f.staff.email);
+    const res = await a
+      .post("/api/purchase-requests")
+      .set("Origin", TEST_ORIGIN)
+      .send({ title: "x".repeat(1_200_000), items: [] });
+    expect(res.status).toBe(413);
+  });
+
+  it("BR-08: giám đốc không lập phiếu (là người duyệt cuối)", async () => {
+    const a = await login(f.director.email);
+    const res = await a
+      .post("/api/purchase-requests")
+      .set("Origin", TEST_ORIGIN)
+      .send({ title: "Mua bàn ghế phòng họp", items: [{ name: "Bàn", quantity: 1, unitPrice: 1000 }] });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("PR_ROLE_NOT_ALLOWED");
   });
 
   it("CSRF: Referer sai định dạng bị chặn 403, không phải lỗi 500", async () => {

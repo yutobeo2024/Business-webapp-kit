@@ -26,7 +26,15 @@ const scheduler = new Queue(QUEUES.notifications, { connection });
 await scheduler.upsertJobScheduler(
   MAINTENANCE_JOBS.purgeSessions,
   { pattern: "0 3 * * *", tz: "Asia/Ho_Chi_Minh" },
-  { name: MAINTENANCE_JOBS.purgeSessions },
+  {
+    name: MAINTENANCE_JOBS.purgeSessions,
+    opts: {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 60_000 },
+      removeOnComplete: 30,
+      removeOnFail: 100,
+    },
+  },
 );
 
 log.info({ queue: QUEUES.notifications, concurrency: env.WORKER_CONCURRENCY }, "Worker đã sẵn sàng");

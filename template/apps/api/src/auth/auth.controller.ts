@@ -7,7 +7,7 @@ import { ZodPipe } from "../common/zod.pipe.js";
 import { ENV, type Env } from "../config/env.js";
 import { AuthService } from "./auth.service.js";
 import { CurrentUser, Public } from "./decorators.js";
-import { SESSION_COOKIE } from "./guards.js";
+import { SESSION_COOKIE, sessionCookieOptions } from "./guards.js";
 
 @Controller("auth")
 export class AuthController {
@@ -29,13 +29,7 @@ export class AuthController {
       ip: clientIp(req),
       userAgent: req.get("user-agent") ?? null,
     });
-    res.cookie(SESSION_COOKIE, result.token, {
-      httpOnly: true,
-      secure: this.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      expires: result.expiresAt,
-    });
+    res.cookie(SESSION_COOKIE, result.token, sessionCookieOptions(this.env, result.expiresAt));
     return result.user;
   }
 

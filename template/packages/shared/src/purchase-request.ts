@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { paginationQuerySchema } from "./api.js";
 import { isValidVnd, vndSchema } from "./money.js";
+import type { Role } from "./roles.js";
 
 /** Ngưỡng tổng tiền (VND) phải qua Giám đốc duyệt. Xem BR-03 trong docs/specs/001-phieu-de-nghi-mua-hang.md */
 export const DIRECTOR_APPROVAL_THRESHOLD_VND = 20_000_000;
@@ -61,6 +62,15 @@ export const createPurchaseRequestSchema = z.object({
   note: z.string().trim().max(2000).optional(),
 });
 export type CreatePurchaseRequestInput = z.infer<typeof createPurchaseRequestSchema>;
+
+/** Sửa phiếu nháp: nội dung như lúc tạo, kèm phiên bản đang xem (BR-06). */
+export const updatePurchaseRequestSchema = createPurchaseRequestSchema.extend({
+  version: z.number().int().min(1),
+});
+export type UpdatePurchaseRequestInput = z.infer<typeof updatePurchaseRequestSchema>;
+
+/** BR-08: vai trò được lập phiếu. Giám đốc là người duyệt cuối, Quản trị không tham gia nghiệp vụ. */
+export const PR_CREATOR_ROLES: readonly Role[] = ["STAFF", "MANAGER", "ACCOUNTANT"];
 
 export const transitionPurchaseRequestSchema = z
   .object({

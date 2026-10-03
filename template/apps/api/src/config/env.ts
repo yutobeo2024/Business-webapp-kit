@@ -4,10 +4,13 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   /** Origin hợp lệ của frontend, dùng cho kiểm tra CSRF và CORS. Ví dụ https://app.congty.vn */
-  APP_ORIGIN: z.url(),
+  APP_ORIGIN: z.url().transform((u) => new URL(u).origin), // bỏ dấu "/" cuối: so khớp chính xác với header Origin
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
+  /** Phiên hết hạn sau ngần này giờ KHÔNG hoạt động (trượt theo thao tác). */
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
+  /** Hạn tuyệt đối: quá ngần này ngày kể từ lúc đăng nhập phải đăng nhập lại, dù vẫn đang hoạt động. */
+  SESSION_MAX_DAYS: z.coerce.number().int().min(1).max(90).default(7),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   /** Số reverse proxy đứng trước API (Caddy = 1). Cần đúng để lấy IP thật cho rate limit và audit. */
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),

@@ -14,12 +14,13 @@ Ngoài phạm vi: đặt hàng nhà cung cấp, nhập kho, thanh toán.
 
 | Hành động                                             | Nhân viên | Trưởng phòng   | Kế toán | Giám đốc | Quản trị |
 | ----------------------------------------------------- | --------- | -------------- | ------- | -------- | -------- |
-| Lập, sửa, gửi, hủy phiếu của mình                     | ✓         | ✓              | ✓       | ✓        | ✓        |
+| Lập, sửa, gửi, hủy phiếu của mình                     | ✓         | ✓              | ✓       |          |          |
 | Duyệt/từ chối phiếu chờ trưởng phòng (cùng phòng ban) |           | ✓              |         |          |          |
 | Duyệt/từ chối phiếu chờ giám đốc                      |           |                |         | ✓        |          |
 | Xem phiếu                                             | của mình  | phòng ban mình | tất cả  | tất cả   | của mình |
 
-Quản trị chỉ quản lý tài khoản, không tham gia nghiệp vụ (tách biệt nhiệm vụ).
+Quản trị chỉ quản lý tài khoản, không tham gia nghiệp vụ (tách biệt nhiệm vụ). Giám đốc là người duyệt cuối nên không
+lập phiếu (không ai duyệt được phiếu của giám đốc). Người lập phiếu phải thuộc một phòng ban.
 
 ## 3. Thực thể dữ liệu
 
@@ -34,6 +35,7 @@ Quản trị chỉ quản lý tài khoản, không tham gia nghiệp vụ (tách
 stateDiagram-v2
   [*] --> DRAFT
   DRAFT --> PENDING_MANAGER: SUBMIT
+  DRAFT --> PENDING_DIRECTOR: SUBMIT (người lập là trưởng phòng)
   PENDING_MANAGER --> APPROVED: MANAGER_APPROVE (≤ ngưỡng)
   PENDING_MANAGER --> PENDING_DIRECTOR: MANAGER_APPROVE (> ngưỡng)
   PENDING_DIRECTOR --> APPROVED: DIRECTOR_APPROVE
@@ -56,6 +58,8 @@ stateDiagram-v2
 - **BR-06**: Mọi thay đổi khóa dòng và kiểm phiên bản; hai người thao tác cùng lúc thì chỉ một người thành công, người còn lại
   nhận thông báo tải lại. Audit ghi cùng transaction.
 - **BR-07**: Người ngoài phạm vi xem nhận "không tìm thấy", không lộ phiếu tồn tại.
+- **BR-08**: Không ai tự duyệt phiếu của mình. Phiếu do trưởng phòng lập bỏ qua bước trưởng phòng, gửi thẳng giám đốc
+  duyệt (kể cả dưới ngưỡng); trưởng phòng hủy được phiếu đó khi còn chờ giám đốc. Giám đốc và Quản trị không lập phiếu.
 
 ## 7. Thông báo
 

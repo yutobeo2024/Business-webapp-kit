@@ -1,22 +1,25 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { and, count, desc, eq, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { Queue } from "bullmq";
-import { departments, prCodeSeq, purchaseRequests, users, type Db, type DbOrTx } from "@app/db";
+import { prCodeSeq, purchaseRequests, users, type Db, type DbOrTx } from "@app/db";
 import {
+  businessYear,
   calcTotal,
   type CreatePurchaseRequestInput,
   type CurrentUser,
   JOBS,
   type ListPurchaseRequestsQuery,
   type Paginated,
+  PR_CREATOR_ROLES,
   type PrStatusChangedJob,
   type PurchaseRequestDto,
   type TransitionPurchaseRequestInput,
+  type UpdatePurchaseRequestInput,
 } from "@app/shared";
 import { writeAudit } from "../../common/audit.js";
 import { BusinessError, Errors } from "../../common/business-error.js";
 import { DB } from "../../db/db.module.js";
-import { NOTIFICATIONS_QUEUE } from "../../queue/queue.module.js";
+import { enqueueAfterCommit, NOTIFICATIONS_QUEUE } from "../../queue/queue.module.js";
 import { canView, type ViewScope, viewScope } from "./policy.js";
 import { allowedEvents, decide } from "./state-machine.js";
 
@@ -69,7 +72,7 @@ export class PurchaseRequestsService {
   private async nextCode(tx: DbOrTx): Promise<string> {
     const res = await tx.execute<{ n: string }>(sql`select nextval(${prCodeSeq.seqName}) as n`);
     const n = Number(res.rows[0]?.n);
-    return `PR-${new Date().getFullYear()}-${String(n).padStart(6, "0")}`;
+    return `PR-${businessYear()}-${String(n).padStart(6, "0")}`;
   }
 
   async create(
@@ -77,6 +80,9 @@ export class PurchaseRequestsService {
     input: CreatePurchaseRequestInput,
     ip: string | null,
   ): Promise<PurchaseRequestDto> {
+    if (!PR_CREATOR_ROLES.includes(actor.role)) {
+      throw new BusinessError("PR_ROLE_NOT_ALLOWED", "Vai trò của bạn không lập phiếu đề nghị mua hàng", 403);
+    }
     if (!actor.departmentId) {
       throw new BusinessError(
         "PR_NO_DEPARTMENT",
@@ -152,7 +158,7 @@ export class PurchaseRequestsService {
   async update(
     actor: CurrentUser,
     id: string,
-    input: CreatePurchaseRequestInput & { version: number },
+    input: UpdatePurchaseRequestInput,
     ip: string | null,
   ): Promise<PurchaseRequestDto> {
     const row = await this.db.transaction(async (tx) => {
@@ -237,9 +243,9 @@ export class PurchaseRequestsService {
       actorId: actor.id,
       version: row.version,
     };
-    await this.notifications
-      .add(JOBS.prStatusChanged, job, { jobId: `pr-${row.id}-v${row.version}` })
-      .catch((err: unknown) => this.logger.error({ err, prId: row.id }, "Không đẩy được job thông báo"));
+    await enqueueAfterCommit(this.notifications, JOBS.prStatusChanged, job, {
+      jobId: `pr-${row.id}-v${row.version}`,
+    }).catch((err: unknown) => this.logger.error({ err, prId: row.id }, "Không đẩy được job thông báo"));
 
     const [requester] = await this.db
       .select({ fullName: users.fullName })
@@ -262,11 +268,5 @@ export class PurchaseRequestsService {
     if (!current || !canView(viewScope(actor), current)) throw Errors.notFound("PR");
     if (current.version !== expectedVersion) throw Errors.versionConflict();
     return current;
-  }
-
-  /** Dùng cho seed/test: đảm bảo phòng ban tồn tại. */
-  async departmentExists(id: string): Promise<boolean> {
-    const [d] = await this.db.select({ id: departments.id }).from(departments).where(eq(departments.id, id));
-    return Boolean(d);
   }
 }

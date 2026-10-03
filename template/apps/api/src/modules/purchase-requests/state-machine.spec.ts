@@ -30,6 +30,18 @@ describe("BR-01 gửi duyệt", () => {
     expectErr(decide(pr({ status: "PENDING_MANAGER" }), "SUBMIT", staff), "PR_INVALID_TRANSITION"));
 });
 
+describe("BR-08 phiếu do trưởng phòng lập", () => {
+  const own = pr({ requesterId: manager.id });
+  it("gửi duyệt đi thẳng lên giám đốc, không kẹt ở bước trưởng phòng", () =>
+    expectTo(decide(own, "SUBMIT", manager), "PENDING_DIRECTOR"));
+  it("giám đốc duyệt phiếu của trưởng phòng dù dưới ngưỡng", () =>
+    expectTo(decide({ ...own, status: "PENDING_DIRECTOR" }, "DIRECTOR_APPROVE", director), "APPROVED"));
+  it("trưởng phòng hủy được phiếu của mình khi đang chờ giám đốc", () =>
+    expectTo(decide({ ...own, status: "PENDING_DIRECTOR" }, "CANCEL", manager), "CANCELLED"));
+  it("nhân viên không hủy được phiếu đang chờ giám đốc (BR-05)", () =>
+    expectErr(decide(pr({ status: "PENDING_DIRECTOR" }), "CANCEL", staff), "PR_INVALID_TRANSITION"));
+});
+
 describe("BR-02 trưởng phòng duyệt", () => {
   const pending = pr({ status: "PENDING_MANAGER" });
   it("trưởng phòng cùng phòng ban được duyệt", () =>

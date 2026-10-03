@@ -19,6 +19,7 @@ export function testEnv(): Env {
     DATABASE_URL: process.env.DATABASE_URL!,
     REDIS_URL: process.env.REDIS_URL!,
     SESSION_TTL_HOURS: 12,
+    SESSION_MAX_DAYS: 7,
     LOG_LEVEL: "error",
     TRUST_PROXY_HOPS: 1,
     DB_POOL_MAX: 5,

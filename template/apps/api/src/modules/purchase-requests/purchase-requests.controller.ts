@@ -10,6 +10,8 @@ import {
   type PurchaseRequestDto,
   type TransitionPurchaseRequestInput,
   transitionPurchaseRequestSchema,
+  type UpdatePurchaseRequestInput,
+  updatePurchaseRequestSchema,
 } from "@app/shared";
 import { CurrentUser } from "../../auth/decorators.js";
 import { type AuthedRequest, clientIp } from "../../common/request-context.js";
@@ -17,7 +19,6 @@ import { ZodPipe } from "../../common/zod.pipe.js";
 import { PurchaseRequestsService } from "./purchase-requests.service.js";
 
 const idSchema = z.uuid();
-const updateSchema = createPurchaseRequestSchema.extend({ version: z.number().int().min(1) });
 
 @Controller("purchase-requests")
 export class PurchaseRequestsController {
@@ -52,7 +53,7 @@ export class PurchaseRequestsController {
   update(
     @CurrentUser() user: CurrentUserType,
     @Param("id", new ZodPipe(idSchema)) id: string,
-    @Body(new ZodPipe(updateSchema)) body: z.infer<typeof updateSchema>,
+    @Body(new ZodPipe(updatePurchaseRequestSchema)) body: UpdatePurchaseRequestInput,
     @Req() req: AuthedRequest,
   ): Promise<PurchaseRequestDto> {
     return this.service.update(user, id, body, clientIp(req));
