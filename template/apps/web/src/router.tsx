@@ -19,6 +19,7 @@ import { meQueryKey, useMe } from "@/features/auth/use-me";
 import { ExportsPage } from "@/features/exports/exports-page";
 import { NotificationBell } from "@/features/notifications/notification-bell";
 import { NotificationsPage } from "@/features/notifications/notifications-page";
+import { NotificationSettingsPage } from "@/features/notifications/settings-page";
 import { PurchaseRequestListPage } from "@/features/purchase-requests/list-page";
 import { api } from "@/lib/api";
 import { searchValidator } from "@/lib/list-search";
@@ -116,6 +117,11 @@ const exportsRoute = createRoute({
   path: "/exports",
   component: ExportsPage,
 });
+const accountNotificationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/account/notifications",
+  component: NotificationSettingsPage,
+});
 const accountPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/account/password",
@@ -156,6 +162,7 @@ export const router = createRouter({
     exportsRoute,
     notificationsRoute,
     accountPasswordRoute,
+    accountNotificationsRoute,
     adminUsersRoute,
     adminRolesRoute,
     adminDepartmentsRoute,

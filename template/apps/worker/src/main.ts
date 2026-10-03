@@ -4,10 +4,13 @@ import { Redis } from "ioredis";
 import pino from "pino";
 import { createDb } from "@app/db";
 import { createStorage } from "@app/server";
-import { QUEUES } from "@app/shared";
+import { JOBS, type NotificationChannel, type NotificationDeliverJob, QUEUES } from "@app/shared";
 import { loadEnv } from "./env.js";
 import { createExportProcessor, EXPORT_MAINTENANCE_JOBS } from "./exports/processor.js";
 import { PdfRenderer } from "./exports/pdf.js";
+import type { NotificationSender } from "./notifications/channel.js";
+import { MAX_DELIVERY_ATTEMPTS } from "./notifications/deliver.js";
+import { EmailSender } from "./notifications/email.js";
 import { createProcessor, MAINTENANCE_JOBS } from "./processors.js";
 
 const env = loadEnv();
@@ -15,10 +18,35 @@ const log = pino({ level: env.LOG_LEVEL, base: { service: "worker" } });
 const handle = createDb(env.DATABASE_URL, { max: 5, appName: "worker" });
 const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
 
-const worker = new Worker(QUEUES.notifications, createProcessor({ db: handle.db, log }), {
-  connection,
-  concurrency: env.WORKER_CONCURRENCY,
-});
+// Kênh ngoài chỉ bật khi đã cấu hình (SMTP_URL). Thông báo trong app luôn có.
+const email = env.SMTP_URL ? new EmailSender(env.SMTP_URL, env.MAIL_FROM, env.APP_ORIGIN) : null;
+const senders: Partial<Record<NotificationChannel, NotificationSender>> = {
+  ...(email ? { email } : {}),
+};
+const scheduler = new Queue(QUEUES.notifications, { connection });
+async function enqueueDeliveries(ids: string[], opts: { retry?: boolean } = {}): Promise<void> {
+  const data = (deliveryId: string): NotificationDeliverJob => ({ deliveryId });
+  await scheduler.addBulk(
+    ids.map((id) => ({
+      name: JOBS.notificationDeliver,
+      data: data(id),
+      opts: {
+        // Lượt quét lại cần jobId mới (job cũ có thể còn lưu ở trạng thái xong/lỗi); trùng thì lần "giành" hàng chặn.
+        jobId: opts.retry ? `delivery-${id}-${Date.now()}` : `delivery-${id}`,
+        attempts: MAX_DELIVERY_ATTEMPTS,
+        backoff: { type: "exponential", delay: 30_000 },
+        removeOnComplete: 1000,
+        removeOnFail: 5000,
+      },
+    })),
+  );
+}
+
+const worker = new Worker(
+  QUEUES.notifications,
+  createProcessor({ db: handle.db, log, senders, enqueueDeliveries }),
+  { connection, concurrency: env.WORKER_CONCURRENCY },
+);
 
 /** Gốc repo (STORAGE_DIR tương đối khi chạy dev): apps/worker/{src,dist} -> ../../../ */
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -44,7 +72,6 @@ for (const w of [worker, exportsWorker]) {
 }
 
 // Lịch bảo trì định kỳ: dọn phiên hết hạn lúc 03:00 hằng ngày (giờ Việt Nam). upsert nên không tạo trùng khi khởi động lại.
-const scheduler = new Queue(QUEUES.notifications, { connection });
 await scheduler.upsertJobScheduler(
   MAINTENANCE_JOBS.purgeSessions,
   { pattern: "0 3 * * *", tz: "Asia/Ho_Chi_Minh" },
@@ -57,6 +84,13 @@ await scheduler.upsertJobScheduler(
       removeOnFail: 100,
     },
   },
+);
+
+// Gửi lại thông báo bị kẹt (job mất, worker chết giữa lúc gửi) mỗi 10 phút.
+await scheduler.upsertJobScheduler(
+  MAINTENANCE_JOBS.sweepDeliveries,
+  { pattern: "*/10 * * * *", tz: "Asia/Ho_Chi_Minh" },
+  { name: MAINTENANCE_JOBS.sweepDeliveries, opts: { attempts: 2, removeOnComplete: 10, removeOnFail: 100 } },
 );
 
 // Dọn tệp xuất hết hạn và đính kèm đã xóa quá 7 ngày lúc 04:00 hằng ngày.
@@ -89,6 +123,7 @@ log.info(
     queues: [QUEUES.notifications, QUEUES.exports],
     concurrency: env.WORKER_CONCURRENCY,
     exportConcurrency: env.EXPORT_CONCURRENCY,
+    channels: Object.keys(senders),
   },
   "Worker đã sẵn sàng",
 );
@@ -106,6 +141,7 @@ async function shutdown(signal: string): Promise<void> {
     await Promise.all([worker.close(), exportsWorker.close()]);
     await Promise.all([scheduler.close(), exportsScheduler.close()]);
     await pdf.close();
+    email?.close();
     await connection.quit();
     await handle.close();
     clearTimeout(timer);

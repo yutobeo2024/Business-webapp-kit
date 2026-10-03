@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { formatDateTime, type NotificationDto } from "@app/shared";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,9 @@ export function NotificationsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Thông báo</h1>
         <div className="flex items-center gap-2">
+          <Link to="/account/notifications" className="text-sm underline">
+            Cài đặt
+          </Link>
           <Button
             size="sm"
             variant="outline"

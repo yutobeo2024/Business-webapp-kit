@@ -18,6 +18,14 @@ const schema = z.object({
     .max(24 * 30)
     .default(24),
   EXPORT_MAX_ROWS: z.coerce.number().int().min(1).max(1_000_000).default(100_000),
+  /** Địa chỉ app (giống api): để dựng liên kết tuyệt đối trong email. */
+  APP_ORIGIN: z.url().default("http://localhost:5173"),
+  /** Bật kênh email: smtp(s)://user:pass@host:port. Bỏ trống = không gửi email (chỉ thông báo trong app). */
+  SMTP_URL: z
+    .string()
+    .optional()
+    .transform((v) => v || undefined),
+  MAIL_FROM: z.string().min(3).default("Hệ thống <no-reply@localhost>"),
   /** Đường dẫn Chromium trong image production; bỏ trống khi dev (dùng trình duyệt Playwright đã cài). */
   CHROMIUM_PATH: z.string().min(1).optional(),
 });

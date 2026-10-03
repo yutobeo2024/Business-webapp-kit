@@ -1,6 +1,7 @@
 /**
  * Quản trị người dùng, vai trò, phòng ban (lõi của kit, spec docs/specs/000-quan-tri-nguoi-dung.md).
  */
+import { optionalPhoneSchema } from "./notifications.js";
 import { z } from "zod";
 import { listQuerySchema } from "./api.js";
 import { passwordSchema } from "./auth.js";
@@ -93,6 +94,8 @@ export const createUserSchema = z.object({
     .max(200)
     .transform((v) => v.trim().toLowerCase()),
   fullName: name("Họ tên"),
+  /** Để gửi thông báo Zalo; để trống nếu không dùng. */
+  phone: optionalPhoneSchema.optional(),
   departmentId: z.uuid().nullable(),
   roleIds,
   /** Mật khẩu tạm: người dùng bắt buộc đổi ở lần đăng nhập đầu. */
@@ -102,6 +105,8 @@ export type CreateUserInput = z.input<typeof createUserSchema>;
 
 export const updateUserSchema = z.object({
   fullName: name("Họ tên"),
+  /** Không gửi trường này thì giữ nguyên số cũ. */
+  phone: optionalPhoneSchema.optional(),
   departmentId: z.uuid().nullable(),
   roleIds,
   version,
@@ -136,6 +141,8 @@ export interface UserDto {
   id: string;
   email: string;
   fullName: string;
+  /** Dạng 84xxxxxxxxx; hiển thị bằng formatPhone. */
+  phone: string | null;
   departmentId: string | null;
   departmentName: string | null;
   roles: { id: string; name: string }[];

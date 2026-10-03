@@ -24,6 +24,17 @@ const envSchema = z.object({
   STORAGE_DIR: z.string().min(1).default(".data/files"),
   /** Dung lượng tối đa một tệp tải lên. Caddy (infra/Caddyfile) giới hạn body lớn hơn giá trị này một chút. */
   FILE_MAX_MB: z.coerce.number().int().min(1).max(100).default(10),
+  /**
+   * Kênh thông báo ngoài (worker gửi; api chỉ dùng để cho người dùng biết kênh nào đang có). Cùng giá trị với worker.
+   */
+  SMTP_URL: z
+    .string()
+    .optional()
+    .transform((v) => v || undefined),
+  ZALO_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 export type Env = z.infer<typeof envSchema>;

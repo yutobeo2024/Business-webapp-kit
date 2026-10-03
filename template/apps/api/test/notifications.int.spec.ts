@@ -100,3 +100,72 @@ describe("thông báo trong app (spec 003)", () => {
     expect((await manager.get("/api/notifications?unread=yes")).status).toBe(400);
   });
 });
+
+describe("cài đặt kênh và số điện thoại (spec 003)", () => {
+  it("mặc định bật; tắt email được lưu; Zalo chưa bật ở hệ thống thì báo lý do", async () => {
+    const staff = await login(f.staff.email);
+    const first = await staff.get("/api/account/notification-settings");
+    expect(first.body).toEqual([
+      { channel: "email", enabled: true, available: true, unavailableReason: null },
+      { channel: "zalo", enabled: true, available: false, unavailableReason: "Hệ thống chưa bật Zalo" },
+    ]);
+    const put = await staff
+      .put("/api/account/notification-settings")
+      .set("Origin", TEST_ORIGIN)
+      .send({ email: false, zalo: true });
+    expect(put.status).toBe(200);
+    expect(put.body[0]).toMatchObject({ channel: "email", enabled: false });
+    expect((await staff.get("/api/account/notification-settings")).body[0].enabled).toBe(false);
+    expect(
+      (await staff.put("/api/account/notification-settings").set("Origin", TEST_ORIGIN).send({ email: "no" }))
+        .status,
+    ).toBe(400);
+  });
+
+  it("quản trị nhập số điện thoại: lưu dạng chuẩn 84..., số sai bị 400 với câu tiếng Việt", async () => {
+    const admin = await login(f.admin.email);
+    const base = {
+      email: "co.sdt@test.vn",
+      fullName: "Có Số",
+      departmentId: f.deptKd,
+      roleIds: [f.roleIds.STAFF],
+      temporaryPassword: "mat-khau-tam-2026",
+    };
+    const bad = await admin
+      .post("/api/admin/users")
+      .set("Origin", TEST_ORIGIN)
+      .send({ ...base, phone: "0243 826 1234" });
+    expect(bad.status).toBe(400);
+    expect(JSON.stringify(bad.body)).toContain("Số điện thoại di động không hợp lệ");
+
+    const ok = await admin
+      .post("/api/admin/users")
+      .set("Origin", TEST_ORIGIN)
+      .send({ ...base, phone: "0912 345 678" });
+    expect(ok.status).toBe(201);
+    expect(ok.body.phone).toBe("84912345678");
+
+    // Sửa không gửi phone: giữ số cũ; gửi rỗng: xóa số.
+    const keep = await admin
+      .patch(`/api/admin/users/${ok.body.id}`)
+      .set("Origin", TEST_ORIGIN)
+      .send({
+        fullName: "Có Số",
+        departmentId: f.deptKd,
+        roleIds: [f.roleIds.STAFF],
+        version: ok.body.version,
+      });
+    expect(keep.body.phone).toBe("84912345678");
+    const cleared = await admin
+      .patch(`/api/admin/users/${ok.body.id}`)
+      .set("Origin", TEST_ORIGIN)
+      .send({
+        fullName: "Có Số",
+        phone: "",
+        departmentId: f.deptKd,
+        roleIds: [f.roleIds.STAFF],
+        version: keep.body.version,
+      });
+    expect(cleared.body.phone).toBeNull();
+  });
+});

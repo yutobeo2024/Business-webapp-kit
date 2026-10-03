@@ -44,6 +44,7 @@ const SORTABLE = {
 const auditView = (u: UserRow, roleIds?: string[]) => ({
   email: u.email,
   fullName: u.fullName,
+  phone: u.phone,
   departmentId: u.departmentId,
   isActive: u.isActive,
   mustChangePassword: u.mustChangePassword,
@@ -133,6 +134,7 @@ export class UsersService {
           .values({
             email: input.email,
             fullName: input.fullName,
+            phone: input.phone ?? null,
             departmentId: input.departmentId,
             passwordHash,
             mustChangePassword: true,
@@ -174,7 +176,12 @@ export class UsersService {
       await this.assertDepartmentUsable(tx, input.departmentId, current.departmentId);
       const [updated] = await tx
         .update(users)
-        .set({ fullName: input.fullName, departmentId: input.departmentId, version: current.version + 1 })
+        .set({
+          fullName: input.fullName,
+          ...(input.phone !== undefined ? { phone: input.phone } : {}),
+          departmentId: input.departmentId,
+          version: current.version + 1,
+        })
         .where(eq(users.id, id))
         .returning();
       await this.setRoles(tx, id, input.roleIds);
@@ -327,6 +334,7 @@ function toDto(u: UserRow, departmentName: string | null, roleList: { id: string
     id: u.id,
     email: u.email,
     fullName: u.fullName,
+    phone: u.phone,
     departmentId: u.departmentId,
     departmentName,
     roles: roleList,

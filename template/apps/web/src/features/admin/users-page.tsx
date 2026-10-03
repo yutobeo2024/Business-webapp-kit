@@ -12,6 +12,7 @@ import {
   USER_STATUS_LABELS,
   USER_STATUSES,
   type UserDto,
+  formatPhone,
 } from "@app/shared";
 import { Button } from "@/components/ui/button";
 import { CheckboxGroup } from "@/components/ui/checkbox-group";
@@ -305,6 +306,7 @@ function CreateUserForm({ onClose }: { onClose: () => void }) {
     defaultValues: {
       email: "",
       fullName: "",
+      phone: "",
       departmentId: null,
       roleIds: [],
       temporaryPassword: generateTemporaryPassword(),
@@ -343,6 +345,12 @@ function CreateUserForm({ onClose }: { onClose: () => void }) {
       <Field label="Họ tên" error={form.formState.errors.fullName?.message}>
         <Input {...form.register("fullName")} />
       </Field>
+      <Field
+        label="Số di động (nhận thông báo Zalo, có thể để trống)"
+        error={form.formState.errors.phone?.message}
+      >
+        <Input inputMode="tel" autoComplete="off" {...form.register("phone")} />
+      </Field>
       <Field label="Phòng ban" error={form.formState.errors.departmentId?.message}>
         <DepartmentSelect {...form.register("departmentId", departmentValue)} />
       </Field>
@@ -375,6 +383,7 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
     resolver: zodResolver(updateUserSchema),
     defaultValues: {
       fullName: user.fullName,
+      phone: user.phone ? formatPhone(user.phone) : "",
       departmentId: user.departmentId,
       roleIds: user.roles.map((r) => r.id),
       version: user.version,
@@ -388,6 +397,12 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
     >
       <Field label="Họ tên" error={form.formState.errors.fullName?.message}>
         <Input {...form.register("fullName")} />
+      </Field>
+      <Field
+        label="Số di động (nhận thông báo Zalo, có thể để trống)"
+        error={form.formState.errors.phone?.message}
+      >
+        <Input inputMode="tel" autoComplete="off" {...form.register("phone")} />
       </Field>
       <Field label="Phòng ban" error={form.formState.errors.departmentId?.message}>
         <DepartmentSelect

@@ -14,6 +14,46 @@ export const NOTIFICATION_CHANNEL_LABELS: Record<NotificationChannel, string> = 
   zalo: "Zalo",
 };
 
+export const DELIVERY_STATUSES = ["PENDING", "SENDING", "SENT", "FAILED", "SKIPPED"] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+/**
+ * Số di động Việt Nam, chấp nhận "0912 345 678", "+84 912.345.678", "84912345678"; lưu dạng "84912345678" (định dạng
+ * Zalo ZNS cần). Chỉ đầu số di động (3, 5, 7, 8, 9).
+ */
+export const vnPhoneSchema = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/[\s.\-()]/g, ""))
+  .transform((v) => (v.startsWith("+84") ? v.slice(1) : v.startsWith("0") ? `84${v.slice(1)}` : v))
+  .refine((v) => /^84[35789]\d{8}$/.test(v), "Số điện thoại di động không hợp lệ (ví dụ 0912 345 678)");
+
+/** Ô số điện thoại trên form: để trống = không có. */
+export const optionalPhoneSchema = z
+  .union([z.literal(""), z.null(), vnPhoneSchema])
+  .transform((v) => (v ? v : null));
+
+/** "84912345678" -> "0912 345 678" để hiển thị. */
+export const formatPhone = (phone: string): string =>
+  phone.startsWith("84") && phone.length === 11
+    ? `0${phone.slice(2, 5)} ${phone.slice(5, 8)} ${phone.slice(8)}`
+    : phone;
+
+export interface NotificationSettingDto {
+  channel: NotificationChannel;
+  enabled: boolean;
+  /** Kênh dùng được không: hệ thống đã cấu hình kênh và tài khoản có địa chỉ (email, SĐT). */
+  available: boolean;
+  /** Vì sao không dùng được, để hiện cho người dùng. */
+  unavailableReason: string | null;
+}
+
+export const updateNotificationSettingsSchema = z.object({
+  email: z.boolean(),
+  zalo: z.boolean(),
+}) satisfies z.ZodType<Record<NotificationChannel, boolean>>;
+export type UpdateNotificationSettingsInput = z.infer<typeof updateNotificationSettingsSchema>;
+
 const prRef = {
   prId: z.uuid(),
   code: z.string().min(1),

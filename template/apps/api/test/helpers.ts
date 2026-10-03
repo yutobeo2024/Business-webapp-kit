@@ -33,6 +33,8 @@ export function testEnv(): Env {
     STORAGE_DRIVER: "local",
     STORAGE_DIR: TEST_STORAGE_DIR,
     FILE_MAX_MB: 1,
+    SMTP_URL: "smtp://localhost:1025",
+    ZALO_ENABLED: false,
   };
 }
 
@@ -40,7 +42,7 @@ export const openDb = (): DbHandle => createDb(process.env.DATABASE_URL!, { max:
 
 export async function resetDb(handle: DbHandle): Promise<void> {
   await handle.db.execute(
-    sql`truncate table audit_logs, notifications, export_jobs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
+    sql`truncate table audit_logs, notification_deliveries, user_notification_settings, notifications, export_jobs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
   );
   // Sequence đứng riêng (không thuộc cột) không được "restart identity" reset: mã phiếu tăng mãi qua các test và tới lúc
   // chứa chuỗi đang tìm (PR-2026-000150 khớp "50") thì test tìm kiếm đỏ chập chờn.

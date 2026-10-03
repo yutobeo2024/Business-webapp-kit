@@ -16,7 +16,13 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { EXPORT_STATUSES, PR_STATUSES, type PrItem } from "@app/shared";
+import {
+  DELIVERY_STATUSES,
+  EXPORT_STATUSES,
+  NOTIFICATION_CHANNELS,
+  PR_STATUSES,
+  type PrItem,
+} from "@app/shared";
 
 // Quy ước: bảng snake_case số nhiều; mọi bảng nghiệp vụ có created_at, updated_at; xóa mềm bằng deleted_at.
 const timestamps = {
@@ -29,6 +35,8 @@ const timestamps = {
 
 export const prStatusEnum = pgEnum("pr_status", PR_STATUSES);
 export const exportStatusEnum = pgEnum("export_status", EXPORT_STATUSES);
+export const notificationChannelEnum = pgEnum("notification_channel", NOTIFICATION_CHANNELS);
+export const deliveryStatusEnum = pgEnum("delivery_status", DELIVERY_STATUSES);
 
 export const departments = pgTable("departments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -51,6 +59,8 @@ export const users = pgTable(
     mustChangePassword: boolean("must_change_password").notNull().default(false),
     passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
     departmentId: uuid("department_id").references(() => departments.id),
+    /** Số di động dạng 84xxxxxxxxx (vnPhoneSchema). Dữ liệu cá nhân: chỉ để gửi thông báo Zalo (spec 003). */
+    phone: text("phone"),
     isActive: boolean("is_active").notNull().default(true),
     failedLoginCount: integer("failed_login_count").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
@@ -228,6 +238,8 @@ export const notifications = pgTable(
     title: text("title").notNull(),
     body: text("body").notNull(),
     link: text("link"),
+    /** Dữ liệu gốc đã validate theo NOTIFICATION_DATA_SCHEMAS: kênh ngoài (mẫu Zalo) dựng nội dung từ đây. */
+    data: jsonb("data").notNull(),
     dedupeKey: text("dedupe_key").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     readAt: timestamp("read_at", { withTimezone: true }),
@@ -239,6 +251,49 @@ export const notifications = pgTable(
       .on(t.userId)
       .where(sql`${t.readAt} is null`),
   ],
+);
+
+/**
+ * Giao một thông báo qua một kênh ngoài (email, Zalo). (notification_id, channel) duy nhất: không bao giờ gửi hai lần
+ * vì tạo trùng; job gửi "giành" hàng bằng cách đổi PENDING -> SENDING trước khi gửi.
+ */
+export const notificationDeliveries = pgTable(
+  "notification_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    notificationId: uuid("notification_id")
+      .notNull()
+      .references(() => notifications.id, { onDelete: "cascade" }),
+    channel: notificationChannelEnum("channel").notNull(),
+    status: deliveryStatusEnum("status").notNull().default("PENDING"),
+    attempts: integer("attempts").notNull().default(0),
+    /** Lý do bỏ qua hoặc lỗi cuối (không chứa nội dung thông báo, không chứa token). */
+    error: text("error"),
+    providerMessageId: text("provider_message_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("notification_deliveries_uq").on(t.notificationId, t.channel),
+    index("notification_deliveries_status_idx").on(t.status, t.updatedAt),
+  ],
+);
+
+/** Người dùng tắt/bật từng kênh ngoài. Không có hàng = bật. */
+export const userNotificationSettings = pgTable(
+  "user_notification_settings",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    channel: notificationChannelEnum("channel").notNull(),
+    enabled: boolean("enabled").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.channel] })],
 );
 
 export const auditLogs = pgTable(

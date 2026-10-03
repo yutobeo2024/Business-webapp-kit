@@ -10,9 +10,13 @@ export const QUEUES = {
 export const JOBS = {
   prStatusChanged: "pr.status_changed",
   exportRun: "export.run",
+  notificationDeliver: "notification.deliver",
 } as const;
 
 export const exportRunJobSchema = z.object({ exportId: z.uuid() });
+
+export const notificationDeliverJobSchema = z.object({ deliveryId: z.uuid() });
+export type NotificationDeliverJob = z.infer<typeof notificationDeliverJobSchema>;
 export type ExportRunJob = z.infer<typeof exportRunJobSchema>;
 
 /** Payload job cũng là input ở biên (quy ước #2): API tạo theo type này, worker validate bằng schema trước khi xử lý. */

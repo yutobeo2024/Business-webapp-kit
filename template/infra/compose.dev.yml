@@ -1,4 +1,5 @@
-# Dịch vụ cho môi trường dev: PostgreSQL + Redis. Chạy: pnpm dev:services
+# Dịch vụ cho môi trường dev: PostgreSQL + Redis + Mailpit (SMTP giả, xem thư ở http://localhost:8025).
+# Chạy: pnpm dev:services
 name: app-dev
 services:
   postgres:
@@ -18,5 +19,8 @@ services:
   redis:
     image: redis:7-alpine
     ports: ["127.0.0.1:6379:6379"]
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports: ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"]
 volumes:
   pg_dev:

@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ListNotificationsQuery, NotificationDto, Paginated } from "@app/shared";
+import type {
+  ListNotificationsQuery,
+  NotificationDto,
+  NotificationSettingDto,
+  Paginated,
+  UpdateNotificationSettingsInput,
+} from "@app/shared";
 import { api } from "@/lib/api";
 
 const key = ["notifications"] as const;
@@ -37,5 +43,23 @@ export function useMarkAllRead() {
   return useMutation({
     mutationFn: () => api<{ updated: number }>("/notifications/read-all", { method: "POST" }),
     onSettled: () => qc.invalidateQueries({ queryKey: key }),
+  });
+}
+
+const settingsKey = ["account", "notification-settings"] as const;
+
+export function useNotificationSettings() {
+  return useQuery({
+    queryKey: settingsKey,
+    queryFn: () => api<NotificationSettingDto[]>("/account/notification-settings"),
+  });
+}
+
+export function useUpdateNotificationSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateNotificationSettingsInput) =>
+      api<NotificationSettingDto[]>("/account/notification-settings", { method: "PUT", body }),
+    onSuccess: (data) => qc.setQueryData(settingsKey, data),
   });
 }
