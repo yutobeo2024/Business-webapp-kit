@@ -265,6 +265,12 @@ const WRITE_ALL = new Set([
 ]);
 const WRITE_LAST = new Set(["cp", "copy", "copy-item", "cpi", "install", "rsync", "scp"]);
 
+const OUTPUT_OPT_CMDS = new Set([
+  ...["curl", "wget", "tar", "unzip", "7z", "bsdtar"],
+  ...["iwr", "irm", "invoke-webrequest", "invoke-restmethod", "expand-archive"],
+]);
+const OUTPUT_OPT = /^(-o|-O|-C|-d|--output|--output-document|--directory|-outfile|-destinationpath)$/i;
+
 /** Các token là nơi lệnh (không kể chuyển hướng >) sẽ ghi vào. */
 function writeTargets(name, args) {
   const pos = args.filter((a) => !a.startsWith("-") && a !== ">");
@@ -275,6 +281,14 @@ function writeTargets(name, args) {
     args.forEach((a, i) => {
       if (a === "-t" || a === "--target-directory" || /^-destination$/i.test(a)) out.push(args[i + 1] ?? "");
       if (a.startsWith("--target-directory=")) out.push(a.slice(19));
+    });
+  }
+  // Tải về / giải nén ghi vào nơi chỉ định bằng option: curl -o, wget -O, tar -C, unzip -d, iwr -OutFile.
+  if (OUTPUT_OPT_CMDS.has(name)) {
+    args.forEach((a, i) => {
+      if (OUTPUT_OPT.test(a)) out.push(args[i + 1] ?? "");
+      const eq = /^--(output|output-document|directory|one-top-level)=(.+)$/.exec(a);
+      if (eq) out.push(eq[2]);
     });
   }
   if ((name === "sed" || name === "perl") && args.some((a) => /^-[a-z]*i/i.test(a) || a === "--in-place"))

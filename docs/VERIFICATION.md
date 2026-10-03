@@ -18,7 +18,8 @@ Mỗi lỗi được tái hiện bằng test ĐỎ trên 1.0.0 trước khi sử
 Sau đó một agent độc lập (chưa thấy quá trình sửa) rà lại toàn bộ diff và tìm thêm: khoảng 30 cách lách hook mới viết
 (redirect đầu lệnh, `$(...)` trong nháy kép, `sudo -u`, option git viết tắt...), 6 lệnh bị chặn nhầm, checklist
 mâu thuẫn với Rollback, request đoán đúng song song vượt khóa tài khoản, migrate thiếu `lock_timeout`. Tất cả đã sửa;
-các lệnh đó được đưa vào selftest (206 tình huống trên Windows), đối chiếu thấy đỏ trên bản trước.
+các lệnh đó được đưa vào selftest (hơn 200 tình huống), đối chiếu thấy đỏ trên bản trước. Một lượt thử thu gọn sau đó
+tìm thêm lỗ ghi qua option file đích (`curl -o`, `wget -O`, `tar -C`, `unzip -d`, `-OutFile`), cũng đã sửa.
 
 Môi trường kiểm:
 - Windows 10, Node 25 (bỏ qua kiểm engine), Docker Desktop 28.3: build, lint, typecheck, unit, format, selftest,
