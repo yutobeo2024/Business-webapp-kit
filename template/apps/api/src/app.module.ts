@@ -4,6 +4,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 import { PermissionGuard } from "./auth/access.js";
 import { AuthModule } from "./auth/auth.module.js";
+import { AdminModule } from "./modules/admin/admin.module.js";
 import { OriginGuard, SessionGuard } from "./auth/guards.js";
 import { HttpExceptionFilter } from "./common/http-exception.filter.js";
 import { ENV, type Env } from "./config/env.js";
@@ -33,6 +34,7 @@ export class AppModule {
         QueueModule,
         HealthModule,
         AuthModule,
+        AdminModule,
         PurchaseRequestsModule,
       ],
       providers: [

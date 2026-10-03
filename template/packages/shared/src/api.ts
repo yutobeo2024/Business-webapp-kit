@@ -31,8 +31,8 @@ export function listQuerySchema<const S extends readonly [string, ...string[]]>(
       .string()
       .trim()
       .max(100, "Từ khóa tối đa 100 ký tự")
-      .optional()
-      .transform((v) => v || undefined),
+      .transform((v) => v || undefined)
+      .optional(),
     sort: z.enum(opts.sortable, "Không sắp xếp được theo cột này").default(opts.defaultSort),
     order: z.enum(SORT_ORDERS).default(opts.defaultOrder ?? "desc"),
   });

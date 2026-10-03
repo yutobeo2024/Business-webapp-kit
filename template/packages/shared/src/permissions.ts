@@ -14,15 +14,22 @@ export interface PermissionDef {
   group: string;
   /** Mô tả tiếng Việt, nói rõ quyền cho phép làm gì. */
   label: string;
+  /**
+   * Quyền quản trị: chỉ người ĐANG CÓ quyền này mới cấp được cho người khác (qua vai trò), và người không có nó không
+   * thao tác được trên tài khoản đang có nó (không đặt lại mật khẩu để chiếm tài khoản mạnh hơn mình).
+   * Quyền nghiệp vụ thì người quản lý tài khoản gán được dù bản thân không có (tách biệt nhiệm vụ).
+   */
+  holderOnly?: boolean;
 }
 
 export const CORE_PERMISSIONS = {
   "users.manage": {
     group: "Quản trị hệ thống",
     label: "Quản lý người dùng: tạo, sửa, khóa tài khoản, đặt lại mật khẩu",
+    holderOnly: true,
   },
-  "roles.manage": { group: "Quản trị hệ thống", label: "Quản lý vai trò và quyền" },
-  "departments.manage": { group: "Quản trị hệ thống", label: "Quản lý phòng ban" },
+  "roles.manage": { group: "Quản trị hệ thống", label: "Quản lý vai trò và quyền", holderOnly: true },
+  "departments.manage": { group: "Quản trị hệ thống", label: "Quản lý phòng ban", holderOnly: true },
 } as const satisfies Record<string, PermissionDef>;
 
 export const PERMISSIONS = {
@@ -44,6 +51,20 @@ export function can(
   permission: Permission,
 ): boolean {
   return Boolean(user?.permissions.includes(permission));
+}
+
+/** Quyền quản trị (holderOnly) mà người dùng chưa có trong danh sách quyền cho trước. Rỗng = không vượt quyền. */
+export function holderOnlyBeyond(
+  actorPermissions: readonly string[],
+  permissions: Iterable<string>,
+): Permission[] {
+  const out = new Set<Permission>();
+  for (const p of permissions) {
+    if (!isPermission(p)) continue;
+    const def: PermissionDef = PERMISSIONS[p];
+    if (def.holderOnly && !actorPermissions.includes(p)) out.add(p);
+  }
+  return [...out].sort();
 }
 
 /** Quyền của vai trò hệ thống "Quản trị hệ thống": luôn có, không gỡ được (tránh tự khóa mình ra khỏi hệ thống). */

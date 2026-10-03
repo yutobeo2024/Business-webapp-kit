@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { can, isPermission, PERMISSION_KEYS, permissionGroups, PERMISSIONS } from "./permissions.js";
+import {
+  can,
+  holderOnlyBeyond,
+  isPermission,
+  PERMISSION_KEYS,
+  permissionGroups,
+  PERMISSIONS,
+} from "./permissions.js";
 
 describe("danh mục quyền", () => {
   it("can() chỉ đúng khi người dùng có đúng quyền đó", () => {
@@ -19,4 +26,16 @@ describe("danh mục quyền", () => {
     expect(grouped.sort()).toEqual([...PERMISSION_KEYS].sort());
     for (const key of PERMISSION_KEYS) expect(PERMISSIONS[key].label.length).toBeGreaterThan(5);
   });
+});
+
+describe("holderOnlyBeyond (chống leo thang quyền quản trị)", () => {
+  it("quyền quản trị mình chưa có thì bị liệt kê; quyền nghiệp vụ thì không", () => {
+    expect(holderOnlyBeyond(["users.manage"], ["users.manage", "roles.manage", "pr.approve.final"])).toEqual([
+      "roles.manage",
+    ]);
+  });
+  it("có đủ quyền quản trị thì rỗng; khóa lạ bị bỏ qua", () =>
+    expect(holderOnlyBeyond(["users.manage", "roles.manage"], ["roles.manage", "khong.ton.tai"])).toEqual(
+      [],
+    ));
 });
