@@ -27,6 +27,8 @@ const schema = z
       .optional()
       .transform((v) => v || undefined),
     MAIL_FROM: z.string().min(3).default("Hệ thống <no-reply@localhost>"),
+    /** Số dòng dữ liệu tối đa mỗi tệp nhập Excel. */
+    IMPORT_MAX_ROWS: z.coerce.number().int().min(1).max(100_000).default(5000),
     /** Khóa mã hóa bí mật lưu trong DB (token Zalo): 32 byte base64, `openssl rand -base64 32`. Bắt buộc khi bật Zalo. */
     APP_ENCRYPTION_KEY: z.string().optional(),
     /** Kênh Zalo ZNS (spec 003). Tắt mặc định; bật khi khách có Zalo OA và mẫu tin đã được duyệt (runbook notifications). */

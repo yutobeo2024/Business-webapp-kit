@@ -31,6 +31,7 @@ export async function enqueueAfterCommit(
 export const REDIS = Symbol("REDIS");
 export const NOTIFICATIONS_QUEUE = Symbol("NOTIFICATIONS_QUEUE");
 export const EXPORTS_QUEUE = Symbol("EXPORTS_QUEUE");
+export const IMPORTS_QUEUE = Symbol("IMPORTS_QUEUE");
 
 @Global()
 @Module({
@@ -69,19 +70,35 @@ export const EXPORTS_QUEUE = Symbol("EXPORTS_QUEUE");
           },
         }),
     },
+    {
+      provide: IMPORTS_QUEUE,
+      inject: [REDIS],
+      useFactory: (connection: Redis) =>
+        new Queue(QUEUES.imports, {
+          connection,
+          defaultJobOptions: {
+            attempts: 2,
+            backoff: { type: "fixed", delay: 30_000 },
+            removeOnComplete: 1000,
+            removeOnFail: 5000,
+          },
+        }),
+    },
   ],
-  exports: [REDIS, NOTIFICATIONS_QUEUE, EXPORTS_QUEUE],
+  exports: [REDIS, NOTIFICATIONS_QUEUE, EXPORTS_QUEUE, IMPORTS_QUEUE],
 })
 export class QueueModule implements OnApplicationShutdown {
   constructor(
     @Inject(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
     @Inject(EXPORTS_QUEUE) private readonly exportsQueue: Queue,
+    @Inject(IMPORTS_QUEUE) private readonly importsQueue: Queue,
     @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
   async onApplicationShutdown(): Promise<void> {
     await this.queue.close();
     await this.exportsQueue.close();
+    await this.importsQueue.close();
     await this.redis.quit();
   }
 }

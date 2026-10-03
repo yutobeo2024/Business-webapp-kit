@@ -26,6 +26,9 @@ importers:
       eslint-plugin-react-hooks:
         specifier: 7.1.1
         version: 7.1.1(eslint@10.11.0(jiti@2.7.0))
+      exceljs:
+        specifier: 4.4.0
+        version: 4.4.0
       globals:
         specifier: 17.13.0
         version: 17.13.0
@@ -294,9 +297,15 @@ importers:
       drizzle-orm:
         specifier: 0.45.3
         version: 0.45.3(@types/pg@8.23.1)(pg@8.23.1)
+      exceljs:
+        specifier: 4.4.0
+        version: 4.4.0
       file-type:
         specifier: 22.1.1
         version: 22.1.1
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
       '@app/tsconfig':
         specifier: workspace:*

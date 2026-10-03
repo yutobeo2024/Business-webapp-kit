@@ -16,6 +16,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Badge, Checkbox, SearchInput, Select } from "@/components/ui/form-controls";
 import { Input } from "@/components/ui/input";
+import { ImportButton } from "@/features/imports/import-dialog";
 import { apiErrorMessage } from "@/lib/api";
 import { nextSearch } from "@/lib/list-search";
 import { useCreateDepartment, useDepartments, useUpdateDepartment } from "./api";
@@ -39,7 +40,10 @@ export function DepartmentsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Phòng ban</h1>
-        <Button onClick={() => setEditing("new")}>Thêm phòng ban</Button>
+        <div className="flex gap-2">
+          <ImportButton type="departments" invalidate={["admin", "departments"]} />
+          <Button onClick={() => setEditing("new")}>Thêm phòng ban</Button>
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         <SearchInput

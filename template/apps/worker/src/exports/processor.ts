@@ -5,7 +5,7 @@
 import { type Job, UnrecoverableError } from "bullmq";
 import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
 import type { Logger } from "pino";
-import { exportJobs, files, users, type Db } from "@app/db";
+import { exportJobs, files, importJobs, users, type Db } from "@app/db";
 import { type FileStorage, loadAccess, storeFile, withStoredFile } from "@app/server";
 import { can, createExportSchema, EXPORT_TYPES, exportRunJobSchema, JOBS } from "@app/shared";
 import type { PdfRenderer } from "./pdf.js";
@@ -160,7 +160,7 @@ export async function markStuckExports(
 }
 
 /**
- * Dọn dẹp hằng ngày: tệp xuất hết hạn, đính kèm đã xóa mềm quá 7 ngày (xóa tệp vật lý trước rồi mới xóa hàng; lỗi giữa
+ * Dọn dẹp hằng ngày: tệp xuất hết hạn, đính kèm đã xóa mềm quá 7 ngày, tệp nhập Excel đã xong quá 7 ngày (xóa tệp vật lý trước rồi mới xóa hàng; lỗi giữa
  * chừng thì lần sau làm tiếp).
  */
 export async function cleanupFiles(
@@ -180,8 +180,21 @@ export async function cleanupFiles(
     .where(lt(files.deletedAt, new Date(now.getTime() - SOFT_DELETE_GRACE_MS)))
     .limit(5000);
 
+  // Tệp nhập Excel: không cần giữ khi lần nhập đã kết thúc quá 7 ngày (dữ liệu đã vào DB, audit giữ sha256).
+  const finishedImports = await db
+    .select({ id: files.id, key: files.storageKey })
+    .from(importJobs)
+    .innerJoin(files, eq(files.id, importJobs.fileId))
+    .where(
+      and(
+        inArray(importJobs.status, ["DONE", "INVALID", "FAILED", "CANCELLED"]),
+        lt(importJobs.updatedAt, new Date(now.getTime() - SOFT_DELETE_GRACE_MS)),
+      ),
+    )
+    .limit(5000);
+
   let removed = 0;
-  for (const f of [...expiredExports, ...deletedAttachments]) {
+  for (const f of [...expiredExports, ...deletedAttachments, ...finishedImports]) {
     await storage.remove(f.key);
     await db.delete(files).where(eq(files.id, f.id)); // export_jobs.file_id -> NULL (ON DELETE SET NULL)
     removed++;

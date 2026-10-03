@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import ExcelJS from "exceljs";
 
 // Tài khoản quản trị do `pnpm db:seed` tạo từ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD.
 const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? "";
@@ -63,4 +64,50 @@ test("quản trị: tạo vai trò và người dùng; người mới bị bắt
   await expect(page.getByRole("button", { name: "Lập phiếu" })).toBeVisible();
   // Không có quyền quản trị: không thấy menu quản trị.
   await expect(page.getByRole("link", { name: "Người dùng" })).toHaveCount(0);
+});
+
+async function departmentsXlsx(rows: string[][]): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Phòng ban");
+  ws.addRow(["Mã phòng ban", "Tên phòng ban"]);
+  for (const r of rows) ws.addRow(r);
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}
+
+test("nhập phòng ban từ Excel: tệp có lỗi bị chặn, tệp đúng nhập xong", async ({ page }) => {
+  const code = `E2E${Date.now() % 1_000_000}`;
+  await login(page, ADMIN_EMAIL, PASSWORD);
+  await page.getByRole("link", { name: "Phòng ban" }).click();
+  await page.getByRole("button", { name: "Nhập từ Excel" }).click();
+  const dialog = page.getByRole("dialog");
+
+  // Tệp mẫu tải về được.
+  const downloadPromise = page.waitForEvent("download");
+  await dialog.getByRole("link", { name: "tệp mẫu" }).click();
+  expect((await downloadPromise).suggestedFilename()).toBe("mau-nhap-departments.xlsx");
+
+  // Có dòng sai: không nhập gì, báo đúng dòng.
+  await dialog.getByLabel("Chọn tệp Excel để nhập").setInputFiles({
+    name: "co-loi.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: await departmentsXlsx([
+      [code, "Phòng E2E"],
+      ["sai mã!", "Phòng lỗi"],
+    ]),
+  });
+  await expect(dialog).toContainText("Có lỗi", { timeout: 20_000 });
+  await expect(dialog.getByRole("row", { name: /3 Mã phòng ban/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Xác nhận nhập/ })).toHaveCount(0);
+
+  // Tệp đúng: xem trước rồi xác nhận.
+  await dialog.getByLabel("Chọn tệp Excel để nhập").setInputFiles({
+    name: "dung.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: await departmentsXlsx([[code, "Phòng E2E"]]),
+  });
+  await dialog.getByRole("button", { name: "Xác nhận nhập 1 dòng" }).click({ timeout: 20_000 });
+  await expect(dialog.getByRole("status")).toHaveText("Đã nhập 1 dòng.", { timeout: 20_000 });
+  await dialog.getByRole("button", { name: "Đóng" }).click();
+  await page.getByLabel("Tìm phòng ban").fill(code);
+  await expect(page.getByRole("row", { name: new RegExp(code) })).toBeVisible();
 });

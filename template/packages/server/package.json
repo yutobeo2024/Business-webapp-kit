@@ -21,7 +21,9 @@
     "@app/db": "workspace:*",
     "@app/shared": "workspace:*",
     "drizzle-orm": "0.45.3",
-    "file-type": "22.1.1"
+    "exceljs": "4.4.0",
+    "file-type": "22.1.1",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@app/tsconfig": "workspace:*",

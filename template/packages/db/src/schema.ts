@@ -19,6 +19,8 @@ import {
 import {
   DELIVERY_STATUSES,
   EXPORT_STATUSES,
+  IMPORT_STATUSES,
+  type ImportRowError,
   NOTIFICATION_CHANNELS,
   PR_STATUSES,
   type PrItem,
@@ -37,6 +39,7 @@ export const prStatusEnum = pgEnum("pr_status", PR_STATUSES);
 export const exportStatusEnum = pgEnum("export_status", EXPORT_STATUSES);
 export const notificationChannelEnum = pgEnum("notification_channel", NOTIFICATION_CHANNELS);
 export const deliveryStatusEnum = pgEnum("delivery_status", DELIVERY_STATUSES);
+export const importStatusEnum = pgEnum("import_status", IMPORT_STATUSES);
 
 export const departments = pgTable("departments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -310,6 +313,34 @@ export const integrationTokens = pgTable("integration_tokens", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+/** Một lần nhập Excel (spec 003). Chỉ người tải lên xem và xác nhận được. */
+export const importJobs = pgTable(
+  "import_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Khóa trong IMPORT_TYPES (packages/shared/src/imports.ts). */
+    type: text("type").notNull(),
+    fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
+    status: importStatusEnum("status").notNull().default("VALIDATING"),
+    totalRows: integer("total_rows"),
+    importedCount: integer("imported_count"),
+    errorCount: integer("error_count").notNull().default(0),
+    /** ImportRowError[], tối đa IMPORT_MAX_ERRORS mục. */
+    errors: jsonb("errors").$type<ImportRowError[]>().notNull().default([]),
+    preview: jsonb("preview").$type<Record<string, string>[]>().notNull().default([]),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [index("import_jobs_requester_idx").on(t.requestedBy, t.createdAt)],
+);
 
 export const auditLogs = pgTable(
   "audit_logs",

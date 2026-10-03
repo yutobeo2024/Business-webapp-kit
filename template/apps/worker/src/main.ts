@@ -8,6 +8,7 @@ import { JOBS, type NotificationChannel, type NotificationDeliverJob, QUEUES } f
 import { loadEnv } from "./env.js";
 import { createExportProcessor, EXPORT_MAINTENANCE_JOBS } from "./exports/processor.js";
 import { PdfRenderer } from "./exports/pdf.js";
+import { createImportProcessor } from "./imports/processor.js";
 import type { NotificationSender } from "./notifications/channel.js";
 import { MAX_DELIVERY_ATTEMPTS } from "./notifications/deliver.js";
 import { EmailSender } from "./notifications/email.js";
@@ -76,7 +77,19 @@ const exportsWorker = new Worker(
   { connection, concurrency: env.EXPORT_CONCURRENCY },
 );
 
-for (const w of [worker, exportsWorker]) {
+// Nhập Excel: một job một lúc (ghi DB nhiều dòng trong một transaction).
+const importsWorker = new Worker(
+  QUEUES.imports,
+  createImportProcessor({
+    db: handle.db,
+    log,
+    storage: createStorage(env, REPO_ROOT),
+    maxRows: env.IMPORT_MAX_ROWS,
+  }),
+  { connection, concurrency: 1 },
+);
+
+for (const w of [worker, exportsWorker, importsWorker]) {
   w.on("failed", (job, err) =>
     log.error({ jobId: job?.id, name: job?.name, attempts: job?.attemptsMade, err }, "Job thất bại"),
   );
@@ -151,7 +164,7 @@ await exportsScheduler.upsertJobScheduler(
 
 log.info(
   {
-    queues: [QUEUES.notifications, QUEUES.exports],
+    queues: [QUEUES.notifications, QUEUES.exports, QUEUES.imports],
     concurrency: env.WORKER_CONCURRENCY,
     exportConcurrency: env.EXPORT_CONCURRENCY,
     channels: Object.keys(senders),
@@ -169,7 +182,7 @@ async function shutdown(signal: string): Promise<void> {
     process.exit(1);
   }, 30_000);
   try {
-    await Promise.all([worker.close(), exportsWorker.close()]);
+    await Promise.all([worker.close(), exportsWorker.close(), importsWorker.close()]);
     await Promise.all([scheduler.close(), exportsScheduler.close()]);
     await pdf.close();
     email?.close();
