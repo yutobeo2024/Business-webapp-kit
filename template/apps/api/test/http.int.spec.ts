@@ -253,6 +253,12 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
     expect(approved.body.status).toBe("APPROVED");
   });
 
+  it("danh sách: cột sắp xếp không cho phép trả 400", async () => {
+    const res = await (await login(f.staff.email)).get("/api/purchase-requests?sort=password_hash");
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("VALIDATION_FAILED");
+  });
+
   it("id sai định dạng trả 400, không phải 500", async () => {
     const a = await login(f.staff.email);
     const res = await a.get("/api/purchase-requests/khong-phai-uuid");

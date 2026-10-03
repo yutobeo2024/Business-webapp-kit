@@ -32,9 +32,18 @@ test("AC-01: nhân viên lập và gửi phiếu, trưởng phòng duyệt", asy
   await page.getByRole("button", { name: "Đăng xuất" }).click();
   await login(page, "truongphong@example.com");
   const managerRow = page.getByRole("row", { name: new RegExp(title) });
-  // Đăng ký trước khi bấm: click chỉ trả về sau khi hộp xác nhận được xử lý.
-  // Chỉ nút có hộp xác nhận mới đăng ký; listener thừa sẽ bắt nhầm hộp thoại của bước sau.
-  page.once("dialog", (d) => void d.accept());
   await managerRow.getByRole("button", { name: "Trưởng phòng duyệt" }).click();
+  // Hộp thoại xác nhận của ứng dụng (thẻ <dialog>), không phải window.confirm.
+  await page.getByRole("dialog").getByRole("button", { name: "Trưởng phòng duyệt" }).click();
   await expect(managerRow).toContainText("Đã duyệt");
+});
+
+test("danh sách: tìm theo mã giữ trên URL, tải lại trang vẫn còn bộ lọc", async ({ page }) => {
+  await login(page, "nhanvien@example.com");
+  await page.getByLabel("Tìm kiếm phiếu").fill("khong-co-phieu-nao-khop");
+  await expect(page.getByText("Không có phiếu nào khớp bộ lọc.")).toBeVisible();
+  await expect(page).toHaveURL(/q=khong-co-phieu-nao-khop/);
+  await page.reload();
+  await expect(page.getByLabel("Tìm kiếm phiếu")).toHaveValue("khong-co-phieu-nao-khop");
+  await expect(page.getByText("Không có phiếu nào khớp bộ lọc.")).toBeVisible();
 });

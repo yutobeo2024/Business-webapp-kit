@@ -105,8 +105,32 @@ describe("PurchaseRequestsService (PostgreSQL thật)", () => {
     expect(await codeOf(service.get(f.staff2, pr.id))).toBe("PR_NOT_FOUND");
     expect(await codeOf(service.get(f.managerKt, pr.id))).toBe("PR_NOT_FOUND");
     expect(await codeOf(service.get(f.manager, pr.id))).toBe("OK");
-    const list = await service.list(f.staff2, { page: 1, pageSize: 20 });
+    const list = await service.list(f.staff2, { page: 1, pageSize: 20, sort: "createdAt", order: "desc" });
     expect(list.total).toBe(0);
+  });
+
+  it("danh sách: tìm theo mã/tiêu đề (ký tự % _ là chữ thường), lọc trạng thái, sắp xếp ổn định", async () => {
+    const mk = async (title: string, amount: number) =>
+      service.create(f.staff, { ...input(amount), title }, null);
+    const a = await mk("Mua giấy in 50% giá", 3_000_000);
+    const b = await mk("Mua 50 cây bút bi", 1_000_000);
+    await mk("Mua bàn ghế phòng họp", 2_000_000);
+    await service.transition(f.staff, a.id, { event: "SUBMIT", version: 1 }, null);
+    const list = (q: object) =>
+      service.list(f.staff, { page: 1, pageSize: 20, sort: "createdAt", order: "desc", ...q });
+
+    expect((await list({ q: "50%" })).items.map((x) => x.id)).toEqual([a.id]);
+    expect((await list({ q: "50" })).total).toBe(2);
+    expect((await list({ q: b.code.toLowerCase() })).items.map((x) => x.id)).toEqual([b.id]);
+    expect((await list({ status: "PENDING_MANAGER" })).items.map((x) => x.id)).toEqual([a.id]);
+    expect((await list({ sort: "totalAmount", order: "asc" })).items.map((x) => x.totalAmount)).toEqual([
+      1_000_000, 2_000_000, 3_000_000,
+    ]);
+    // Tìm kiếm không vượt phạm vi xem: người khác không thấy dù gõ đúng mã.
+    expect(
+      (await service.list(f.staff2, { page: 1, pageSize: 20, sort: "createdAt", order: "desc", q: a.code }))
+        .total,
+    ).toBe(0);
   });
 
   it("BR-01: chỉ sửa được phiếu nháp của chính mình", async () => {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationQuerySchema } from "./api.js";
+import { listQuerySchema } from "./api.js";
 import { isValidVnd, vndSchema } from "./money.js";
 import type { PermissionDef } from "./permissions.js";
 
@@ -104,7 +104,11 @@ export const transitionPurchaseRequestSchema = z
   });
 export type TransitionPurchaseRequestInput = z.infer<typeof transitionPurchaseRequestSchema>;
 
-export const listPurchaseRequestsQuerySchema = paginationQuerySchema.extend({
+/** Danh sách phiếu: tìm theo mã/tiêu đề, lọc trạng thái, sắp xếp. Khuôn cho mọi danh sách (listQuerySchema). */
+export const listPurchaseRequestsQuerySchema = listQuerySchema({
+  sortable: ["createdAt", "code", "totalAmount", "status"],
+  defaultSort: "createdAt",
+}).extend({
   status: z.enum(PR_STATUSES).optional(),
 });
 export type ListPurchaseRequestsQuery = z.infer<typeof listPurchaseRequestsQuerySchema>;

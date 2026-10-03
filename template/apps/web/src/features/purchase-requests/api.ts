@@ -1,21 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   CreatePurchaseRequestInput,
+  ListPurchaseRequestsQuery,
   Paginated,
-  PrStatus,
   PurchaseRequestDto,
   TransitionPurchaseRequestInput,
 } from "@app/shared";
 import { api } from "@/lib/api";
+import { toQueryString } from "@/lib/query-string";
 
 const key = ["purchase-requests"] as const;
 
-export function usePurchaseRequests(params: { page: number; status?: PrStatus }) {
-  const qs = new URLSearchParams({ page: String(params.page), pageSize: "20" });
-  if (params.status) qs.set("status", params.status);
+export function usePurchaseRequests(params: ListPurchaseRequestsQuery) {
   return useQuery({
     queryKey: [...key, params],
-    queryFn: () => api<Paginated<PurchaseRequestDto>>(`/purchase-requests?${qs.toString()}`),
+    queryFn: () => api<Paginated<PurchaseRequestDto>>(`/purchase-requests?${toQueryString(params)}`),
+    // Giữ trang cũ trên màn hình trong lúc tải trang mới (bảng không nhảy về "Đang tải..." mỗi lần gõ/lật trang).
+    placeholderData: (prev) => prev,
   });
 }
 

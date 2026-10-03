@@ -1,55 +1,53 @@
+import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   can,
+  type ListPurchaseRequestsQuery,
   PR_EVENT_LABELS,
   PR_STATUS_LABELS,
+  PR_STATUSES,
   type PrEvent,
   type PrStatus,
   type PurchaseRequestDto,
   transitionPurchaseRequestSchema,
 } from "@app/shared";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { DataTable, Pagination, SortTh, Th } from "@/components/ui/data-table";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { Badge, SearchInput, Select } from "@/components/ui/form-controls";
 import { useMe } from "@/features/auth/use-me";
 import { ApiError } from "@/lib/api";
 import { formatDateTime, formatVnd } from "@/lib/format";
+import { nextSearch } from "@/lib/list-search";
 import { usePurchaseRequests, useTransition } from "./api";
 import { CreatePurchaseRequestForm } from "./create-form";
 
-const STATUS_STYLE: Record<PrStatus, string> = {
-  DRAFT: "bg-neutral-100 text-neutral-700",
-  PENDING_MANAGER: "bg-amber-100 text-amber-800",
-  PENDING_DIRECTOR: "bg-orange-100 text-orange-800",
-  APPROVED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
-  CANCELLED: "bg-neutral-200 text-neutral-500",
+const route = getRouteApi("/");
+
+const STATUS_TONE: Record<PrStatus, Parameters<typeof Badge>[0]["tone"]> = {
+  DRAFT: "neutral",
+  PENDING_MANAGER: "amber",
+  PENDING_DIRECTOR: "orange",
+  APPROVED: "green",
+  REJECTED: "red",
+  CANCELLED: "muted",
 };
 
-// Thao tác không hoàn tác được phải xác nhận, nêu rõ hậu quả.
-const CONFIRM: Partial<Record<PrEvent, string>> = {
-  CANCEL: "Hủy phiếu? Phiếu đã hủy không khôi phục được.",
-  MANAGER_APPROVE: "Duyệt phiếu này?",
-  DIRECTOR_APPROVE: "Duyệt phiếu này?",
+// Thao tác không hoàn tác được hoặc quan trọng: xác nhận, nêu rõ hậu quả. Từ chối thì bắt nhập lý do.
+const CONFIRM: Partial<Record<PrEvent, { message: string; destructive?: boolean }>> = {
+  CANCEL: { message: "Phiếu đã hủy không khôi phục được.", destructive: true },
+  MANAGER_APPROVE: { message: "Duyệt phiếu này?" },
+  DIRECTOR_APPROVE: { message: "Duyệt phiếu này?" },
+  REJECT: { message: "Người lập sẽ thấy lý do và có thể sửa lại phiếu.", destructive: true },
 };
 
 function Actions({ pr }: { pr: PurchaseRequestDto }) {
   const t = useTransition();
-  const [inputError, setInputError] = useState<string | null>(null);
-  const run = (event: PrEvent) => {
-    setInputError(null);
-    let reason: string | undefined;
-    if (event === "REJECT") {
-      reason = window.prompt("Lý do từ chối (tối thiểu 10 ký tự):") ?? undefined;
-      if (reason === undefined) return;
-    } else if (CONFIRM[event] && !window.confirm(CONFIRM[event])) return;
-    // Kiểm bằng schema dùng chung trước khi gửi, để người dùng thấy đúng câu lỗi (không phải "Dữ liệu không hợp lệ").
-    const parsed = transitionPurchaseRequestSchema.safeParse({ event, version: pr.version, reason });
-    if (!parsed.success) {
-      setInputError(parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ");
-      return;
-    }
-    t.mutate({ id: pr.id, ...parsed.data });
-  };
+  const [pending, setPending] = useState<PrEvent | null>(null);
+  const send = (event: PrEvent, reason?: string) =>
+    t.mutate({ id: pr.id, event, version: pr.version, reason }, { onSettled: () => setPending(null) });
+  const confirm = pending ? CONFIRM[pending] : undefined;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {pr.allowedEvents.map((e) => (
@@ -58,104 +56,138 @@ function Actions({ pr }: { pr: PurchaseRequestDto }) {
           size="sm"
           variant={e === "REJECT" || e === "CANCEL" ? "outline" : "default"}
           disabled={t.isPending}
-          onClick={() => run(e)}
+          onClick={() => (CONFIRM[e] ? setPending(e) : send(e))}
         >
           {PR_EVENT_LABELS[e]}
         </Button>
       ))}
-      {inputError || t.error ? (
+      {t.error ? (
         <span role="alert" className="text-sm text-red-600">
-          {inputError ?? (t.error instanceof ApiError ? t.error.message : "Có lỗi xảy ra")}
+          {t.error instanceof ApiError ? t.error.message : "Có lỗi xảy ra"}
         </span>
       ) : null}
+      <ConfirmDialog
+        open={Boolean(pending)}
+        title={`${pending ? PR_EVENT_LABELS[pending] : ""}: ${pr.code}`}
+        message={confirm?.message ?? ""}
+        confirmLabel={pending ? PR_EVENT_LABELS[pending] : undefined}
+        destructive={confirm?.destructive}
+        pending={t.isPending}
+        // Kiểm bằng schema dùng chung trước khi gửi, để người dùng thấy đúng câu lỗi.
+        reason={
+          pending === "REJECT"
+            ? {
+                label: "Lý do từ chối",
+                validate: (reason) => {
+                  const r = transitionPurchaseRequestSchema.safeParse({
+                    event: "REJECT",
+                    version: pr.version,
+                    reason,
+                  });
+                  return r.success ? null : (r.error.issues[0]?.message ?? "Lý do không hợp lệ");
+                },
+              }
+            : undefined
+        }
+        onConfirm={(reason) => pending && send(pending, reason)}
+        onClose={() => setPending(null)}
+      />
     </div>
   );
 }
 
 export function PurchaseRequestListPage() {
-  const [page, setPage] = useState(1);
+  const search = route.useSearch();
+  const navigate = route.useNavigate();
+  const setSearch = (patch: Partial<ListPurchaseRequestsQuery>) =>
+    void navigate({ search: nextSearch(search, patch), replace: true });
   const [showForm, setShowForm] = useState(false);
-  const q = usePurchaseRequests({ page });
+  const q = usePurchaseRequests(search);
   // Chỉ hiện nút cho người có quyền lập phiếu. Quyền thật do backend kiểm.
   const me = useMe();
   const canCreate = can(me.data, "pr.create");
+  const sortProps = {
+    sort: search.sort,
+    order: search.order,
+    onSort: (sort: typeof search.sort, order: typeof search.order) => setSearch({ sort, order }),
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Phiếu đề nghị mua hàng</h1>
         {canCreate && !showForm ? <Button onClick={() => setShowForm(true)}>Lập phiếu</Button> : null}
       </div>
       {showForm ? <CreatePurchaseRequestForm onDone={() => setShowForm(false)} /> : null}
-      <Card className="overflow-x-auto p-0">
-        {q.isPending ? (
-          <p className="p-6 text-sm text-neutral-500">Đang tải...</p>
-        ) : q.isError ? (
-          <p role="alert" className="p-6 text-sm text-red-600">
-            Không tải được danh sách.{" "}
-            <button className="underline" onClick={() => q.refetch()}>
-              Thử lại
-            </button>
-          </p>
-        ) : q.data.items.length === 0 ? (
-          <p className="p-6 text-sm text-neutral-500">Chưa có phiếu nào.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b bg-neutral-50 text-left">
-              <tr>
-                <th className="p-3">Mã phiếu</th>
-                <th className="p-3">Tiêu đề</th>
-                <th className="p-3">Người lập</th>
-                <th className="p-3 text-right">Tổng tiền</th>
-                <th className="p-3">Trạng thái</th>
-                <th className="p-3">Ngày lập</th>
-                <th className="p-3">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {q.data.items.map((pr) => (
-                <tr key={pr.id} className="border-b last:border-0 align-top">
-                  <td className="p-3 font-mono">{pr.code}</td>
-                  <td className="p-3">
-                    {pr.title}
-                    {pr.rejectReason ? (
-                      <p className="mt-1 text-xs text-red-600">Lý do từ chối: {pr.rejectReason}</p>
-                    ) : null}
-                  </td>
-                  <td className="p-3">{pr.requesterName}</td>
-                  <td className="p-3 text-right tabular-nums">{formatVnd(pr.totalAmount)}</td>
-                  <td className="p-3">
-                    <span className={`rounded px-2 py-0.5 text-xs ${STATUS_STYLE[pr.status]}`}>
-                      {PR_STATUS_LABELS[pr.status]}
-                    </span>
-                  </td>
-                  <td className="p-3 whitespace-nowrap">{formatDateTime(pr.createdAt)}</td>
-                  <td className="p-3">
-                    <Actions pr={pr} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
-      {q.data && q.data.total > q.data.pageSize ? (
-        <div className="flex items-center gap-2 text-sm">
-          <Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-            Trang trước
-          </Button>
-          <span>
-            Trang {page} / {Math.ceil(q.data.total / q.data.pageSize)}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page * q.data.pageSize >= q.data.total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Trang sau
-          </Button>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <SearchInput
+          className="max-w-xs"
+          placeholder="Tìm theo mã hoặc tiêu đề"
+          aria-label="Tìm kiếm phiếu"
+          value={search.q ?? ""}
+          onChange={(text) => setSearch({ q: text })}
+        />
+        <Select
+          aria-label="Lọc trạng thái"
+          value={search.status ?? ""}
+          onChange={(e) => setSearch({ status: (e.target.value || undefined) as PrStatus | undefined })}
+        >
+          <option value="">Mọi trạng thái</option>
+          {PR_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {PR_STATUS_LABELS[s]}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <DataTable
+        isPending={q.isPending}
+        error={q.error}
+        onRetry={() => void q.refetch()}
+        isEmpty={q.data?.items.length === 0}
+        emptyText={search.q || search.status ? "Không có phiếu nào khớp bộ lọc." : "Chưa có phiếu nào."}
+      >
+        <thead className="border-b bg-neutral-50">
+          <tr>
+            <SortTh field="code" label="Mã phiếu" {...sortProps} />
+            <Th>Tiêu đề</Th>
+            <Th>Người lập</Th>
+            <SortTh field="totalAmount" label="Tổng tiền" className="text-right" {...sortProps} />
+            <SortTh field="status" label="Trạng thái" {...sortProps} />
+            <SortTh field="createdAt" label="Ngày lập" {...sortProps} />
+            <Th>Thao tác</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {q.data?.items.map((pr) => (
+            <tr key={pr.id} className="border-b align-top last:border-0">
+              <td className="p-3 font-mono">{pr.code}</td>
+              <td className="p-3">
+                {pr.title}
+                {pr.rejectReason ? (
+                  <p className="mt-1 text-xs text-red-600">Lý do từ chối: {pr.rejectReason}</p>
+                ) : null}
+              </td>
+              <td className="p-3">{pr.requesterName}</td>
+              <td className="p-3 text-right tabular-nums">{formatVnd(pr.totalAmount)}</td>
+              <td className="p-3">
+                <Badge tone={STATUS_TONE[pr.status]}>{PR_STATUS_LABELS[pr.status]}</Badge>
+              </td>
+              <td className="p-3 whitespace-nowrap">{formatDateTime(pr.createdAt)}</td>
+              <td className="p-3">
+                <Actions pr={pr} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+      {q.data ? (
+        <Pagination
+          page={q.data.page}
+          pageSize={q.data.pageSize}
+          total={q.data.total}
+          onPage={(page) => setSearch({ page })}
+        />
       ) : null}
     </div>
   );
