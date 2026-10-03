@@ -50,6 +50,10 @@ Cả ba là quyền quản trị (`holderOnly`). Vai trò mặc định "Quản 
   (người cũ giữ nguyên).
 - **BR-A9**: Sửa người dùng, vai trò, phòng ban có kiểm phiên bản; sửa đè thay đổi của người khác trả 409.
 - **BR-A10**: Mọi thao tác quản trị ghi audit (ai, khi nào, IP, trước/sau), không bao giờ ghi mật khẩu hay mã băm.
+- **BR-A11**: Số di động của người dùng (tùy chọn) chỉ để gửi thông báo Zalo (spec 003); lưu dạng chuẩn 84xxxxxxxxx, chỉ
+  nhận đầu số di động Việt Nam. Sửa người dùng không gửi trường số thì giữ số cũ, gửi rỗng thì xóa.
+- **BR-A12**: Nhập phòng ban từ Excel theo lõi nhập (spec 003): cùng quy tắc mã/tên với form, mã trùng trong tệp hoặc đã
+  có thì báo lỗi, có lỗi thì không tạo phòng ban nào.
 
 ## 10. Tiêu chí nghiệm thu
 

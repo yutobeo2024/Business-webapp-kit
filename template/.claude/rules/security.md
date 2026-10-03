@@ -15,5 +15,9 @@
   kiểm quyền xem bản ghi chứa tệp. Không bao giờ phục vụ tệp người dùng tải lên dạng inline.
 - Xuất dữ liệu (spec 002): cùng truy vấn và phạm vi xem với màn hình, quyền kiểm cả lúc yêu cầu lẫn lúc worker chạy, chỉ
   người yêu cầu tải được, audit yêu cầu và tải về. Mẫu PDF chỉ dựng bằng `html` (escape), không ghép chuỗi HTML.
-- Thao tác nhạy cảm (duyệt, xóa, đổi quyền, xuất hàng loạt) phải `writeAudit` trong cùng transaction.
+- Thông báo (spec 003): người nhận theo quyền hiện tại và phải xem được bản ghi; email escape bằng `html`, liên kết chỉ trỏ
+  vào APP_ORIGIN; số điện thoại là dữ liệu cá nhân, chỉ dùng cho Zalo. Token dịch vụ ngoài lưu mã hóa, không log.
+- Nhập Excel (spec 003): chỉ .xlsx kiểm theo nội dung, chặn zip bomb trước khi mở (`checkZip`), giới hạn dòng, không chạy
+  công thức, kiểm lại quyền và dữ liệu lúc xác nhận, tất cả hoặc không.
+- Thao tác nhạy cảm (duyệt, xóa, đổi quyền, xuất hàng loạt, nhập dữ liệu) phải `writeAudit` trong cùng transaction.
 - Dữ liệu cá nhân: chỉ thu thập trường cần cho nghiệp vụ, ghi mục đích và thời gian lưu trong spec.

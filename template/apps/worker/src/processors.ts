@@ -1,7 +1,7 @@
 import { type Job, UnrecoverableError } from "bullmq";
 import { lt } from "drizzle-orm";
 import type { Logger } from "pino";
-import { sessions, type Db } from "@app/db";
+import { notifications, sessions, type Db } from "@app/db";
 import { notify, planPrStatusNotification } from "@app/server";
 import {
   JOBS,
@@ -61,11 +61,18 @@ async function onPrStatusChanged(
   return result.notificationIds.length;
 }
 
-async function purgeSessions(deps: ProcessorDeps): Promise<number> {
-  const res = await deps.db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
-  const n = res.rowCount ?? 0;
-  deps.log.info({ deleted: n }, "Đã dọn phiên đăng nhập hết hạn");
-  return n;
+/** Thông báo đã đọc giữ 90 ngày (spec 003); lần giao xóa theo (ON DELETE CASCADE). */
+export const READ_NOTIFICATION_KEEP_DAYS = 90;
+
+/** Bảo trì 03:00: phiên hết hạn, thông báo đã đọc quá hạn. */
+export async function purgeExpired(deps: Pick<ProcessorDeps, "db" | "log">, now = new Date()) {
+  const res = await deps.db.delete(sessions).where(lt(sessions.expiresAt, now));
+  const old = await deps.db
+    .delete(notifications)
+    .where(lt(notifications.readAt, new Date(now.getTime() - READ_NOTIFICATION_KEEP_DAYS * 86_400_000)));
+  const result = { sessions: res.rowCount ?? 0, notifications: old.rowCount ?? 0 };
+  deps.log.info(result, "Đã dọn phiên hết hạn và thông báo cũ");
+  return result;
 }
 
 /** Payload job là input ở biên: API bản khác (lệch phiên bản lúc phát hành) hoặc job rác không được đi tiếp. */
@@ -112,7 +119,7 @@ export function createProcessor(deps: ProcessorDeps) {
         deps.log.info("Đã làm mới token Zalo");
         return "refreshed";
       case MAINTENANCE_JOBS.purgeSessions:
-        return purgeSessions(deps);
+        return purgeExpired(deps);
       default:
         // Job lạ: báo lỗi để lộ ra trong log/giám sát, không im lặng bỏ qua.
         throw new Error(`Không có processor cho job "${job.name}"`);

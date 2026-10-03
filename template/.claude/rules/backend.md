@@ -34,4 +34,11 @@ paths:
   dùng làm đường dẫn. Mẫu: `PurchaseRequestAttachmentsService`.
 - Xuất file: không bao giờ sinh file trong request HTTP. Thêm loại vào danh mục xuất + runner trong worker (spec 002);
   runner lấy dữ liệu bằng hàm trong `packages/server` với `ctx.actor` (quyền hiện tại của người yêu cầu).
+- Thông báo: chỉ qua `notify` + job giao (spec 003). Người nhận tính lúc worker chạy theo quyền hiện tại, phải xem được
+  bản ghi; `dedupeKey` theo sự kiện (ví dụ `pr-<id>-v<version>`) để job chạy lại không báo hai lần. Nội dung không chứa
+  thứ người nhận không được xem.
+- Nhập Excel: chỉ qua lõi nhập (spec 003). Schema dòng dùng lại schema form; `checkAgainstDb` kiểm trùng; `commit` ghi tất
+  cả trong transaction của nơi gọi, không tự commit từng dòng, không nuốt lỗi.
+- Bí mật của dịch vụ ngoài lưu trong DB (token OAuth...) phải mã hóa bằng `encryptSecret` (`APP_ENCRYPTION_KEY`); token
+  dùng một lần thì làm mới trong transaction khóa dòng (mẫu: `ZaloZnsSender.accessToken`).
 - Mỗi quy tắc BR-xx có test: unit test cho `decide()`/policy, test tích hợp cho luồng ghi DB.

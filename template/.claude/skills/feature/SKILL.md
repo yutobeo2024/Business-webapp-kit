@@ -29,7 +29,8 @@ Spec phải "Đã duyệt". Chưa thì dừng, đề nghị `/business-flow` ho�
 6. UI: hook trong `features/<module>/api.ts`, trang, form, đủ trạng thái tải/rỗng/lỗi. Danh sách theo mẫu danh sách
    (rule frontend); route mới thêm vào `router.tsx` và menu `NAV` kèm quyền.
 7. Spec có đính kèm hoặc xuất Excel/PDF: dùng lõi tệp và xuất file (spec 002, mẫu ở module phiếu đề nghị), không tự
-   viết. Truy vấn đọc mà worker cũng cần đặt trong `packages/server`.
+   viết. Truy vấn đọc mà worker cũng cần đặt trong `packages/server`. Spec có báo tin (email, Zalo, trong app) hoặc nhập
+   Excel: dùng lõi thông báo và lõi nhập (spec 003): khai báo loại, người nhận theo quyền, schema dòng.
 8. E2E nếu lát cắt thuộc AC chính.
 9. `pnpm verify:quick` xanh mới sang lát tiếp.
 

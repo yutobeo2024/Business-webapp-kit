@@ -23,7 +23,8 @@ Khoảng thay đổi cần rà: `$ARGUMENTS` (để trống thì dùng `main...H
    5. Injection: `sql` nối chuỗi, lệnh shell ghép từ input, HTML không escape (`dangerouslySetInnerHTML`).
    6. Upload/tải file: loại kiểm theo nội dung (`storeFile`), dung lượng, khóa lưu do hệ thống sinh, tải về qua `sendFile`
       sau khi kiểm quyền xem bản ghi chứa tệp. Xuất dữ liệu: cùng phạm vi xem với màn hình, quyền kiểm lại lúc worker chạy,
-      chỉ người yêu cầu tải được, mẫu PDF escape bằng `html`.
+      chỉ người yêu cầu tải được, mẫu PDF escape bằng `html`. Thông báo: đúng người nhận theo quyền hiện tại, không lộ
+      nội dung, không gửi trùng, token mã hóa. Nhập Excel: zip bomb, giới hạn dòng, tất cả hoặc không, kiểm lại lúc xác nhận.
    7. Lộ thông tin: response lỗi, log chứa dữ liệu nhạy cảm, secret trong mã hoặc lịch sử git; thông báo lỗi
       khác nhau làm lộ dữ liệu tồn tại hay không (email, mã phiếu).
    8. Audit: thao tác nhạy cảm có ghi đủ ai, khi nào, IP, trước, sau, trong cùng transaction.

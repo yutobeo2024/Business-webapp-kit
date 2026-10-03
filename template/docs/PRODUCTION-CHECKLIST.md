@@ -28,6 +28,9 @@ Dùng cho mỗi lần bàn giao. Mục chưa đạt phải vào danh sách hạn
 ## Vận hành
 
 - [ ] Uptime monitor ngoài, `alert-check.sh` gửi được cảnh báo thử
+- [ ] Email: tên miền gửi có SPF, DKIM; đã gửi thử tới hộp thư Gmail và Outlook, không vào spam
+- [ ] Zalo (nếu dùng): đã đối chiếu tài liệu Zalo hiện hành, mẫu ZNS được duyệt, tên tham số khớp, gửi thử thành công;
+      `APP_ENCRYPTION_KEY` lưu ngoài máy chủ
 - [ ] Đã thử rollback trên staging
 - [ ] Theo dõi lỗi ứng dụng (Sentry/GlitchTip) nếu trong phạm vi hợp đồng
 - [ ] Tên miền, máy chủ, tài khoản dịch vụ đứng tên khách hoặc đã thỏa thuận rõ

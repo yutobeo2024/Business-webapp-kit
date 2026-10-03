@@ -42,6 +42,8 @@ if [[ "${1:-}" == "compose" ]]; then
   args=" $* "
   case "$args" in
     *" pg_dump "*) echo "DUMP" ;;
+    *" psql "*"notification_deliveries"*) echo "${FAKE_FAILED_DELIVERIES:-0}" ;;
+    *" psql "*"integration_tokens"*) echo "${FAKE_ZALO_AGE_H:-1}" ;;
     *" pg_restore "*) cat >/dev/null ;;
     *" run --rm migrate "*) exit "${FAKE_MIGRATE_EXIT:-0}" ;;
     *" ps -q "*) echo "cid-${*: -1}" ;;
@@ -191,6 +193,18 @@ date +%s >"$CASE/backups/.last-success-files"
 : >"$CASE/infra/.alert-state"
 run bash "$CASE/infra/alert-check.sh"
 check "alert-check im lặng khi sao lưu tệp còn mới" '! grep -q "CẢNH BÁO" "$CASE/out.log"'
+
+# 10. alert-check cảnh báo thông báo gửi lỗi nhiều, token Zalo không làm mới được.
+fresh alert-notify
+echo v1.0.0 >"$CASE/infra/.deployed-tag"
+date +%s >"$CASE/backups/.last-success"
+printf 'BACKUP_REMOTE=offsite:bucket\nZALO_ENABLED=true\n' >>"$CASE/infra/.env"
+FAKE_FAILED_DELIVERIES=25 FAKE_ZALO_AGE_H=72 run bash "$CASE/infra/alert-check.sh"
+check "alert-check cảnh báo thông báo gửi lỗi nhiều" 'grep -q "25 thông báo email/Zalo gửi lỗi" "$CASE/out.log"'
+check "alert-check cảnh báo token Zalo không làm mới được" 'grep -q "Token Zalo chưa làm mới được 72 giờ" "$CASE/out.log"'
+: >"$CASE/infra/.alert-state"
+FAKE_FAILED_DELIVERIES=3 FAKE_ZALO_AGE_H=5 run bash "$CASE/infra/alert-check.sh"
+check "alert-check im lặng khi thông báo ổn" '! grep -q "CẢNH BÁO" "$CASE/out.log"'
 
 printf '\ntests/infra: %d đúng, %d sai\n' "$PASSED" "$FAILED"
 [[ $FAILED -eq 0 ]]

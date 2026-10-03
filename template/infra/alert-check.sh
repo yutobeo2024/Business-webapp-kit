@@ -41,6 +41,22 @@ if [[ -f "$DIR/.last-drill" ]]; then
   (( age_d > 35 )) && problems+=("Đã ${age_d} ngày chưa diễn tập khôi phục thành công")
 fi
 
+# Thông báo email/Zalo gửi lỗi nhiều trong 24 giờ (sai cấu hình SMTP, token Zalo hết hạn...).
+psql_value() {
+  "${COMPOSE[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$1" 2>/dev/null | tr -d '[:space:]'
+}
+failed=$(psql_value "select count(*) from notification_deliveries where status = 'FAILED' and updated_at > now() - interval '24 hours'")
+if [[ "$failed" =~ ^[0-9]+$ ]] && (( failed >= ${ALERT_FAILED_DELIVERIES:-20} )); then
+  problems+=("${failed} thông báo email/Zalo gửi lỗi trong 24 giờ qua (xem runbook notifications)")
+fi
+# Zalo: token phải được làm mới hằng ngày; quá 48 giờ không làm mới được là sắp mất kết nối Zalo.
+if [[ "${ZALO_ENABLED:-false}" == "true" ]]; then
+  age_h=$(psql_value "select coalesce(floor(extract(epoch from now() - max(updated_at)) / 3600), 9999) from integration_tokens where provider = 'zalo_oa'")
+  if [[ "$age_h" =~ ^[0-9]+$ ]] && (( age_h > 48 )); then
+    problems+=("Token Zalo chưa làm mới được ${age_h} giờ: nạp lại bằng lệnh zalo-token (runbook notifications)")
+  fi
+fi
+
 for svc in caddy web api worker postgres redis; do
   cid=$("${COMPOSE[@]}" ps -q "$svc" 2>/dev/null)
   if [[ -z "$cid" ]]; then problems+=("Container $svc không chạy"); continue; fi

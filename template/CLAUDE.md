@@ -11,7 +11,7 @@ Spec nghiệp vụ: `docs/specs/`. Quyết định kiến trúc: `docs/adr/`. V�
 Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
 
 - `apps/api`: NestJS 12, xác thực session cookie, guard mặc định bắt đăng nhập.
-- `apps/worker`: BullMQ (thông báo, xuất Excel/PDF, job định kỳ). `apps/web`: React 19 + Vite, TanStack Router/Query, Tailwind, React Hook Form.
+- `apps/worker`: BullMQ (thông báo trong app/email/Zalo, xuất Excel/PDF, nhập Excel, job định kỳ). `apps/web`: React 19 + Vite, TanStack Router/Query, Tailwind, React Hook Form.
 - `packages/db`: Drizzle ORM + PostgreSQL 17 (schema, migration). `packages/shared`: Zod schema + type dùng chung FE/BE.
 - `packages/server`: logic phía server dùng chung api và worker (truy vấn đọc, phạm vi xem, list-query, lưu tệp).
   Thứ gì worker cũng cần thì đặt ở đây, không chép sang worker.
@@ -39,6 +39,13 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
   (`packages/shared/src/exports.ts`), nhánh kiểm trước trong `ExportsService.assertCanRequest`, runner trong
   `apps/worker/src/exports/runners.ts` lấy dữ liệu bằng truy vấn đọc của `@app/server`. Mẫu in PDF: tagged template
   `html` trong `apps/worker/src/exports/templates/`. Web: `ExportButton`, trang "Tệp đã xuất".
+- Thông báo (spec 003, ADR-0006): loại mới = mục trong `NOTIFICATION_TYPES` + schema dữ liệu
+  (`packages/shared/src/notifications.ts`) + mẫu nội dung (`packages/server/src/notifications/templates.ts`) + tham số mẫu
+  Zalo (`ZALO_PARAMS`). Người nhận tính theo QUYỀN HIỆN TẠI trong `packages/server` (mẫu:
+  `purchase-requests/notifications.ts`), worker gọi `notify` rồi đẩy job giao. Không gửi email/Zalo trực tiếp.
+- Nhập Excel (spec 003): loại mới = mục trong `IMPORT_TYPES` + `IMPORT_ROW_SCHEMAS` (dùng lại schema form)
+  (`packages/shared/src/imports.ts`) + kiểm/ghi trong `packages/server/src/imports/definitions.ts`; web gắn `ImportButton`.
+  Mẫu: nhập phòng ban.
 - Định dạng hiển thị (web và tệp xuất): `formatVnd`, `formatDateTime`, `formatDate`, `formatBytes` từ `@app/shared`.
 
 ## Mẫu nghiệp vụ: copy theo module `apps/api/src/modules/purchase-requests/`

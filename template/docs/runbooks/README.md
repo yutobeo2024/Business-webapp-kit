@@ -9,5 +9,6 @@
 | Sự cố production             | [incident.md](incident.md)                 |
 | Giám sát và cảnh báo         | [monitoring.md](monitoring.md)             |
 | Đổi mật khẩu, khóa, token    | [secrets-rotation.md](secrets-rotation.md) |
+| Email, Zalo, thông báo lỗi   | [notifications.md](notifications.md)       |
 
 Ghi chú từng phiên bản: `releases/`. Báo cáo sau sự cố: `postmortems/`.

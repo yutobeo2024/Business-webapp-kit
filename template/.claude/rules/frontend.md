@@ -20,4 +20,6 @@ paths:
   tệp xuất). Văn bản giao diện tiếng Việt có dấu.
 - Tải tệp lên: `uploadFile` (`src/lib/api.ts`); tải về: thẻ `<a href download>` tới endpoint tải. Xuất Excel/PDF:
   `ExportButton` (`features/exports`), kết quả ở trang "Tệp đã xuất". Mẫu: `attachments-dialog.tsx`, nút ở `list-page.tsx`.
+- Nhập Excel: `ImportButton` (`features/imports`) với loại nhập và khóa query cần tải lại; mẫu ở trang Phòng ban.
+  Thông báo trong app có sẵn (chuông, trang Thông báo, Cài đặt thông báo): module mới không tự làm chuông riêng.
 - Component cơ bản trong `src/components/ui`. Thêm component shadcn: `pnpm dlx shadcn@latest add <ten>` (hỏi trước khi thêm thư viện).

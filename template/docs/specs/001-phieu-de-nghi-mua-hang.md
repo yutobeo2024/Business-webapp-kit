@@ -82,7 +82,17 @@ stateDiagram-v2
 
 ## 7. Thông báo
 
-Mỗi lần đổi trạng thái đẩy job `pr.status_changed` sau khi commit (điểm mở rộng gửi email/Zalo).
+Mỗi lần đổi trạng thái đẩy job `pr.status_changed` sau khi commit; worker báo (lõi thông báo, spec 003) theo quyền hiện
+tại, chỉ người xem được phiếu, không báo tài khoản bị khóa:
+
+| Phiếu chuyển sang      | Người nhận                                                               | Loại                  |
+| ---------------------- | ------------------------------------------------------------------------ | --------------------- |
+| Chờ trưởng phòng duyệt | Người có `pr.approve.department` cùng phòng ban với phiếu, trừ người lập | `pr.pending_approval` |
+| Chờ giám đốc duyệt     | Người có `pr.approve.final`, trừ người lập                               | `pr.pending_approval` |
+| Đã duyệt               | Người lập                                                                | `pr.approved`         |
+| Bị từ chối             | Người lập (kèm lý do)                                                    | `pr.rejected`         |
+
+Job đến muộn khi phiếu đã sang trạng thái khác thì không báo trạng thái cũ.
 
 ## 10. Tiêu chí nghiệm thu
 
