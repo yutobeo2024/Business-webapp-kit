@@ -8,7 +8,7 @@ import { JOBS, type NotificationChannel, type NotificationDeliverJob, QUEUES } f
 import { loadEnv } from "./env.js";
 import { createExportProcessor, EXPORT_MAINTENANCE_JOBS } from "./exports/processor.js";
 import { PdfRenderer } from "./exports/pdf.js";
-import { createImportProcessor } from "./imports/processor.js";
+import { createImportProcessor, IMPORT_MAINTENANCE_JOBS } from "./imports/processor.js";
 import type { NotificationSender } from "./notifications/channel.js";
 import { MAX_DELIVERY_ATTEMPTS } from "./notifications/deliver.js";
 import { EmailSender } from "./notifications/email.js";
@@ -137,6 +137,17 @@ if (zalo) {
   await scheduler.removeJobScheduler(MAINTENANCE_JOBS.refreshZaloToken);
 }
 
+// Yêu cầu nhập Excel kẹt hoặc bỏ dở: mỗi 15 phút.
+const importsScheduler = new Queue(QUEUES.imports, { connection });
+await importsScheduler.upsertJobScheduler(
+  IMPORT_MAINTENANCE_JOBS.sweepImports,
+  { pattern: "*/15 * * * *", tz: "Asia/Ho_Chi_Minh" },
+  {
+    name: IMPORT_MAINTENANCE_JOBS.sweepImports,
+    opts: { attempts: 2, removeOnComplete: 10, removeOnFail: 100 },
+  },
+);
+
 // Dọn tệp xuất hết hạn và đính kèm đã xóa quá 7 ngày lúc 04:00 hằng ngày.
 const exportsScheduler = new Queue(QUEUES.exports, { connection });
 await exportsScheduler.upsertJobScheduler(
@@ -183,7 +194,7 @@ async function shutdown(signal: string): Promise<void> {
   }, 30_000);
   try {
     await Promise.all([worker.close(), exportsWorker.close(), importsWorker.close()]);
-    await Promise.all([scheduler.close(), exportsScheduler.close()]);
+    await Promise.all([scheduler.close(), exportsScheduler.close(), importsScheduler.close()]);
     await pdf.close();
     email?.close();
     await connection.quit();

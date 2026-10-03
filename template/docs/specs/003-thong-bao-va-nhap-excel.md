@@ -60,6 +60,8 @@ Nhập Excel
   đổi giữa lúc xem trước và xác nhận thì không ghi, báo lỗi mới.
 - **BR-I5**: Chỉ người tải lên xem, xác nhận, hủy (người khác 404); xác nhận hai lần chỉ nhận một. Quyền kiểm lại ở cả hai
   bước. Audit: tải lên, xác nhận, ghi (số dòng).
+- **BR-I6**: Yêu cầu kẹt ở đang kiểm/đang nhập quá 30 phút thành Lỗi hệ thống; đã kiểm xong mà bỏ đó quá 7 ngày thì tự hủy
+  (kiểm mỗi 15 phút), sau đó tệp được dọn.
 
 ## 6. Vận hành
 

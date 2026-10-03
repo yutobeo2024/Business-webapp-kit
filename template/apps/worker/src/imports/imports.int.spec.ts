@@ -11,7 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { auditLogs, createDb, departments, importJobs, rolePermissions, type DbHandle } from "@app/db";
 import { LocalFileStorage, storeFile } from "@app/server";
 import { makeUser, resetWorkerDb } from "../testing/fixture.js";
-import { commitImport, type ImportDeps, validateImport } from "./processor.js";
+import { commitImport, type ImportDeps, sweepImports, validateImport } from "./processor.js";
 
 let handle: DbHandle;
 let deps: ImportDeps;
@@ -135,5 +135,28 @@ describe("nhập phòng ban từ Excel", () => {
     const id = await upload(admin.id, []);
     expect(await validateImport(deps, id)).toBe("INVALID");
     expect((await jobOf(id)).errors[0]!.message).toMatch(/không có dòng dữ liệu/);
+  });
+});
+
+describe("quét yêu cầu nhập kẹt hoặc bỏ dở", () => {
+  it("kẹt quá 30 phút thành FAILED; READY bỏ đó quá 7 ngày thành CANCELLED; yêu cầu mới không bị đụng", async () => {
+    const admin = await makeUser(handle.db, "qt", null, ["departments.manage"]);
+    const stuck = await upload(admin.id, [["HC", "Hành chính"]]);
+    const abandoned = await upload(admin.id, [["DA", "Dự án"]]);
+    const fresh = await upload(admin.id, [["TC", "Tài chính"]]);
+    await validateImport(deps, abandoned);
+    const now = Date.now();
+    await handle.db
+      .update(importJobs)
+      .set({ updatedAt: new Date(now - 31 * 60_000) })
+      .where(eq(importJobs.id, stuck));
+    await handle.db
+      .update(importJobs)
+      .set({ updatedAt: new Date(now - 8 * 86_400_000) })
+      .where(eq(importJobs.id, abandoned));
+    expect(await sweepImports(deps)).toEqual({ stuck: 1, abandoned: 1 });
+    expect((await jobOf(stuck)).status).toBe("FAILED");
+    expect((await jobOf(abandoned)).status).toBe("CANCELLED");
+    expect((await jobOf(fresh)).status).toBe("VALIDATING");
   });
 });

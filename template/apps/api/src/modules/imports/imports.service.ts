@@ -165,7 +165,8 @@ export class ImportsService {
   }
 
   async cancel(actor: CurrentUser, id: string): Promise<ImportJobDto> {
-    const { fileName } = await this.findMine(actor, id);
+    const { job, fileName } = await this.findMine(actor, id);
+    this.assertCan(actor, job.type as ImportType);
     const [row] = await this.db
       .update(importJobs)
       .set({ status: "CANCELLED", finishedAt: new Date() })

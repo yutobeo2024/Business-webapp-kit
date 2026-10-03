@@ -4,7 +4,7 @@
  * ở cả hai bước. Idempotent: chỉ xử lý khi trạng thái đúng bước.
  */
 import { type Job, UnrecoverableError } from "bullmq";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, lt } from "drizzle-orm";
 import type { Logger } from "pino";
 import { files, importJobs, users, type Db } from "@app/db";
 import {
@@ -158,8 +158,53 @@ export async function commitImport(deps: ImportDeps, importId: string): Promise<
   }
 }
 
+export const IMPORT_MAINTENANCE_JOBS = {
+  sweepImports: "maintenance.sweep_imports",
+} as const;
+/** Kiểm/ghi một tệp vài nghìn dòng mất vài giây; quá 30 phút là job đã mất (worker chết, Redis mất job). */
+const STUCK_AFTER_MS = 30 * 60 * 1000;
+/** Tệp đã kiểm xong mà người dùng bỏ đó, không xác nhận cũng không hủy: hủy sau 7 ngày để tệp được dọn. */
+const ABANDONED_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Chạy mỗi 15 phút: yêu cầu kẹt ở VALIDATING/COMMITTING thành FAILED (giao diện thoát trạng thái "đang xử lý"); READY bỏ dở
+ * quá 7 ngày thành CANCELLED. Sau đó job dọn dẹp 04:00 xóa tệp của chúng.
+ */
+export async function sweepImports(deps: Pick<ImportDeps, "db" | "log">, now = new Date()) {
+  const stuck = await deps.db
+    .update(importJobs)
+    .set({
+      status: "FAILED",
+      errors: fileError("Quá thời gian xử lý. Vui lòng tải tệp lên lại."),
+      errorCount: 1,
+      finishedAt: now,
+    })
+    .where(
+      and(
+        inArray(importJobs.status, ["VALIDATING", "COMMITTING"]),
+        lt(importJobs.updatedAt, new Date(now.getTime() - STUCK_AFTER_MS)),
+      ),
+    )
+    .returning({ id: importJobs.id });
+  const abandoned = await deps.db
+    .update(importJobs)
+    .set({ status: "CANCELLED", finishedAt: now })
+    .where(
+      and(
+        eq(importJobs.status, "READY"),
+        lt(importJobs.updatedAt, new Date(now.getTime() - ABANDONED_AFTER_MS)),
+      ),
+    )
+    .returning({ id: importJobs.id });
+  if (stuck.length || abandoned.length) {
+    deps.log.info({ stuck: stuck.length, abandoned: abandoned.length }, "Quét lại yêu cầu nhập Excel");
+  }
+  return { stuck: stuck.length, abandoned: abandoned.length };
+}
+
 export function createImportProcessor(deps: ImportDeps) {
   return async (job: Job): Promise<unknown> => {
+    if (job.name === IMPORT_MAINTENANCE_JOBS.sweepImports) return sweepImports(deps);
     const parsed = importJobSchema.safeParse(job.data);
     if (!parsed.success) throw new UnrecoverableError(`Job ${job.name} sai định dạng`);
     const finalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);

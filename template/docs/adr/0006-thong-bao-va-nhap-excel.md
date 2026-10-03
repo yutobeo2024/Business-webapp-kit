@@ -19,8 +19,8 @@ lỗi tạm thời hoặc vĩnh viễn. Nhập Excel dữ liệu thật của kh
   (ngoài DB, lộ bản sao lưu DB không lộ token). Refresh token Zalo dùng một lần, nên làm mới trong transaction khóa dòng và
   làm mới hằng ngày để không hết hạn khi lâu không gửi.
 - **Nhập Excel hai bước, tất cả hoặc không**: worker kiểm và lưu lỗi/xem trước; người dùng xác nhận; worker kiểm lại và ghi
-  trong MỘT transaction. Schema dòng dùng lại schema form nhập tay. Chặn zip bomb bằng đọc thư mục trung tâm zip trước khi
-  mở; đọc cả tệp bằng `exceljs` (bộ đọc stream lỗi với một số thứ tự mục trong zip).
+  trong MỘT transaction. Schema dòng dùng lại schema form nhập tay. Chặn zip bomb trước khi
+  mở bằng giải nén THẬT từng mục có trần byte (không tin kích thước khai báo trong tệp); đọc cả tệp bằng `exceljs` (bộ đọc stream lỗi với một số thứ tự mục trong zip).
 
 ## Đánh đổi
 
