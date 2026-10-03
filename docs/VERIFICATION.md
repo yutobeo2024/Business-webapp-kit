@@ -1,5 +1,27 @@
 # Báo cáo kiểm chứng kit
 
+## 1.1.0: lõi quản trị và phân quyền động (03/10/2026)
+
+Spec `template/docs/specs/000-quan-tri-nguoi-dung.md`, ADR-0004. Test viết trước mỗi bước.
+
+| Hạng mục | Kiểm bằng | Kết quả |
+|---|---|---|
+| Phân quyền theo quyền, đổi vai trò có hiệu lực ngay, quyền lạ bị bỏ qua, mật khẩu tạm, đổi mật khẩu | `test/access.int.spec.ts` (9 ca) | xanh |
+| Quản trị người dùng/vai trò/phòng ban và mọi chốt chặn (leo thang, chiếm tài khoản, người quản trị cuối, tự thao tác, audit) | `test/admin.int.spec.ts` (23 ca) | xanh |
+| Mẫu danh sách (tìm có ký tự %, _, sắp xếp ổn định, cột lạ 400) | unit + tích hợp | xanh |
+| Luồng thật trên trình duyệt | E2E: quản trị tạo vai trò và người dùng, người mới bị bắt đổi mật khẩu rồi lập phiếu; AC-01; tìm kiếm trên URL | 3/3 |
+| Cài sạch Linux `node:24-bookworm` | format, build, 67 unit, 60 tích hợp, selftest, hạ tầng, migration | xanh |
+| Image production | build 3 image | xanh |
+
+Agent độc lập rà bước này (chạy khai thác thật bằng test tạm): không có leo thang lên quyền quản trị, IDOR hay SQL
+injection; hai bất biến luôn còn người quản trị đứng vững khi chạy song song. Tìm ra 2 lỗi mức Trung bình, đã sửa sau khi
+sửa spec 000 trước: (1) bất biến chỉ đếm `roles.manage` nên có thể mất hết người quản lý tài khoản mà không cấp lại được
+(nay đếm người có cả hai quyền, thêm lệnh khôi phục `grant-admin`); (2) sửa quyền của vai trò mình đang giữ để tự cấp quyền
+nghiệp vụ, lách tách biệt nhiệm vụ (nay chặn; vai trò hệ thống chỉ chứa quyền quản trị). Cùng sửa: không tự đổi phòng ban,
+người lập bị thu `pr.create` không gửi/sửa/hủy phiếu cũ, xóa vai trò xếp hàng với thao tác gán.
+Rủi ro còn lại (ghi trong ADR-0004): người có `users.manage` gán được vai trò nghiệp vụ và đặt lại mật khẩu tài khoản
+nghiệp vụ, kiểm soát bằng audit và quy trình của khách.
+
 ## 1.0.2: lỗi mức Medium và kiểm thật các phần chưa từng chạy (03/10/2026)
 
 Danh sách sửa đổi: [CHANGELOG.md](../CHANGELOG.md). Test viết trước, đỏ trên 1.0.1:

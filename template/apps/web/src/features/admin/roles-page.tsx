@@ -3,6 +3,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
+  CORE_PERMISSIONS,
   holderOnlyBeyond,
   type ListRolesQuery,
   type Permission,
@@ -152,9 +153,14 @@ function RoleForm({ role, onClose }: { role: RoleDto | null; onClose: () => void
   const errors = form.formState.errors;
   const myPermissions = me.data?.permissions ?? [];
   // Quyền quản trị mình chưa có: không cấp được (backend cũng chặn). Vai trò hệ thống: không gỡ quyền bắt buộc.
+  // Vai trò mình đang giữ: không sửa quyền (BR-A7). Vai trò hệ thống: chỉ quyền quản trị (BR-A6).
+  const ownRole = Boolean(role && me.data?.roles.some((r) => r.id === role.id));
   const locked = (p: Permission) =>
+    ownRole ||
     holderOnlyBeyond(myPermissions, [p]).length > 0 ||
-    Boolean(role?.isSystem && SYSTEM_ROLE_REQUIRED_PERMISSIONS.includes(p));
+    Boolean(
+      role?.isSystem && (SYSTEM_ROLE_REQUIRED_PERMISSIONS.includes(p) || !Object.hasOwn(CORE_PERMISSIONS, p)),
+    );
 
   return (
     <form
@@ -175,9 +181,13 @@ function RoleForm({ role, onClose }: { role: RoleDto | null; onClose: () => void
       <Field label="Mô tả" error={errors.description?.message}>
         <Input {...form.register("description")} />
       </Field>
+      {ownRole ? (
+        <p className="text-xs text-neutral-500">Bạn đang giữ vai trò này nên không sửa được quyền của nó.</p>
+      ) : null}
       {role?.isSystem ? (
         <p className="text-xs text-neutral-500">
-          Vai trò hệ thống: không đổi tên, không xóa, luôn giữ quyền quản lý người dùng và vai trò.
+          Vai trò hệ thống: không đổi tên, không xóa, luôn giữ quyền quản lý người dùng và vai trò, chỉ chứa
+          quyền quản trị.
         </p>
       ) : null}
       <Controller

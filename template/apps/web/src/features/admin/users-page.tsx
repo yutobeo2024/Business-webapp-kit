@@ -390,7 +390,11 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
         <Input {...form.register("fullName")} />
       </Field>
       <Field label="Phòng ban" error={form.formState.errors.departmentId?.message}>
-        <DepartmentSelect {...form.register("departmentId", departmentValue)} />
+        <DepartmentSelect
+          {...form.register("departmentId", departmentValue)}
+          disabled={me.data?.id === user.id}
+          title={me.data?.id === user.id ? "Không tự đổi phòng ban của mình" : undefined}
+        />
       </Field>
       <Controller
         control={form.control}

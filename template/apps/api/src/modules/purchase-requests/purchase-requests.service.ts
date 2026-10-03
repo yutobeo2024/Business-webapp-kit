@@ -171,7 +171,9 @@ export class PurchaseRequestsService {
   ): Promise<PurchaseRequestDto> {
     const row = await this.db.transaction(async (tx) => {
       const current = await this.lockForWrite(tx, actor, id, input.version);
-      if (current.requesterId !== actor.id) throw Errors.forbidden("Chỉ người lập phiếu được sửa phiếu");
+      if (current.requesterId !== actor.id || !can(actor, "pr.create")) {
+        throw Errors.forbidden("Chỉ người lập phiếu (còn quyền lập phiếu) được sửa phiếu");
+      }
       if (current.status !== "DRAFT") {
         throw new BusinessError("PR_NOT_EDITABLE", "Chỉ sửa được phiếu ở trạng thái Nháp", 409);
       }

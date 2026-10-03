@@ -25,7 +25,10 @@ type Actor = Pick<CurrentUser, "id" | "departmentId" | "permissions">;
 
 interface TransitionRule {
   from: readonly PrStatus[];
-  /** "REQUESTER" = chỉ người tạo phiếu. Còn lại: quyền cần có (không kiểm tên vai trò, ADR-0004). */
+  /**
+   * "REQUESTER" = người tạo phiếu VÀ vẫn có pr.create (bị thu quyền thì không gửi/sửa/hủy phiếu cũ được nữa).
+   * Còn lại: quyền cần có (không kiểm tên vai trò, ADR-0004).
+   */
   who: "REQUESTER" | Permission;
   /** Kiểm tra thêm ngoài quyền. Trả về lỗi nếu vi phạm. */
   check?: (pr: PrSnapshot, actor: Actor) => BusinessError | null;
@@ -101,7 +104,10 @@ export function decide(pr: PrSnapshot, event: PrEvent, actor: Actor): Decision {
   }
   let lastError: BusinessError = Errors.forbidden();
   for (const rule of rules) {
-    const allowedWho = rule.who === "REQUESTER" ? actor.id === pr.requesterId : can(actor, rule.who);
+    const allowedWho =
+      rule.who === "REQUESTER"
+        ? actor.id === pr.requesterId && can(actor, "pr.create")
+        : can(actor, rule.who);
     if (!allowedWho) {
       lastError = Errors.forbidden();
       continue;

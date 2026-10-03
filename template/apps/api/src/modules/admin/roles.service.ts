@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { count, eq, inArray, sql } from "drizzle-orm";
 import { rolePermissions, roles, userRoles, type Db, type DbOrTx } from "@app/db";
 import {
+  CORE_PERMISSIONS,
   type CurrentUser,
   isPermission,
   type ListRolesQuery,
@@ -121,6 +122,15 @@ export class RolesService {
         if (!current) throw Errors.notFound("ROLE");
         if (current.version !== input.version) throw Errors.versionConflict();
         const before = (await this.permissionsByRole(tx, [id])).get(id) ?? [];
+        // BR-A7: sửa quyền của vai trò mình đang giữ là tự cấp quyền cho mình (kể cả quyền nghiệp vụ).
+        const permissionsChanged = before.join() !== input.permissions.join();
+        if (permissionsChanged && actor.roles.some((r) => r.id === id)) {
+          throw new BusinessError(
+            "ROLE_SELF_EDIT",
+            "Không sửa quyền của vai trò bạn đang giữ. Nhờ quản trị viên khác.",
+            403,
+          );
+        }
         // Không sửa vai trò mang quyền quản trị mình chưa có, không đưa thêm quyền đó vào.
         assertNoEscalation(actor, [...before, ...input.permissions]);
         if (current.isSystem) {
@@ -128,6 +138,13 @@ export class RolesService {
           const missing = SYSTEM_ROLE_REQUIRED_PERMISSIONS.filter((p) => !input.permissions.includes(p));
           if (missing.length) {
             throw systemRoleError(`Vai trò hệ thống phải giữ quyền: ${missing.join(", ")}.`);
+          }
+          // BR-A6: tách biệt nhiệm vụ. Người quản trị cần quyền nghiệp vụ thì được gán thêm vai trò nghiệp vụ.
+          const business = input.permissions.filter((p) => !Object.hasOwn(CORE_PERMISSIONS, p));
+          if (business.length) {
+            throw systemRoleError(
+              `Vai trò hệ thống chỉ chứa quyền quản trị. Tạo vai trò nghiệp vụ riêng cho: ${business.join(", ")}.`,
+            );
           }
         }
         const [updated] = await tx
@@ -155,6 +172,8 @@ export class RolesService {
 
   async remove(actor: CurrentUser, id: string, ip: string | null): Promise<void> {
     await this.db.transaction(async (tx) => {
+      // Xếp hàng với thao tác gán vai trò (không để người khác vừa gán đúng vai trò đang bị xóa).
+      await lockAdminInvariant(tx);
       const [current] = await tx.select().from(roles).where(eq(roles.id, id)).for("update");
       if (!current) throw Errors.notFound("ROLE");
       if (current.isSystem) throw systemRoleError("Không xóa vai trò hệ thống.");

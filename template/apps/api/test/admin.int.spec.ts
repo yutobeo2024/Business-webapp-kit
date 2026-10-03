@@ -1,9 +1,11 @@
 import type { INestApplication } from "@nestjs/common";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { auditLogs, users, type DbHandle } from "@app/db";
+import { auditLogs, rolePermissions, userRoles, users, type DbHandle } from "@app/db";
+import { grantAdmin } from "../src/auth/grant-admin.js";
 import { createApp } from "../src/bootstrap.js";
+import { assertAdminRemains } from "../src/modules/admin/safeguards.js";
 import {
   nextIp,
   openDb,
@@ -266,7 +268,9 @@ describe("Vai trò", () => {
     expect((await del(admin, `/api/admin/roles/${sys.id}`)).body.code).toBe("ROLE_SYSTEM");
     const rename = await patch(admin, `/api/admin/roles/${sys.id}`, { ...sys, name: "Đổi tên" });
     expect(rename.body.code).toBe("ROLE_SYSTEM");
-    const strip = await patch(admin, `/api/admin/roles/${sys.id}`, { ...sys, permissions: ["users.manage"] });
+    // Gỡ quyền bắt buộc: thử bằng quản trị viên KHÁC (người giữ vai trò hệ thống đã bị chặn bởi BR-A7).
+    const { c } = await deputyAdmin();
+    const strip = await patch(c, `/api/admin/roles/${sys.id}`, { ...sys, permissions: ["users.manage"] });
     expect(strip.body.code).toBe("ROLE_SYSTEM");
   });
 
@@ -292,9 +296,9 @@ describe("Vai trò", () => {
     expect(roles.find((r: { id: string }) => r.id === f.roleIds.MANAGER).userCount).toBe(2);
   });
 
-  it("không bao giờ còn 0 người quản trị vai trò đang hoạt động", async () => {
+  /** C quản trị qua vai trò thường "Quản trị phụ" (đủ mọi quyền quản trị, không phải vai trò hệ thống). */
+  async function deputyAdmin() {
     const admin = await login(f.admin.email);
-    // C là quản trị qua vai trò thường (đủ mọi quyền quản trị); C khóa A, giờ chỉ còn C giữ roles.manage.
     const role = await post(admin, "/api/admin/roles", {
       name: "Quản trị phụ",
       permissions: ["users.manage", "roles.manage", "departments.manage"],
@@ -302,17 +306,75 @@ describe("Vai trò", () => {
     await post(admin, "/api/admin/users", newUser({ email: "c@test.vn", roleIds: [role.body.id] }));
     const c = await login("c@test.vn", TEMP);
     await post(c, "/api/auth/change-password", { currentPassword: TEMP, newPassword: "mat-khau-cua-c-123" });
-    expect(
-      (await post(c, `/api/admin/users/${f.admin.id}/active`, { isActive: false, version: 1 })).status,
-    ).toBe(200);
-    const strip = await patch(c, `/api/admin/roles/${role.body.id}`, {
+    return { admin, c, role: role.body as { id: string; version: number } };
+  }
+
+  it("không sửa quyền của vai trò mình đang giữ (tự cấp quyền qua vai trò của mình)", async () => {
+    const { admin, c, role } = await deputyAdmin();
+    const strip = await patch(c, `/api/admin/roles/${role.id}`, {
       name: "Quản trị phụ",
       description: "",
-      permissions: ["users.manage", "departments.manage"],
-      version: role.body.version,
+      permissions: ["users.manage", "roles.manage", "departments.manage", "pr.approve.final"],
+      version: role.version,
     });
-    expect(strip.status).toBe(409);
-    expect(strip.body.code).toBe("LAST_ADMIN");
+    expect(strip.status).toBe(403);
+    expect(strip.body.code).toBe("ROLE_SELF_EDIT");
+    const sys = (await admin.get(`/api/admin/roles/${f.roleIds.ADMIN}`)).body;
+    const self = await patch(admin, `/api/admin/roles/${sys.id}`, {
+      ...sys,
+      permissions: [...sys.permissions, "pr.approve.final"],
+    });
+    expect(self.body.code).toBe("ROLE_SELF_EDIT");
+  });
+
+  it("vai trò hệ thống chỉ chứa quyền quản trị (tách biệt nhiệm vụ)", async () => {
+    const { c } = await deputyAdmin();
+    const sys = (await c.get(`/api/admin/roles/${f.roleIds.ADMIN}`)).body;
+    const res = await patch(c, `/api/admin/roles/${sys.id}`, {
+      ...sys,
+      permissions: [...sys.permissions, "pr.approve.final"],
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("ROLE_SYSTEM");
+  });
+
+  it("không tự đổi phòng ban của mình", async () => {
+    const admin = await login(f.admin.email);
+    const res = await patch(admin, `/api/admin/users/${f.admin.id}`, {
+      fullName: "Quản trị",
+      departmentId: f.deptKd,
+      roleIds: [f.roleIds.ADMIN],
+      version: 1,
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("USER_SELF_ACTION");
+  });
+
+  it("bất biến quản trị đếm người có CẢ users.manage và roles.manage", async () => {
+    // Chỉ còn roles.manage thì không ai cấp lại được users.manage: phải coi như đã mất quản trị.
+    await handle.db
+      .delete(rolePermissions)
+      .where(
+        and(eq(rolePermissions.roleId, f.roleIds.ADMIN), eq(rolePermissions.permission, "users.manage")),
+      );
+    await expect(handle.db.transaction((tx) => assertAdminRemains(tx))).rejects.toMatchObject({
+      code: "LAST_ADMIN",
+    });
+  });
+
+  it("khôi phục quản trị từ máy chủ (grant-admin): kích hoạt lại, gán vai trò hệ thống, gỡ tạm khóa", async () => {
+    await handle.db
+      .update(users)
+      .set({ isActive: false, lockedUntil: new Date(Date.now() + 600_000) })
+      .where(eq(users.id, f.admin.id));
+    await handle.db.delete(userRoles).where(eq(userRoles.userId, f.admin.id));
+    await grantAdmin(handle.db, f.admin.email.toUpperCase());
+    const me = (await (await login(f.admin.email)).get("/api/auth/me")).body;
+    expect(me.permissions).toContain("users.manage");
+    expect(me.permissions).toContain("roles.manage");
+    const audits = await handle.db.select().from(auditLogs).where(eq(auditLogs.action, "user.grant_admin"));
+    expect(audits).toHaveLength(1);
+    await expect(grantAdmin(handle.db, "khong-ton-tai@test.vn")).rejects.toThrow(/Không có tài khoản/);
   });
 });
 

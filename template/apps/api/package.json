@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "seed": "node --env-file-if-exists=../../.env dist/cli/seed.js"
+    "seed": "node --env-file-if-exists=../../.env dist/cli/seed.js",
+    "grant-admin": "node --env-file-if-exists=../../.env dist/cli/grant-admin.js"
   },
   "dependencies": {
     "@app/db": "workspace:*",

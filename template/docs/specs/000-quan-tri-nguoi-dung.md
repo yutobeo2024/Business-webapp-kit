@@ -40,9 +40,12 @@ Cả ba là quyền quản trị (`holderOnly`). Vai trò mặc định "Quản 
   do đăng nhập sai.
 - **BR-A4**: Quyền quản trị chỉ người đang có mới cấp được (qua vai trò); không thao tác được trên tài khoản hay vai trò mang
   quyền quản trị mình chưa có. Quyền nghiệp vụ người quản lý tài khoản gán được.
-- **BR-A5**: Luôn còn ít nhất một người đang hoạt động có `roles.manage`.
-- **BR-A6**: Vai trò hệ thống không xóa, không đổi tên, luôn giữ `users.manage`, `roles.manage`.
-- **BR-A7**: Không tự khóa, tự đổi vai trò, tự đặt lại mật khẩu của mình.
+- **BR-A5**: Luôn còn ít nhất một người đang hoạt động có CẢ `users.manage` và `roles.manage` (chỉ còn một trong hai thì
+  không ai cấp lại được quyền kia, hệ thống kẹt). Mất hết vẫn còn đường khôi phục từ máy chủ: `grant-admin` (runbook).
+- **BR-A6**: Vai trò hệ thống không xóa, không đổi tên, luôn giữ `users.manage`, `roles.manage`, và chỉ chứa quyền quản
+  trị (tách biệt nhiệm vụ: người quản trị cần quyền nghiệp vụ thì được quản trị viên KHÁC gán thêm vai trò nghiệp vụ).
+- **BR-A7**: Không tự khóa, tự đổi vai trò, tự đổi phòng ban, tự đặt lại mật khẩu của mình, và không sửa quyền của vai trò
+  mình đang giữ (nếu không, sửa vai trò của mình là cách tự cấp quyền).
 - **BR-A8**: Không xóa vai trò còn người dùng. Không xóa phòng ban, chỉ ngừng dùng; phòng ban ngừng dùng không nhận người mới
   (người cũ giữ nguyên).
 - **BR-A9**: Sửa người dùng, vai trò, phòng ban có kiểm phiên bản; sửa đè thay đổi của người khác trả 409.

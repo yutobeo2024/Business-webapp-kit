@@ -169,6 +169,8 @@ export class UsersService {
         await this.assertRolesExist(tx, added);
         assertNoEscalation(actor, await permissionsOfRoles(tx, [...added, ...removed]));
       }
+      // BR-A7: đổi phòng ban của mình là tự mở phạm vi xem/duyệt sang phòng khác.
+      if (input.departmentId !== current.departmentId) assertNotSelf(actor, id, "đổi phòng ban");
       await this.assertDepartmentUsable(tx, input.departmentId, current.departmentId);
       const [updated] = await tx
         .update(users)

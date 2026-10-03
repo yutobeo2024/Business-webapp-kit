@@ -9,8 +9,10 @@ Thêm
 - Phân quyền động: quyền khai báo trong mã (mỗi module tự khai báo), vai trò là tập quyền do quản trị viên cấu hình trên
   giao diện; một người nhiều vai trò; đổi vai trò có hiệu lực ngay. `can()`, `@RequirePermission`, `PermissionGuard`.
 - Quản trị người dùng, vai trò, phòng ban (API + giao diện) với chốt chặn: quyền quản trị chỉ người đang có mới cấp được và
-  không thao tác được trên tài khoản mạnh hơn mình; luôn còn người quản trị; vai trò hệ thống bảo vệ; không tự khóa mình;
+  không thao tác được trên tài khoản mạnh hơn mình; luôn còn người có cả quyền quản lý người dùng và vai trò; vai trò hệ thống
+  chỉ chứa quyền quản trị; không tự khóa, tự đổi vai trò/phòng ban, không sửa quyền của vai trò mình đang giữ;
   khóa/đặt lại mật khẩu thu hồi phiên; audit không chứa mã băm.
+- Lệnh khôi phục quản trị từ máy chủ `grant-admin <email>` (runbook incident) khi không còn ai quản trị được.
 - Mật khẩu tạm bắt đổi ở lần đăng nhập đầu, tự đổi mật khẩu (thu hồi phiên khác), chính sách mật khẩu dùng chung.
 - Mẫu danh sách dùng chung: tìm kiếm, lọc, sắp xếp (chỉ cột cho phép), phân trang, bộ lọc nằm trên URL; component
   `DataTable`, `SortTh`, `Pagination`, `SearchInput`, `Select`, `Checkbox`, `Badge`, `Dialog`, `ConfirmDialog` (không thêm

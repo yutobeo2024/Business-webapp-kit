@@ -21,9 +21,11 @@ thanh toán"). Vai trò cố định trong mã (enum) buộc phải sửa mã v�
 - Chốt chặn (`apps/api/src/modules/admin/safeguards.ts`):
   - Quyền quản trị (`holderOnly`) chỉ người đang có mới cấp được; người không có không thao tác được trên tài khoản hay vai
     trò đang có nó (không chiếm tài khoản mạnh hơn mình qua đặt lại mật khẩu).
-  - Luôn còn ít nhất một người đang hoạt động có `roles.manage`; các thao tác có thể vi phạm xếp hàng bằng khóa dòng.
   - Vai trò hệ thống "Quản trị hệ thống" không xóa, không đổi tên, luôn giữ `users.manage`, `roles.manage`.
-  - Không tự khóa, tự đổi vai trò, tự đặt lại mật khẩu của mình.
+  - Không tự khóa, tự đổi vai trò, tự đổi phòng ban, tự đặt lại mật khẩu của mình; không sửa quyền của vai trò mình đang
+    giữ (sửa vai trò của mình là cách tự cấp quyền). Vai trò hệ thống chỉ chứa quyền quản trị.
+  - Luôn còn người đang hoạt động có CẢ `users.manage` và `roles.manage`; các thao tác có thể vi phạm xếp hàng bằng khóa
+    dòng. Mất hết thì khôi phục từ máy chủ bằng `grant-admin`.
 
 ## Đánh đổi
 
@@ -31,7 +33,8 @@ thanh toán"). Vai trò cố định trong mã (enum) buộc phải sửa mã v�
   mọi thay đổi vai trò, và spec mỗi module ghi vai trò mặc định đề xuất.
 - Quyền nghiệp vụ không bị chặn leo thang: người có `users.manage` gán được vai trò nghiệp vụ dù bản thân không có (cần cho
   quản trị viên hệ thống không tham gia nghiệp vụ). Hệ quả: họ có thể tạo một tài khoản khác cho chính mình với quyền duyệt.
-  Đây là rủi ro tách biệt nhiệm vụ, kiểm soát bằng audit (`user.create`, `user.update` ghi ai gán vai trò gì) và quy trình
+  Tương tự, họ đặt lại được mật khẩu của tài khoản nghiệp vụ (ví dụ giám đốc) rồi đăng nhập thay. Đây là rủi ro tách biệt
+  nhiệm vụ, kiểm soát bằng audit (`user.create`, `user.update` ghi ai gán vai trò gì) và quy trình
   của khách; nếu khách cần chặt hơn, thêm duyệt hai người cho việc gán vai trò.
 - Thêm một truy vấn mỗi request để nạp quyền. Chấp nhận được với quy mô mục tiêu (dưới vài nghìn người dùng); khi cần,
   cache theo phiên kèm phiên bản vai trò.

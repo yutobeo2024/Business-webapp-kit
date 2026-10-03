@@ -2,7 +2,7 @@
  * Chốt chặn của màn quản trị (spec 000, ADR-0004). Mọi thao tác ghi trong modules/admin gọi các hàm này TRONG
  * transaction của thao tác đó.
  */
-import { and, countDistinct, eq, inArray } from "drizzle-orm";
+import { and, countDistinct, eq, inArray, sql } from "drizzle-orm";
 import { rolePermissions, roles, userRoles, users, type DbOrTx } from "@app/db";
 import { type CurrentUser, holderOnlyBeyond, PERMISSIONS } from "@app/shared";
 import { BusinessError } from "../../common/business-error.js";
@@ -16,7 +16,10 @@ export async function lockAdminInvariant(tx: DbOrTx): Promise<void> {
   await tx.select({ id: roles.id }).from(roles).where(eq(roles.isSystem, true)).for("update");
 }
 
-/** Sau thao tác, phải còn ít nhất một người ĐANG HOẠT ĐỘNG có quyền quản trị vai trò. Không còn: rollback. */
+/**
+ * Sau thao tác, phải còn ít nhất một người ĐANG HOẠT ĐỘNG có CẢ users.manage và roles.manage (BR-A5): chỉ còn một trong
+ * hai thì không ai cấp lại được quyền kia (quyền quản trị chỉ người đang có mới cấp được), hệ thống kẹt. Không còn: rollback.
+ */
 export async function assertAdminRemains(tx: DbOrTx): Promise<void> {
   const [row] = await tx
     .select({ n: countDistinct(users.id) })
@@ -24,13 +27,19 @@ export async function assertAdminRemains(tx: DbOrTx): Promise<void> {
     .innerJoin(userRoles, eq(userRoles.userId, users.id))
     .innerJoin(
       rolePermissions,
-      and(eq(rolePermissions.roleId, userRoles.roleId), eq(rolePermissions.permission, "roles.manage")),
+      and(
+        eq(rolePermissions.roleId, userRoles.roleId),
+        inArray(rolePermissions.permission, ["users.manage", "roles.manage"]),
+      ),
     )
-    .where(eq(users.isActive, true));
-  if (!row || row.n === 0) {
+    .where(eq(users.isActive, true))
+    .groupBy(users.id)
+    .having(sql`count(distinct ${rolePermissions.permission}) = 2`)
+    .limit(1);
+  if (!row) {
     throw new BusinessError(
       "LAST_ADMIN",
-      "Thao tác này làm hệ thống không còn ai quản trị vai trò. Hãy cấp quyền cho người khác trước.",
+      "Thao tác này làm hệ thống không còn ai đủ quyền quản trị (người dùng và vai trò). Hãy cấp quyền cho người khác trước.",
       409,
     );
   }
