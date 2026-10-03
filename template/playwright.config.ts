@@ -34,6 +34,13 @@ export default defineConfig({
           env: { APP_ORIGIN: baseURL },
         },
         {
+          // Worker chạy job xuất file. Không có cổng HTTP: chờ dòng log sẵn sàng. Luôn tự khởi động (kể cả CI).
+          command: "node --enable-source-maps apps/worker/dist/main.js",
+          wait: { stdout: /Worker đã sẵn sàng/ },
+          reuseExistingServer: false,
+          timeout: 60_000,
+        },
+        {
           command: "pnpm --filter @app/web exec vite preview --port 4173 --strictPort",
           url: baseURL,
           reuseExistingServer: Boolean(process.env.CI),

@@ -30,6 +30,7 @@ export async function enqueueAfterCommit(
 
 export const REDIS = Symbol("REDIS");
 export const NOTIFICATIONS_QUEUE = Symbol("NOTIFICATIONS_QUEUE");
+export const EXPORTS_QUEUE = Symbol("EXPORTS_QUEUE");
 
 @Global()
 @Module({
@@ -53,17 +54,34 @@ export const NOTIFICATIONS_QUEUE = Symbol("NOTIFICATIONS_QUEUE");
           },
         }),
     },
+    {
+      provide: EXPORTS_QUEUE,
+      inject: [REDIS],
+      useFactory: (connection: Redis) =>
+        new Queue(QUEUES.exports, {
+          connection,
+          // Thử lại ít: lỗi xuất thường do dữ liệu/quyền (worker tự ghi FAILED), không phải lỗi mạng tạm thời.
+          defaultJobOptions: {
+            attempts: 2,
+            backoff: { type: "fixed", delay: 30_000 },
+            removeOnComplete: 1000,
+            removeOnFail: 5000,
+          },
+        }),
+    },
   ],
-  exports: [REDIS, NOTIFICATIONS_QUEUE],
+  exports: [REDIS, NOTIFICATIONS_QUEUE, EXPORTS_QUEUE],
 })
 export class QueueModule implements OnApplicationShutdown {
   constructor(
     @Inject(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
+    @Inject(EXPORTS_QUEUE) private readonly exportsQueue: Queue,
     @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
   async onApplicationShutdown(): Promise<void> {
     await this.queue.close();
+    await this.exportsQueue.close();
     await this.redis.quit();
   }
 }

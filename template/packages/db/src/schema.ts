@@ -16,7 +16,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { PR_STATUSES, type PrItem } from "@app/shared";
+import { EXPORT_STATUSES, PR_STATUSES, type PrItem } from "@app/shared";
 
 // Quy ước: bảng snake_case số nhiều; mọi bảng nghiệp vụ có created_at, updated_at; xóa mềm bằng deleted_at.
 const timestamps = {
@@ -28,6 +28,7 @@ const timestamps = {
 };
 
 export const prStatusEnum = pgEnum("pr_status", PR_STATUSES);
+export const exportStatusEnum = pgEnum("export_status", EXPORT_STATUSES);
 
 export const departments = pgTable("departments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -181,6 +182,34 @@ export const files = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => [index("files_entity_idx").on(t.entityType, t.entityId), index("files_deleted_idx").on(t.deletedAt)],
+);
+
+/** Yêu cầu xuất file chạy nền (spec 002). Chỉ người yêu cầu xem/tải được; tệp hết hạn sau EXPORT_TTL_HOURS. */
+export const exportJobs = pgTable(
+  "export_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Khóa trong EXPORT_TYPES (packages/shared/src/exports.ts). */
+    type: text("type").notNull(),
+    /** Tham số đã validate bằng createExportSchema lúc yêu cầu; worker validate lại trước khi chạy. */
+    params: jsonb("params").notNull(),
+    status: exportStatusEnum("status").notNull().default("QUEUED"),
+    rowCount: integer("row_count"),
+    /** Câu báo lỗi cho người dùng (không chứa chi tiết nội bộ; chi tiết nằm trong log worker). */
+    error: text("error"),
+    fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("export_jobs_requester_idx").on(t.requestedBy, t.createdAt),
+    index("export_jobs_expires_idx").on(t.expiresAt),
+  ],
 );
 
 export const auditLogs = pgTable(

@@ -1,9 +1,13 @@
+import { fileURLToPath } from "node:url";
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import pino from "pino";
 import { createDb } from "@app/db";
+import { createStorage } from "@app/server";
 import { QUEUES } from "@app/shared";
 import { loadEnv } from "./env.js";
+import { createExportProcessor, EXPORT_MAINTENANCE_JOBS } from "./exports/processor.js";
+import { PdfRenderer } from "./exports/pdf.js";
 import { createProcessor, MAINTENANCE_JOBS } from "./processors.js";
 
 const env = loadEnv();
@@ -16,10 +20,28 @@ const worker = new Worker(QUEUES.notifications, createProcessor({ db: handle.db,
   concurrency: env.WORKER_CONCURRENCY,
 });
 
-worker.on("failed", (job, err) =>
-  log.error({ jobId: job?.id, name: job?.name, attempts: job?.attemptsMade, err }, "Job thất bại"),
+/** Gốc repo (STORAGE_DIR tương đối khi chạy dev): apps/worker/{src,dist} -> ../../../ */
+const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
+const pdf = new PdfRenderer(env.CHROMIUM_PATH);
+const exportsWorker = new Worker(
+  QUEUES.exports,
+  createExportProcessor({
+    db: handle.db,
+    log,
+    storage: createStorage(env, REPO_ROOT),
+    pdf,
+    ttlHours: env.EXPORT_TTL_HOURS,
+    maxRows: env.EXPORT_MAX_ROWS,
+  }),
+  { connection, concurrency: env.EXPORT_CONCURRENCY },
 );
-worker.on("error", (err) => log.error({ err }, "Worker lỗi"));
+
+for (const w of [worker, exportsWorker]) {
+  w.on("failed", (job, err) =>
+    log.error({ jobId: job?.id, name: job?.name, attempts: job?.attemptsMade, err }, "Job thất bại"),
+  );
+  w.on("error", (err) => log.error({ err }, "Worker lỗi"));
+}
 
 // Lịch bảo trì định kỳ: dọn phiên hết hạn lúc 03:00 hằng ngày (giờ Việt Nam). upsert nên không tạo trùng khi khởi động lại.
 const scheduler = new Queue(QUEUES.notifications, { connection });
@@ -37,7 +59,30 @@ await scheduler.upsertJobScheduler(
   },
 );
 
-log.info({ queue: QUEUES.notifications, concurrency: env.WORKER_CONCURRENCY }, "Worker đã sẵn sàng");
+// Dọn tệp xuất hết hạn và đính kèm đã xóa quá 7 ngày lúc 04:00 hằng ngày.
+const exportsScheduler = new Queue(QUEUES.exports, { connection });
+await exportsScheduler.upsertJobScheduler(
+  EXPORT_MAINTENANCE_JOBS.cleanupFiles,
+  { pattern: "0 4 * * *", tz: "Asia/Ho_Chi_Minh" },
+  {
+    name: EXPORT_MAINTENANCE_JOBS.cleanupFiles,
+    opts: {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 60_000 },
+      removeOnComplete: 30,
+      removeOnFail: 100,
+    },
+  },
+);
+
+log.info(
+  {
+    queues: [QUEUES.notifications, QUEUES.exports],
+    concurrency: env.WORKER_CONCURRENCY,
+    exportConcurrency: env.EXPORT_CONCURRENCY,
+  },
+  "Worker đã sẵn sàng",
+);
 
 let shuttingDown = false;
 async function shutdown(signal: string): Promise<void> {
@@ -49,8 +94,9 @@ async function shutdown(signal: string): Promise<void> {
     process.exit(1);
   }, 30_000);
   try {
-    await worker.close();
-    await scheduler.close();
+    await Promise.all([worker.close(), exportsWorker.close()]);
+    await Promise.all([scheduler.close(), exportsScheduler.close()]);
+    await pdf.close();
     await connection.quit();
     await handle.close();
     clearTimeout(timer);

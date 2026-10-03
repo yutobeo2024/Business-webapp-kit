@@ -90,6 +90,10 @@ export const PR_PERMISSIONS = {
     group: "Phiếu đề nghị mua hàng",
     label: "Duyệt/từ chối phiếu vượt ngưỡng (cấp cuối)",
   },
+  "pr.export": {
+    group: "Phiếu đề nghị mua hàng",
+    label: "Xuất danh sách phiếu ra Excel (chỉ các phiếu mình được xem)",
+  },
 } as const satisfies Record<string, PermissionDef>;
 
 export const transitionPurchaseRequestSchema = z

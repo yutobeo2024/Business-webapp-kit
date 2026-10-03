@@ -16,6 +16,7 @@ import { RolesPage } from "@/features/admin/roles-page";
 import { UsersPage } from "@/features/admin/users-page";
 import { LoginPage } from "@/features/auth/login-page";
 import { meQueryKey, useMe } from "@/features/auth/use-me";
+import { ExportsPage } from "@/features/exports/exports-page";
 import { PurchaseRequestListPage } from "@/features/purchase-requests/list-page";
 import { api } from "@/lib/api";
 import { searchValidator } from "@/lib/list-search";
@@ -23,6 +24,7 @@ import { searchValidator } from "@/lib/list-search";
 /** Mục điều hướng: chỉ hiện khi người dùng có quyền. Quyền thật do backend kiểm ở từng endpoint. */
 const NAV: { to: string; label: string; permission?: Permission }[] = [
   { to: "/", label: "Phiếu đề nghị" },
+  { to: "/exports", label: "Tệp đã xuất" },
   { to: "/admin/users", label: "Người dùng", permission: "users.manage" },
   { to: "/admin/roles", label: "Vai trò", permission: "roles.manage" },
   { to: "/admin/departments", label: "Phòng ban", permission: "departments.manage" },
@@ -101,6 +103,11 @@ const purchaseRequestsRoute = createRoute({
   validateSearch: searchValidator(listPurchaseRequestsQuerySchema),
   component: PurchaseRequestListPage,
 });
+const exportsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/exports",
+  component: ExportsPage,
+});
 const accountPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/account/password",
@@ -138,6 +145,7 @@ const adminDepartmentsRoute = createRoute({
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     purchaseRequestsRoute,
+    exportsRoute,
     accountPasswordRoute,
     adminUsersRoute,
     adminRolesRoute,

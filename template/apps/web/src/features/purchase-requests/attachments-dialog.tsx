@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import {
   fileAccept,
   fileTypeLabels,
+  formatBytes,
+  formatDateTime,
   PR_ATTACHMENT_LIMIT,
   PR_ATTACHMENT_TYPES,
   type PurchaseRequestDto,
@@ -9,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { apiErrorMessage } from "@/lib/api";
-import { formatBytes, formatDateTime } from "@/lib/format";
 import { attachmentDownloadUrl, useAttachments, useRemoveAttachment, useUploadAttachment } from "./api";
 
 /** BR-09: xem/tải đính kèm (ai xem được phiếu); thêm/xóa khi `canManageAttachments`. Mẫu dùng lõi tệp (spec 002). */

@@ -11,7 +11,8 @@
     "dev": "node scripts/dev.mjs",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@app/db": "workspace:*",
@@ -19,8 +20,10 @@
     "@app/shared": "workspace:*",
     "bullmq": "6.3.11",
     "drizzle-orm": "0.45.3",
+    "exceljs": "4.4.0",
     "ioredis": "6.0.0",
     "pino": "10.3.1",
+    "playwright-core": "1.63.0",
     "zod": "4.6.5"
   },
   "devDependencies": {

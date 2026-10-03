@@ -16,18 +16,18 @@ export const DEFAULT_ROLES = {
   STAFF: { name: "Nhân viên", description: "Lập phiếu, xem phiếu của mình.", permissions: ["pr.create"] },
   MANAGER: {
     name: "Trưởng phòng",
-    description: "Lập phiếu, xem và duyệt phiếu của phòng ban mình.",
-    permissions: ["pr.create", "pr.view.department", "pr.approve.department"],
+    description: "Lập phiếu, xem, duyệt và xuất Excel phiếu của phòng ban mình.",
+    permissions: ["pr.create", "pr.view.department", "pr.approve.department", "pr.export"],
   },
   ACCOUNTANT: {
     name: "Kế toán",
-    description: "Lập phiếu, xem mọi phiếu.",
-    permissions: ["pr.create", "pr.view.all"],
+    description: "Lập phiếu, xem và xuất Excel mọi phiếu.",
+    permissions: ["pr.create", "pr.view.all", "pr.export"],
   },
   DIRECTOR: {
     name: "Giám đốc",
-    description: "Xem mọi phiếu, duyệt cấp cuối.",
-    permissions: ["pr.view.all", "pr.approve.final"],
+    description: "Xem và xuất Excel mọi phiếu, duyệt cấp cuối.",
+    permissions: ["pr.view.all", "pr.approve.final", "pr.export"],
   },
 } as const satisfies Record<
   string,

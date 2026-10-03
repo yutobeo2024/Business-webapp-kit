@@ -40,7 +40,7 @@ export const openDb = (): DbHandle => createDb(process.env.DATABASE_URL!, { max:
 
 export async function resetDb(handle: DbHandle): Promise<void> {
   await handle.db.execute(
-    sql`truncate table audit_logs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
+    sql`truncate table audit_logs, export_jobs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
   );
 }
 

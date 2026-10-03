@@ -1,12 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
-import { calcTotal, type CreatePurchaseRequestInput, createPurchaseRequestSchema } from "@app/shared";
+import {
+  calcTotal,
+  type CreatePurchaseRequestInput,
+  createPurchaseRequestSchema,
+  formatVnd,
+} from "@app/shared";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
-import { formatVnd } from "@/lib/format";
 import { useCreatePurchaseRequest } from "./api";
 
 const empty: CreatePurchaseRequestInput = {

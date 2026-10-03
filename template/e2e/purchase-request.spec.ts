@@ -82,3 +82,21 @@ test("BR-09: nhân viên đính kèm PDF vào phiếu nháp và tải lại đư
   });
   await expect(dialog.getByRole("alert")).toContainText("Loại tệp không được phép");
 });
+
+test("xuất Excel danh sách phiếu chạy nền rồi tải về ở Tệp đã xuất", async ({ page }) => {
+  await login(page, "truongphong@example.com");
+  await page.getByRole("button", { name: "Xuất Excel" }).click();
+  await page.getByRole("link", { name: "Xem ở Tệp đã xuất" }).click();
+  await expect(page.getByRole("heading", { name: "Tệp đã xuất" })).toBeVisible();
+
+  // Trang tự cập nhật khi worker tạo xong.
+  const row = page.getByRole("row", { name: /Danh sách phiếu đề nghị \(Excel\)/ }).first();
+  const link = row.getByRole("link", { name: /^Tải phieu-de-nghi-.*\.xlsx$/ });
+  await expect(link).toBeVisible({ timeout: 30_000 });
+  await expect(row).toContainText("Xong");
+
+  const downloadPromise = page.waitForEvent("download");
+  await link.click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^phieu-de-nghi-\d{8}-\d{4}\.xlsx$/);
+});

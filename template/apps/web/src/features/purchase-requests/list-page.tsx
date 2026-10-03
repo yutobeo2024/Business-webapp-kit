@@ -2,6 +2,8 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   can,
+  formatDateTime,
+  formatVnd,
   type ListPurchaseRequestsQuery,
   PR_EVENT_LABELS,
   PR_STATUS_LABELS,
@@ -16,8 +18,8 @@ import { DataTable, Pagination, SortTh, Th } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Badge, SearchInput, Select } from "@/components/ui/form-controls";
 import { useMe } from "@/features/auth/use-me";
+import { ExportButton } from "@/features/exports/export-button";
 import { ApiError } from "@/lib/api";
-import { formatDateTime, formatVnd } from "@/lib/format";
 import { nextSearch } from "@/lib/list-search";
 import { usePurchaseRequests, useTransition } from "./api";
 import { AttachmentsButton } from "./attachments-dialog";
@@ -107,6 +109,7 @@ export function PurchaseRequestListPage() {
   // Chỉ hiện nút cho người có quyền lập phiếu. Quyền thật do backend kiểm.
   const me = useMe();
   const canCreate = can(me.data, "pr.create");
+  const canExport = can(me.data, "pr.export");
   const sortProps = {
     sort: search.sort,
     order: search.order,
@@ -117,7 +120,19 @@ export function PurchaseRequestListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Phiếu đề nghị mua hàng</h1>
-        {canCreate && !showForm ? <Button onClick={() => setShowForm(true)}>Lập phiếu</Button> : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {canExport ? (
+            // Xuất đúng bộ lọc và thứ tự đang xem (không phân trang).
+            <ExportButton
+              label="Xuất Excel"
+              input={{
+                type: "purchase-requests.xlsx",
+                params: { q: search.q, status: search.status, sort: search.sort, order: search.order },
+              }}
+            />
+          ) : null}
+          {canCreate && !showForm ? <Button onClick={() => setShowForm(true)}>Lập phiếu</Button> : null}
+        </div>
       </div>
       {showForm ? <CreatePurchaseRequestForm onDone={() => setShowForm(false)} /> : null}
       <div className="flex flex-wrap gap-2">
@@ -179,6 +194,10 @@ export function PurchaseRequestListPage() {
                 <div className="flex flex-wrap items-start gap-2">
                   <Actions pr={pr} />
                   <AttachmentsButton pr={pr} />
+                  <ExportButton
+                    label="In PDF"
+                    input={{ type: "purchase-request.pdf", params: { id: pr.id } }}
+                  />
                 </div>
               </td>
             </tr>

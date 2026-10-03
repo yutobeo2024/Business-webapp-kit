@@ -5,6 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import {
   type CreateUserInput,
   createUserSchema,
+  formatDateTime,
   type ListUsersQuery,
   type UpdateUserInput,
   updateUserSchema,
@@ -21,7 +22,6 @@ import { Badge, SearchInput, Select } from "@/components/ui/form-controls";
 import { Input } from "@/components/ui/input";
 import { useMe } from "@/features/auth/use-me";
 import { apiErrorMessage } from "@/lib/api";
-import { formatDateTime } from "@/lib/format";
 import { nextSearch } from "@/lib/list-search";
 import { generateTemporaryPassword } from "@/lib/password";
 import {

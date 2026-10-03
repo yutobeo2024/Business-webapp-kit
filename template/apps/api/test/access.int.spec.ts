@@ -50,7 +50,7 @@ describe("Phân quyền theo quyền, vai trò cấu hình trong DB", () => {
   it("me trả vai trò và quyền, không có tên vai trò cứng", async () => {
     const me = (await (await login(f.manager.email)).get("/api/auth/me")).body;
     expect(me.roles.map((r: { name: string }) => r.name)).toEqual(["Trưởng phòng"]);
-    expect(me.permissions).toEqual(["pr.approve.department", "pr.create", "pr.view.department"]);
+    expect(me.permissions).toEqual(["pr.approve.department", "pr.create", "pr.export", "pr.view.department"]);
     expect(me.role).toBeUndefined();
   });
 

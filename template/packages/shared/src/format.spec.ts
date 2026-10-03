@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDateTime, formatVnd } from "./format";
+import { formatDateTime, formatVnd } from "./format.js";
 
 describe("format", () => {
   it("định dạng tiền VND", () => expect(formatVnd(1_250_000).replace(/\s/g, " ")).toBe("1.250.000 ₫"));
