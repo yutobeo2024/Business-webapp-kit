@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tạo dự án mới từ kit. Dùng: ./install.sh <thư-mục-dự-án-mới>
 set -Eeuo pipefail
-VERSION="1.2.0"
+VERSION="1.3.0"
 SRC="$(cd "$(dirname "$0")/template" && pwd)"
 DEST="${1:-}"
 [[ -n "$DEST" ]] || { echo "Dùng: ./install.sh <thư-mục-dự-án-mới>"; exit 1; }

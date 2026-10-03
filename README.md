@@ -1,7 +1,7 @@
 # Business Web App Kit
 
 Bộ khởi tạo production cho web app quy trình nghiệp vụ giao cho doanh nghiệp, làm việc cùng Claude Code.
-Phiên bản kit: 1.2.0 (03/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
+Phiên bản kit: 1.3.0 (03/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
 
 ## Kit gồm gì
 
@@ -9,6 +9,7 @@ Phiên bản kit: 1.2.0 (03/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
 |---|---|---|
 | Skeleton chạy được | NestJS 12 + React 19 + PostgreSQL 17 + Redis/BullMQ, đăng nhập session, module mẫu có state machine, phân quyền, audit | `apps/`, `packages/` |
 | Lõi quản trị | Phân quyền động (quyền trong mã, vai trò cấu hình trên giao diện), quản lý người dùng, vai trò, phòng ban, mật khẩu tạm, mẫu danh sách tìm/lọc/sắp xếp | `apps/api/src/modules/admin`, `apps/web/src/features/admin` |
+| Lõi thông báo và nhập Excel | Thông báo trong app, email (SMTP), Zalo ZNS theo quyền người nhận, cài đặt kênh theo người; nhập Excel hai bước tất cả hoặc không | `packages/server/src/{notifications,imports}`, `apps/worker/src/{notifications,imports}` |
 | Lõi tệp và xuất file | Đính kèm (kiểm loại theo nội dung, lưu đĩa qua interface sẵn sàng cho S3), xuất Excel/PDF chạy nền trong worker cùng phạm vi xem với màn hình, sao lưu tệp | `packages/server`, `apps/api/src/files`, `apps/api/src/modules/exports`, `apps/worker/src/exports` |
 | Kiểm thử | Unit, tích hợp trên DB thật, E2E Playwright, kiểm script vận hành bằng docker giả | `*.spec.ts`, `*.int.spec.ts`, `e2e/`, `tests/infra/` |
 | CI/CD | Kiểm tra mọi PR; merge main -> staging; tag -> production có người duyệt; rollback một nút | `.github/workflows/` |
@@ -33,7 +34,8 @@ rồi kiểm `pnpm verify:quick` và `pnpm claude:selftest` đều xanh. Mở Cl
 Dự án đầu tiên: giữ module mẫu `purchase-requests` làm khuôn cho đến khi có module thật đầu tiên, rồi xóa module mẫu,
 spec `001`, quyền `PR_PERMISSIONS` và vai trò mặc định nghiệp vụ, phần phiếu trong `packages/server/src/purchase-requests`,
 hai loại xuất mẫu (`packages/shared/src/exports.ts`, runner và mẫu in trong `apps/worker/src/exports`), migration mẫu
-(tạo lại migration `init` từ schema thật). Lõi quản trị (spec `000`) và lõi tệp, xuất file (spec `002`) giữ lại.
+(tạo lại migration `init` từ schema thật). Lõi quản trị (spec `000`), lõi tệp, xuất file (spec `002`), lõi thông báo, nhập Excel (spec `003`) giữ lại; loại thông
+báo của phiếu (`pr.*` trong `packages/shared/src/notifications.ts`, mẫu nội dung, `ZALO_PARAMS`) xóa cùng module mẫu.
 
 ## Quy trình làm việc hằng ngày
 

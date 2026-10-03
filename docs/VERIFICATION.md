@@ -1,5 +1,36 @@
 # Báo cáo kiểm chứng kit
 
+## 1.3.0: thông báo (trong app, email, Zalo) và nhập Excel (03/10/2026)
+
+Spec `template/docs/specs/003-thong-bao-va-nhap-excel.md`, ADR-0006. Test viết cùng từng bước.
+
+| Hạng mục | Kiểm bằng | Kết quả |
+|---|---|---|
+| Người nhận theo quyền hiện tại (cùng phòng ban, người duyệt cuối, người lập), không báo người khóa/mất quyền/không xem được, job chạy lại và job đến muộn | `apps/worker/src/notifications.int.spec.ts` (7) | xanh |
+| Giao email qua SMTP thật (Mailpit), không gửi hai lần, tắt kênh/thiếu SĐT bỏ qua có lý do, lỗi tạm thời/vĩnh viễn, quét lại lần giao kẹt | `notifications/deliver.int.spec.ts` (5) | xanh |
+| Zalo ZNS với máy chủ Zalo giả: làm mới token đúng một lần khi 6 job song song, token lưu mã hóa, token bị từ chối thì làm mới bắt buộc, phân loại lỗi | `notifications/zalo.int.spec.ts` (6) | xanh |
+| Mã hóa bí mật, SĐT, email escape và chặn liên kết ra ngoài, cấu hình Zalo | unit | xanh |
+| API thông báo, cài đặt kênh, SĐT người dùng | `test/notifications.int.spec.ts` (4) | xanh |
+| Nhập Excel: lỗi đúng dòng/cột, tất cả hoặc không, dữ liệu đổi giữa xem trước và xác nhận, mất quyền, quét yêu cầu kẹt/bỏ dở | `apps/worker/src/imports/imports.int.spec.ts` (6) | xanh |
+| Đọc xlsx (tiêu đề, công thức, chữ định dạng, dòng trống, quá số dòng), zip bomb thật nở 60 MB kể cả khai báo kích thước sai | unit `packages/server` | xanh |
+| API nhập: tệp mẫu, quyền, 415, xác nhận song song chỉ nhận một, người khác 404, hủy | `test/imports.int.spec.ts` (4) | xanh |
+| Luồng thật trên trình duyệt | E2E: chuông thông báo đi tới phiếu, nhập phòng ban (tệp lỗi bị chặn, tệp đúng nhập xong), cùng 5 E2E cũ | 7/7 |
+| Cảnh báo vận hành | `tests/infra/run.sh` | 25/25 Windows, 24/24 Linux |
+| Cài sạch Linux `node:24-bookworm` (có Mailpit) | format, build, 96 unit, 114 tích hợp (82 api + 32 worker), selftest 239, hạ tầng, migration, drift | xanh |
+| Image production | build 3 image, worker in PDF thật, có `nodemailer`, `exceljs`, lệnh `zalo-token` | xanh |
+
+E2E chạy với worker thật gửi email tới Mailpit: thư "Phiếu ... chờ bạn duyệt" tới đúng hộp thư trưởng phòng.
+
+Agent độc lập rà bước này: không có lỗi mức cao (gửi nhầm người, lộ token, IDOR, chèn HTML/header email, liên kết ra
+ngoài, xác nhận nhập song song đều đứng vững). Đã sửa: (1) zip bomb khai báo kích thước nhỏ hơn thật lọt qua bộ chặn và
+làm worker phình ~800 MB (đã tái hiện), nay giải nén thật có trần byte; (2) yêu cầu nhập kẹt không có lượt quét; (3) tệp
+nhập bỏ dở ở trạng thái chờ xác nhận không bao giờ bị dọn; (4) hủy nhập không kiểm lại quyền; (5) SMTP mẫu trong
+`infra/.env.example` làm gửi lỗi hàng loạt nếu quên sửa.
+
+Giới hạn còn lại (ghi trong ADR-0006): kênh Zalo mới chỉ kiểm với máy chủ giả; bật cho khách phải đối chiếu tài liệu Zalo
+hiện hành và gửi thử với OA thật. Một lần chạy E2E đầu tiên có AC-01 đỏ khi máy vừa build xong, không tái hiện trong 4
+lần chạy sau.
+
 ## 1.2.0: tệp đính kèm và xuất Excel/PDF (03/10/2026)
 
 Spec `template/docs/specs/002-tep-va-xuat-file.md`, ADR-0005. Bước tách `packages/server` chỉ đổi chỗ: toàn bộ test cũ

@@ -1,5 +1,32 @@
 # Nhật ký thay đổi của kit
 
+## 1.3.0 (03/10/2026)
+
+Bước 2c: thông báo (trong app, email, Zalo ZNS) và nhập Excel, lõi dùng chung cho mọi dự án. Spec:
+`template/docs/specs/003-thong-bao-va-nhap-excel.md`, ADR-0006. Hoàn tất bước 2 của lộ trình.
+
+Thêm
+
+- Thông báo trong app: chuông có số chưa đọc, trang Thông báo, đánh dấu đã đọc; mỗi người chỉ thấy của mình.
+- Kênh email qua SMTP chung (nodemailer) và Zalo ZNS (tắt mặc định); mỗi người tự bật/tắt kênh; số điện thoại người dùng.
+- Người nhận tính theo quyền hiện tại và phải xem được bản ghi; mỗi sự kiện báo mỗi người một lần; mỗi kênh gửi tối đa
+  một lần cùng lúc, lỗi tạm thời thử lại, lỗi vĩnh viễn dừng ngay, lượt quét 10 phút gửi lại lần giao bị kẹt.
+- Token Zalo lưu mã hóa AES-256-GCM (`APP_ENCRYPTION_KEY`), làm mới trong transaction khóa dòng và hằng ngày; lệnh
+  `zalo-token` nạp token từ stdin.
+- Phiếu đề nghị báo trưởng phòng/giám đốc khi chờ duyệt, báo người lập khi được duyệt hoặc bị từ chối.
+- Nhập Excel hai bước: tải lên, kiểm từng dòng (dùng lại schema form, trùng trong tệp, trùng với DB), xem lỗi theo
+  dòng/cột hoặc xem trước, xác nhận thì kiểm lại và ghi tất cả trong một transaction; chặn zip bomb trước khi mở tệp;
+  tệp mẫu có hướng dẫn. Mẫu: nhập phòng ban.
+- Vận hành: Mailpit cho dev và CI, `alert-check` cảnh báo nhiều thông báo gửi lỗi và token Zalo không làm mới được,
+  runbook notifications, dọn thông báo đã đọc quá 90 ngày và tệp nhập quá 7 ngày.
+- Lớp agent: CLAUDE.md, rule backend/security/frontend, skill `/feature` và `/security-audit` theo lõi mới.
+
+Thay đổi phá tương thích (dự án tạo từ 1.2.x)
+
+- `writeAudit`, `isUniqueViolation` chuyển sang `@app/server` (đường dẫn cũ trong api vẫn re-export).
+- Worker cần thêm env `APP_ORIGIN` (liên kết trong email); bật email/Zalo theo `infra/.env.example`.
+- Migration `0002` thêm bảng thông báo, nhập, token và cột `users.phone`.
+
 ## 1.2.0 (03/10/2026)
 
 Bước 2b: tệp đính kèm và xuất Excel/PDF, lõi dùng chung cho mọi dự án. Spec: `template/docs/specs/002-tep-va-xuat-file.md`,
