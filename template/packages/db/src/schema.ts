@@ -212,6 +212,35 @@ export const exportJobs = pgTable(
   ],
 );
 
+/**
+ * Thông báo trong app (spec 003). `dedupe_key` + người nhận là duy nhất: job tạo thông báo chạy lại không tạo bản thứ hai.
+ * Chỉ người nhận đọc được thông báo của mình.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    /** Khóa trong NOTIFICATION_TYPES (packages/shared/src/notifications.ts). */
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    link: text("link"),
+    dedupeKey: text("dedupe_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("notifications_user_dedupe_uq").on(t.userId, t.dedupeKey),
+    index("notifications_user_idx").on(t.userId, t.createdAt),
+    index("notifications_unread_idx")
+      .on(t.userId)
+      .where(sql`${t.readAt} is null`),
+  ],
+);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {

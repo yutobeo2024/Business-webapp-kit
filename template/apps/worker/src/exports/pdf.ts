@@ -4,7 +4,7 @@
  * (`html`), tắt JavaScript, chặn mọi request mạng của trang.
  */
 import { type Browser, chromium } from "playwright-core";
-import type { SafeHtml } from "./html.js";
+import type { SafeHtml } from "@app/server";
 
 const FOOTER = `<div style="width:100%;font-size:8px;color:#555;text-align:center;font-family:'Noto Sans',Arial,sans-serif">
 Trang <span class="pageNumber"></span>/<span class="totalPages"></span></div>`;

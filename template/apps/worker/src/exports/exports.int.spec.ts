@@ -5,24 +5,14 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import pino from "pino";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  createDb,
-  departments,
-  exportJobs,
-  files,
-  purchaseRequests,
-  rolePermissions,
-  roles,
-  userRoles,
-  users,
-  type DbHandle,
-} from "@app/db";
+import { createDb, exportJobs, files, rolePermissions, users, type DbHandle } from "@app/db";
 import { LocalFileStorage } from "@app/server";
 import type { CreateExportInput, Permission } from "@app/shared";
+import { makePr as fixturePr, makeUser as fixtureUser, resetWorkerDb } from "../testing/fixture.js";
 import { PdfRenderer } from "./pdf.js";
 import { cleanupFiles, type ExportDeps, markStuckExports, runExport } from "./processor.js";
 
@@ -42,39 +32,10 @@ afterAll(async () => {
 
 let deptKd: string;
 let deptKt: string;
-let seq = 0;
-
-async function makeUser(name: string, departmentId: string | null, permissions: Permission[]) {
-  const { db } = handle;
-  const [role] = await db
-    .insert(roles)
-    .values({ name: `Vai trò ${name}` })
-    .returning();
-  if (permissions.length) {
-    await db.insert(rolePermissions).values(permissions.map((p) => ({ roleId: role!.id, permission: p })));
-  }
-  const [u] = await db
-    .insert(users)
-    .values({ email: `${name}@test.vn`, fullName: name, departmentId, passwordHash: "x" })
-    .returning();
-  await db.insert(userRoles).values({ userId: u!.id, roleId: role!.id });
-  return { id: u!.id, roleId: role!.id };
-}
-
-async function makePr(requesterId: string, departmentId: string, title: string) {
-  const [pr] = await handle.db
-    .insert(purchaseRequests)
-    .values({
-      code: `PR-2026-${String(++seq).padStart(6, "0")}`,
-      title,
-      items: [{ name: "Giấy A4 <loại 1>", quantity: 2, unitPrice: 90_000 }],
-      totalAmount: 180_000,
-      departmentId,
-      requesterId,
-    })
-    .returning();
-  return pr!;
-}
+const makeUser = (name: string, departmentId: string | null, permissions: Permission[]) =>
+  fixtureUser(handle.db, name, departmentId, permissions);
+const makePr = (requesterId: string, departmentId: string, title: string) =>
+  fixturePr(handle.db, requesterId, departmentId, title);
 
 async function requestExport(requestedBy: string, input: CreateExportInput) {
   const [row] = await handle.db
@@ -102,13 +63,7 @@ async function readXlsx(exportId: string) {
 const ALL_PARAMS = { sort: "code", order: "asc" } as const;
 
 beforeEach(async () => {
-  await handle.db.execute(
-    sql`truncate table audit_logs, export_jobs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
-  );
-  const [kd] = await handle.db.insert(departments).values({ code: "KD", name: "Kinh doanh" }).returning();
-  const [kt] = await handle.db.insert(departments).values({ code: "KT", name: "Kế toán" }).returning();
-  deptKd = kd!.id;
-  deptKt = kt!.id;
+  ({ deptKd, deptKt } = await resetWorkerDb(handle.db));
 });
 
 describe("xuất Excel danh sách phiếu", () => {

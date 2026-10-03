@@ -5,6 +5,7 @@ export * from "./exports.js";
 export * from "./files.js";
 export * from "./format.js";
 export * from "./money.js";
+export * from "./notifications.js";
 export * from "./permissions.js";
 export * from "./purchase-request.js";
 export * from "./jobs.js";

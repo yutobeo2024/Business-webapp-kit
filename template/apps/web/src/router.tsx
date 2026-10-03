@@ -17,6 +17,8 @@ import { UsersPage } from "@/features/admin/users-page";
 import { LoginPage } from "@/features/auth/login-page";
 import { meQueryKey, useMe } from "@/features/auth/use-me";
 import { ExportsPage } from "@/features/exports/exports-page";
+import { NotificationBell } from "@/features/notifications/notification-bell";
+import { NotificationsPage } from "@/features/notifications/notifications-page";
 import { PurchaseRequestListPage } from "@/features/purchase-requests/list-page";
 import { api } from "@/lib/api";
 import { searchValidator } from "@/lib/list-search";
@@ -74,6 +76,7 @@ function AppShell() {
             ))}
           </nav>
           <div className="flex items-center gap-3 text-sm">
+            <NotificationBell />
             <Link to="/account/password" className="hover:underline">
               {me.data.fullName}
               {me.data.roles.length ? ` · ${me.data.roles.map((r) => r.name).join(", ")}` : ""}
@@ -102,6 +105,11 @@ const purchaseRequestsRoute = createRoute({
   path: "/",
   validateSearch: searchValidator(listPurchaseRequestsQuerySchema),
   component: PurchaseRequestListPage,
+});
+const notificationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/notifications",
+  component: NotificationsPage,
 });
 const exportsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -146,6 +154,7 @@ export const router = createRouter({
   routeTree: rootRoute.addChildren([
     purchaseRequestsRoute,
     exportsRoute,
+    notificationsRoute,
     accountPasswordRoute,
     adminUsersRoute,
     adminRolesRoute,

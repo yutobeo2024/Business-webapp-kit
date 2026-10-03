@@ -12,6 +12,7 @@ import { DbModule } from "./db/db.module.js";
 import { FilesModule } from "./files/files.module.js";
 import { HealthModule } from "./health/health.module.js";
 import { ExportsModule } from "./modules/exports/exports.module.js";
+import { NotificationsModule } from "./modules/notifications/notifications.module.js";
 import { PurchaseRequestsModule } from "./modules/purchase-requests/purchase-requests.module.js";
 import { QueueModule } from "./queue/queue.module.js";
 
@@ -40,6 +41,7 @@ export class AppModule {
         AdminModule,
         PurchaseRequestsModule,
         ExportsModule,
+        NotificationsModule,
       ],
       providers: [
         { provide: ENV, useValue: env },

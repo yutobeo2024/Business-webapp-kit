@@ -1,5 +1,5 @@
 /**
- * Mẫu HTML cho PDF: viết bằng tagged template `html`, MỌI giá trị chèn vào đều được escape, trừ giá trị đã là SafeHtml
+ * Mẫu HTML (PDF, email): viết bằng tagged template `html`, MỌI giá trị chèn vào đều được escape, trừ giá trị đã là SafeHtml
  * (kết quả của một `html` khác). Không nối chuỗi HTML bằng tay, không thêm thư viện template.
  */
 export class SafeHtml {

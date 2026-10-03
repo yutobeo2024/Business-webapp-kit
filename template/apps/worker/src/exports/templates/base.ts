@@ -1,4 +1,4 @@
-import { SafeHtml } from "../html.js";
+import { SafeHtml } from "@app/server";
 
 /**
  * CSS chung cho mẫu in A4. Font: Noto Sans (image worker cài fonts-noto-core, đủ dấu tiếng Việt); không tải font từ mạng

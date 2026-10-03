@@ -2,6 +2,7 @@ import { type Job, UnrecoverableError } from "bullmq";
 import { lt } from "drizzle-orm";
 import type { Logger } from "pino";
 import { sessions, type Db } from "@app/db";
+import { notify, planPrStatusNotification } from "@app/server";
 import { JOBS, type PrStatusChangedJob, prStatusChangedJobSchema } from "@app/shared";
 
 export const MAINTENANCE_JOBS = {
@@ -14,15 +15,23 @@ export interface ProcessorDeps {
 }
 
 /**
- * Điểm mở rộng: gửi email / Zalo ZNS / thông báo trong app.
- * Processor phải idempotent: job có thể chạy lại khi retry. Dùng job.id làm khóa chống gửi trùng.
+ * Phiếu đổi trạng thái: báo cho người liên quan (spec 001 mục 7). Idempotent: dedupeKey theo phiên bản phiếu, job chạy
+ * lại không tạo thông báo thứ hai.
  */
 async function onPrStatusChanged(
   jobId: string | undefined,
   data: PrStatusChangedJob,
   deps: ProcessorDeps,
-): Promise<void> {
-  deps.log.info({ jobId, pr: data.code, from: data.from, to: data.to }, "Phiếu đề nghị đổi trạng thái");
+): Promise<number> {
+  const plan = await planPrStatusNotification(deps.db, data.purchaseRequestId, data.to);
+  const created = plan
+    ? await notify(deps.db, { ...plan, dedupeKey: `pr-${data.purchaseRequestId}-v${data.version}` })
+    : [];
+  deps.log.info(
+    { jobId, pr: data.code, from: data.from, to: data.to, notified: created.length },
+    "Phiếu đề nghị đổi trạng thái",
+  );
+  return created.length;
 }
 
 async function purgeSessions(deps: ProcessorDeps): Promise<number> {

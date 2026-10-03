@@ -100,3 +100,35 @@ test("xuất Excel danh sách phiếu chạy nền rồi tải về ở Tệp đ
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/^phieu-de-nghi-\d{8}-\d{4}\.xlsx$/);
 });
+
+test("thông báo: gửi phiếu thì trưởng phòng thấy chuông, mở thông báo đi tới phiếu", async ({ page }) => {
+  const title = `Phiếu báo trưởng phòng E2E ${Date.now()}`;
+  await login(page, "nhanvien@example.com");
+  await page.getByRole("button", { name: "Lập phiếu" }).click();
+  await page.getByLabel("Tiêu đề").fill(title);
+  await page.getByPlaceholder("Tên hàng").fill("Bút bi");
+  await page.locator('input[name="items.0.unitPrice"]').fill("5000");
+  await page.getByRole("button", { name: "Lưu nháp" }).click();
+  const row = page.getByRole("row", { name: new RegExp(title) });
+  await row.getByRole("button", { name: "Gửi duyệt" }).click();
+  await expect(row).toContainText("Chờ trưởng phòng duyệt");
+  const code = (await row.getByRole("cell").first().innerText()).trim();
+
+  await page.getByRole("button", { name: "Đăng xuất" }).click();
+  await login(page, "truongphong@example.com");
+  // Worker tạo thông báo sau khi phiếu đổi trạng thái; chuông tải lại khi mở trang.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByRole("link", { name: /Thông báo \(\d+ chưa đọc\)/ })).toBeVisible({
+      timeout: 1000,
+    });
+  }).toPass({ timeout: 20_000 });
+  await page
+    .getByRole("link", { name: /Thông báo/ })
+    .first()
+    .click();
+  await page.getByRole("button", { name: new RegExp(`Phiếu ${code} chờ bạn duyệt`) }).click();
+  await expect(page.getByRole("heading", { name: "Phiếu đề nghị mua hàng" })).toBeVisible();
+  await expect(page.getByRole("row", { name: new RegExp(title) })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`q=${code}`));
+});

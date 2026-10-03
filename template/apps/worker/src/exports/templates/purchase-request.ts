@@ -1,6 +1,6 @@
 import type { purchaseRequests } from "@app/db";
 import { formatDate, formatDateTime, formatVnd, PR_STATUS_LABELS } from "@app/shared";
-import { html, type SafeHtml } from "../html.js";
+import { html, type SafeHtml } from "@app/server";
 import { BASE_CSS } from "./base.js";
 
 export interface PurchaseRequestPdfData {

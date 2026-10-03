@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escapeHtml, html } from "./html.js";
+import { escapeHtml, html } from "@app/server";
 import { purchaseRequestHtml } from "./templates/purchase-request.js";
 
 describe("html", () => {
