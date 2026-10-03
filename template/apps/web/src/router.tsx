@@ -1,8 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createRootRoute, createRoute, createRouter, Link, Outlet } from "@tanstack/react-router";
-import { can, listPurchaseRequestsQuerySchema, type Permission } from "@app/shared";
+import type { ReactNode } from "react";
+import {
+  can,
+  listDepartmentsQuerySchema,
+  listPurchaseRequestsQuerySchema,
+  listRolesQuerySchema,
+  listUsersQuerySchema,
+  type Permission,
+} from "@app/shared";
 import { Button } from "@/components/ui/button";
 import { ChangePasswordPage } from "@/features/account/change-password-page";
+import { DepartmentsPage } from "@/features/admin/departments-page";
+import { RolesPage } from "@/features/admin/roles-page";
+import { UsersPage } from "@/features/admin/users-page";
 import { LoginPage } from "@/features/auth/login-page";
 import { meQueryKey, useMe } from "@/features/auth/use-me";
 import { PurchaseRequestListPage } from "@/features/purchase-requests/list-page";
@@ -10,7 +21,12 @@ import { api } from "@/lib/api";
 import { searchValidator } from "@/lib/list-search";
 
 /** Mục điều hướng: chỉ hiện khi người dùng có quyền. Quyền thật do backend kiểm ở từng endpoint. */
-const NAV: { to: string; label: string; permission?: Permission }[] = [{ to: "/", label: "Phiếu đề nghị" }];
+const NAV: { to: string; label: string; permission?: Permission }[] = [
+  { to: "/", label: "Phiếu đề nghị" },
+  { to: "/admin/users", label: "Người dùng", permission: "users.manage" },
+  { to: "/admin/roles", label: "Vai trò", permission: "roles.manage" },
+  { to: "/admin/departments", label: "Phòng ban", permission: "departments.manage" },
+];
 
 function AppShell() {
   const me = useMe();
@@ -91,8 +107,42 @@ const accountPasswordRoute = createRoute({
   component: () => <ChangePasswordPage />,
 });
 
+/** Trang chỉ hiện khi có quyền (mở thẳng URL mà không có quyền thì báo, thay vì một bảng toàn lỗi 403). */
+function RequirePermission({ permission, page }: { permission: Permission; page: ReactNode }) {
+  const me = useMe();
+  if (!can(me.data, permission)) {
+    return <p className="text-sm text-neutral-600">Bạn không có quyền xem trang này.</p>;
+  }
+  return page;
+}
+
+const adminUsersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/users",
+  validateSearch: searchValidator(listUsersQuerySchema),
+  component: () => <RequirePermission permission="users.manage" page={<UsersPage />} />,
+});
+const adminRolesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/roles",
+  validateSearch: searchValidator(listRolesQuerySchema),
+  component: () => <RequirePermission permission="roles.manage" page={<RolesPage />} />,
+});
+const adminDepartmentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/departments",
+  validateSearch: searchValidator(listDepartmentsQuerySchema),
+  component: () => <RequirePermission permission="departments.manage" page={<DepartmentsPage />} />,
+});
+
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([purchaseRequestsRoute, accountPasswordRoute]),
+  routeTree: rootRoute.addChildren([
+    purchaseRequestsRoute,
+    accountPasswordRoute,
+    adminUsersRoute,
+    adminRolesRoute,
+    adminDepartmentsRoute,
+  ]),
 });
 
 declare module "@tanstack/react-router" {

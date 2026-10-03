@@ -32,3 +32,9 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   }
   return data as T;
 }
+
+/** Câu báo lỗi cho người dùng từ lỗi của mutation/query; null nếu không có lỗi. */
+export function apiErrorMessage(error: unknown): string | null {
+  if (!error) return null;
+  return error instanceof ApiError ? error.message : "Không kết nối được máy chủ";
+}
