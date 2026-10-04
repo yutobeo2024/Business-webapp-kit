@@ -2,7 +2,7 @@
  * Mã chứng từ dạng `<TIỀN TỐ>-<NĂM>-<SỐ 6 CHỮ SỐ>`, đánh lại từ 000001 mỗi năm theo giờ Việt Nam (kế toán Việt Nam đánh
  * số chứng từ theo năm). Một hàng bộ đếm cho mỗi (tiền tố, năm), tăng nguyên tử trong transaction của nơi gọi: hai phiếu
  * tạo song song không trùng số, transaction lỗi thì số được trả lại (không nhảy số).
- * Dùng cho mọi module có mã chứng từ. Mẫu: phiếu đề nghị (`PR-2026-000001`).
+ * Dùng cho mọi module có mã chứng từ, ví dụ `nextDocumentCode(tx, "PR")` -> `PR-2026-000001`.
  */
 import { sql } from "drizzle-orm";
 import { documentCounters, type DbOrTx } from "@app/db";

@@ -222,9 +222,13 @@ jobs:
           pnpm verify:quick
       - name: Node lệch 22/24 thì installer dừng
         run: |
-          if PATH="$RUNNER_TEMP/fake:$PATH" bash -c 'mkdir -p "$RUNNER_TEMP/fake"; printf "#!/bin/sh\necho 25\n" > "$RUNNER_TEMP/fake/node"; chmod +x "$RUNNER_TEMP/fake/node"; ./install.sh "$RUNNER_TEMP/du-an-2"'; then
+          mkdir -p "$RUNNER_TEMP/fake"
+          printf '#!/bin/sh\necho 25\n' > "$RUNNER_TEMP/fake/node" && chmod +x "$RUNNER_TEMP/fake/node"
+          if PATH="$RUNNER_TEMP/fake:$PATH" ./install.sh "$RUNNER_TEMP/du-an-2" 2> "$RUNNER_TEMP/err.txt"; then
             echo "::error::install.sh không chặn Node 25"; exit 1
           fi
+          grep -q "Cần Node 22 hoặc 24" "$RUNNER_TEMP/err.txt" || { cat "$RUNNER_TEMP/err.txt"; exit 1; }
+          test ! -e "$RUNNER_TEMP/du-an-2"
 
   security:
     name: Quét bảo mật

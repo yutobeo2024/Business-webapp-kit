@@ -1,8 +1,9 @@
 /**
- * Tệp đính kèm: kiểm loại theo nội dung, lưu vào storage, ghi hàng `files`. Mẫu dùng: đính kèm phiếu đề nghị
- * (mẫu: attachments.service.ts của module phiếu đề nghị). Spec 002.
+ * Tệp đính kèm: kiểm loại theo nội dung, lưu vào storage, ghi hàng `files`. Spec 002, rule backend (storeFile trong
+ * withStoredFile, tải về qua sendFile).
  */
 import { createHash } from "node:crypto";
+import { and, eq, isNotNull, lte, notInArray, or, type SQL } from "drizzle-orm";
 import { fileTypeFromBuffer } from "file-type";
 import { files, type DbOrTx } from "@app/db";
 import { FILE_TYPES, type FileDto, type FileTypeKey, fileTypeLabels } from "@app/shared";
@@ -17,6 +18,24 @@ export const FILE_RETENTION: Record<string, number | "forever"> = {
   purchase_request: 7, // sample: đính kèm phiếu mẫu
 };
 export const DEFAULT_FILE_RETENTION_DAYS = 7;
+
+/**
+ * Điều kiện SQL chọn tệp đã xóa mềm ĐƯỢC xóa vật lý lúc `now` theo FILE_RETENTION (loại "forever" không bao giờ khớp).
+ * Lọc ngay trong truy vấn, không lấy N dòng rồi mới lọc: nhiều tệp giữ lâu không được chặn mất việc dọn loại khác.
+ * `excluded`: loại có vòng đời riêng (tệp xuất, tệp nhập).
+ */
+export function purgeableDeletedFilesWhere(now: Date, excluded: readonly string[]): SQL {
+  const before = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const configured = Object.keys(FILE_RETENTION);
+  const perType = Object.entries(FILE_RETENTION)
+    .filter((e): e is [string, number] => e[1] !== "forever" && !excluded.includes(e[0]))
+    .map(([type, days]) => and(eq(files.entityType, type), lte(files.deletedAt, before(days))));
+  const others = and(
+    notInArray(files.entityType, [...configured, ...excluded]),
+    lte(files.deletedAt, before(DEFAULT_FILE_RETENTION_DAYS)),
+  );
+  return and(isNotNull(files.deletedAt), or(others, ...perType))!;
+}
 
 /** Tệp đã xóa mềm lúc `deletedAt` của loại `entityType` có được xóa vật lý vào lúc `now` không. */
 export function canPurgeDeletedFile(entityType: string, deletedAt: Date, now = new Date()): boolean {

@@ -6,7 +6,7 @@ import { useRequestExport } from "./api";
 
 /**
  * Nút yêu cầu xuất file (chạy nền). Xong thì báo và dẫn tới trang "Tệp đã xuất". Ẩn/hiện theo quyền là việc của nơi dùng;
- * quyền thật do backend kiểm. Mẫu: nút "Xuất Excel" và "In PDF" ở danh sách phiếu đề nghị.
+ * quyền thật do backend kiểm. Mẫu: nút "Xuất Excel" ở trang quản trị người dùng (`features/admin/users-page.tsx`).
  */
 export function ExportButton({
   input,

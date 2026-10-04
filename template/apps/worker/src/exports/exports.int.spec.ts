@@ -71,6 +71,10 @@ describe("xuất Excel danh sách người dùng", () => {
     expect(job.rowCount).toBe(2);
     expect(file.originalName).toMatch(/^nguoi-dung-\d{8}-\d{4}\.xlsx$/);
     expect(sheet.getRow(1).getCell(1).value).toBe("Họ tên");
+    // Không xuất số điện thoại: dữ liệu cá nhân chỉ dùng cho Zalo, màn danh sách cũng không hiện.
+    const headers: string[] = [];
+    sheet.getRow(1).eachCell((c) => headers.push(String(c.value)));
+    expect(headers).toEqual(["Họ tên", "Email", "Phòng ban", "Vai trò", "Trạng thái", "Ngày tạo"]);
     const names: string[] = [];
     sheet.eachRow((row, i) => {
       if (i > 1) names.push(String(row.getCell(1).value));
@@ -180,5 +184,40 @@ describe("dọn dẹp", () => {
     expect(await storage.exists(voucherKey)).toBe(true);
     const [s] = await handle.db.select().from(exportJobs).where(eq(exportJobs.id, stuck));
     expect(s!.status).toBe("FAILED");
+  });
+
+  it("hơn 5000 tệp giữ mãi (chứng từ) không chặn việc dọn tệp loại khác", async () => {
+    const admin = await makeUser(handle.db, "quan-tri", null, ["users.manage"]);
+    const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000);
+    FILE_RETENTION.chung_tu_test = "forever";
+    try {
+      await handle.db.insert(files).values(
+        Array.from({ length: 5001 }, (_, i) => ({
+          storageKey: `chung-tu/${i}`,
+          originalName: `${i}.pdf`,
+          mimeType: "application/pdf",
+          sizeBytes: 1,
+          sha256: "x",
+          entityType: "chung_tu_test",
+          entityId: String(i),
+          uploadedBy: admin.id,
+          deletedAt: new Date(tenDaysAgo.getTime() - 1000), // xóa TRƯỚC tệp thường: đứng đầu nếu sắp theo deleted_at
+        })),
+      );
+      const { row } = await storeFile(handle.db, storage, {
+        buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"),
+        originalName: "a.pdf",
+        allowed: ["pdf"],
+        maxBytes: 1024 * 1024,
+        uploadedBy: admin.id,
+        entityType: "dinh_kem_test",
+        entityId: "x",
+      });
+      await handle.db.update(files).set({ deletedAt: tenDaysAgo }).where(eq(files.id, row.id));
+      expect(await cleanupFiles(deps)).toEqual({ removed: 1 });
+      expect(await storage.exists(row.storageKey)).toBe(false);
+    } finally {
+      delete FILE_RETENTION.chung_tu_test;
+    }
   });
 });

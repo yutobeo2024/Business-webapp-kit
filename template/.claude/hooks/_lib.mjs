@@ -56,6 +56,8 @@ const real = (p) => {
  * Symlink được giải về đích thật.
  */
 export function resolveTarget(filePath, root) {
+  // Git Bash trên Windows viết ổ đĩa là /d/...: đổi thành D:/... (nếu không, Node hiểu thành D:\d\...).
+  if (WIN) filePath = filePath.replace(/^\/([a-zA-Z])(\/|$)/, (_, d, s) => `${d.toUpperCase()}:${s || "/"}`);
   const abs = real(isAbsolute(filePath) ? filePath : join(root, filePath));
   const r = relative(real(root), abs);
   const rel = r.split("\\").join("/");

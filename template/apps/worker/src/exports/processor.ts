@@ -3,10 +3,17 @@
  * chạy lại sau lỗi không tạo tệp thừa (tệp chỉ được ghi nhận khi transaction cập nhật DONE thành công).
  */
 import { type Job, UnrecoverableError } from "bullmq";
-import { and, eq, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
 import type { Logger } from "pino";
 import { exportJobs, files, importJobs, users, type Db } from "@app/db";
-import { canPurgeDeletedFile, type FileStorage, loadAccess, storeFile, withStoredFile } from "@app/server";
+import {
+  canPurgeDeletedFile,
+  type FileStorage,
+  loadAccess,
+  purgeableDeletedFilesWhere,
+  storeFile,
+  withStoredFile,
+} from "@app/server";
 import { can, createExportSchema, EXPORT_TYPES, exportRunJobSchema, JOBS } from "@app/shared";
 import type { PdfRenderer } from "./pdf.js";
 import { ExportUserError, type RunnerContext, runExportType } from "./runners.js";
@@ -184,14 +191,10 @@ export async function cleanupFiles(
         deletedAt: files.deletedAt,
       })
       .from(files)
-      .where(
-        and(
-          lt(files.deletedAt, new Date(now.getTime() - 24 * 60 * 60 * 1000)),
-          notInArray(files.entityType, ["export_job", "import_job"]),
-        ),
-      )
+      .where(purgeableDeletedFilesWhere(now, ["export_job", "import_job"]))
+      .orderBy(files.deletedAt)
       .limit(5000)
-  ).filter((f) => canPurgeDeletedFile(f.entityType, f.deletedAt!, now));
+  ).filter((f) => canPurgeDeletedFile(f.entityType, f.deletedAt!, now)); // kiểm lại lần nữa ngoài SQL
 
   // Tệp nhập Excel: không cần giữ khi lần nhập đã kết thúc quá 7 ngày (dữ liệu đã vào DB, audit giữ sha256).
   const finishedImports = await db

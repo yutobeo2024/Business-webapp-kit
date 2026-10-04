@@ -49,3 +49,11 @@ test("chữ trong chú thích hoặc dữ liệu không bị bắt nhầm", () =
   const sql = `-- sau này sẽ DROP COLUMN phone\nINSERT INTO notes VALUES ('drop table users');`;
   assert.deepEqual(findUnmarkedDestructive(sql), []);
 });
+
+test("xóa sequence, view, function: bản cũ còn dùng sẽ lỗi khi rollback", () => {
+  const label = ["DROP SEQUENCE/VIEW/FUNCTION"];
+  assert.deepEqual(findUnmarkedDestructive(`DROP SEQUENCE "public"."pr_code_seq";`), label);
+  assert.deepEqual(findUnmarkedDestructive("DROP VIEW IF EXISTS v_report;"), label);
+  assert.deepEqual(findUnmarkedDestructive("DROP FUNCTION f();"), label);
+  assert.deepEqual(findUnmarkedDestructive("-- contract: v1.5.0 đã ngừng dùng\nDROP SEQUENCE s;"), []);
+});

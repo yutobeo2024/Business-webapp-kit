@@ -32,7 +32,8 @@ export function stripSample(text, kind) {
   const isMd = kind === "md";
   const begin = isMd ? /<!--\s*sample:begin\b.*-->/ : /\/\/\s*sample:begin\b/;
   const end = isMd ? /<!--\s*sample:end\s*-->/ : /\/\/\s*sample:end\b/;
-  const single = isMd ? null : /\/\/\s*sample\b(?!:begin|:end)/;
+  // Dòng đơn: chú thích `// sample` ở cuối dòng, hoặc `// sample: lý do`.
+  const single = isMd ? null : /\/\/\s*sample(\s*$|:(?!begin\b|end\b))/;
   let inBlock = 0;
   let inAfter = false;
   for (const [i, line] of lines.entries()) {
@@ -61,6 +62,26 @@ export function stripSample(text, kind) {
   if (inBlock) throw new Error(`dòng ${inBlock}: sample:begin không có sample:end`);
   if (inAfter) throw new Error("sample:after-remove không đóng bằng -->");
   return out.join("\n");
+}
+
+/**
+ * Lý do coi dự án là ĐÃ PHÁT HÀNH (không được gỡ mẫu tự động): có ghi chép trong docs/runbooks/releases/, có tag
+ * `vX.Y.Z` (production deploy theo tag), hoặc không kiểm được tag vì không phải repo git. `git` tiêm vào để test.
+ */
+export function releaseBlockers(
+  root,
+  git = (args) => spawnSync("git", args, { cwd: root, encoding: "utf8" }),
+) {
+  const reasons = [];
+  const releases = join(root, "docs", "runbooks", "releases");
+  if (existsSync(releases) && readdirSync(releases).some((f) => ![".gitkeep", "README.md"].includes(f))) {
+    reasons.push("docs/runbooks/releases/ đã có ghi chép phát hành");
+  }
+  const tags = git(["tag", "--list", "v[0-9]*"]);
+  if (tags.status !== 0) reasons.push("không phải repo git, không kiểm được tag phát hành");
+  else if (tags.stdout.trim())
+    reasons.push(`đã có tag phát hành (${tags.stdout.trim().split("\n")[0]}, ...)`);
+  return reasons;
 }
 
 function walk(root, rel, acc) {
@@ -92,13 +113,11 @@ function main() {
   const dry = args.has("--dry-run");
   const manifest = JSON.parse(readFileSync(join(root, "scripts", "sample-manifest.json"), "utf8"));
 
-  const releases = join(root, "docs", "runbooks", "releases");
-  const released =
-    existsSync(releases) && readdirSync(releases).some((f) => ![".gitkeep", "README.md"].includes(f));
-  if (released) {
+  const blockers = releaseBlockers(root);
+  if (blockers.length) {
     console.error(
-      "DỪNG: docs/runbooks/releases/ đã có ghi chép phát hành, bảng mẫu có thể đã có dữ liệu thật trên server.\n" +
-        "Không gỡ tự động. Gỡ theo expand/contract (skill /db-migration): release N bỏ mã dùng bảng, release N+1 mới xóa bảng.",
+      `DỪNG: ${blockers.join("; ")}.\nBảng mẫu có thể đã có dữ liệu thật trên server: không gỡ tự động. Gỡ theo ` +
+        "expand/contract (skill /db-migration): release N bỏ mã dùng bảng, release N+1 mới xóa bảng.",
     );
     process.exit(1);
   }
@@ -181,7 +200,13 @@ function main() {
       `\nCòn ${left.length} dòng nhắc tới module mẫu (sửa tay):\n${left.map((l) => `  ${l}`).join("\n")}`,
     );
   }
-  if (codeLeft.length) process.exit(1);
+  if (codeLeft.length) {
+    console.error(
+      "\nDỪNG: mã còn tham chiếu module mẫu (đã xóa/sửa tệp nhưng chưa format/verify). Sửa các dòng trên rồi chạy" +
+        " `pnpm verify:quick`, hoặc hoàn tác toàn bộ: `git restore . && git clean -fd` (chỉ an toàn khi trước đó cây sạch).",
+    );
+    process.exit(1);
+  }
 
   // 5. Kiểm nhanh.
   if (!args.has("--no-verify")) run("pnpm", ["verify:quick"], root);

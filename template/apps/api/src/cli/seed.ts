@@ -2,7 +2,7 @@
  * Seed dữ liệu ban đầu. Idempotent: chạy nhiều lần không tạo trùng.
  *   pnpm db:seed            -> vai trò mặc định, phòng ban mặc định, tài khoản quản trị từ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
  *   pnpm db:seed -- --demo  -> thêm tài khoản demo cho từng vai trò (CẤM ở production)
- *   pnpm db:seed -- --sync-default-roles -> thêm quyền mặc định còn thiếu vào vai trò mặc định đã có (sau khi module mới
+ *   pnpm db:seed -- --sync-default-roles -> thêm quyền mặc định MỚI (chưa từng đồng bộ) vào vai trò mặc định đã có (sau khi module mới
  *                             thêm quyền vào DEFAULT_ROLES); chỉ thêm, không gỡ quyền quản trị viên đã chỉnh
  */
 import { eq, sql } from "drizzle-orm";

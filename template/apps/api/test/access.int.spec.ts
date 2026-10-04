@@ -5,7 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { auditLogs, rolePermissions, roles, sessions, users, type DbHandle } from "@app/db";
 import { createApp } from "../src/bootstrap.js";
 import { hashPassword } from "../src/auth/crypto.js";
-import { syncDefaultRolePermissions } from "../src/auth/default-roles.js";
+import type { Permission } from "@app/shared";
+import { ensureDefaultRoles, syncDefaultRolePermissions } from "../src/auth/default-roles.js";
 import {
   nextIp,
   openDb,
@@ -47,22 +48,31 @@ async function login(email: string, password = TEST_PASSWORD) {
 }
 
 describe("đồng bộ quyền vai trò mặc định (--sync-default-roles)", () => {
-  it("thêm quyền mặc định còn thiếu, ghi audit, tăng version; chạy lại không đổi gì", async () => {
-    const adminRole = f.roleIds.ADMIN;
-    await handle.db
+  const permsOf = async (roleId: string) =>
+    (await handle.db.select().from(rolePermissions).where(eq(rolePermissions.roleId, roleId))).map(
+      (r) => r.permission,
+    );
+  const dropPerm = (roleId: string, permission: Permission) =>
+    handle.db
       .delete(rolePermissions)
-      .where(
-        and(eq(rolePermissions.roleId, adminRole), eq(rolePermissions.permission, "departments.manage")),
-      );
+      .where(and(eq(rolePermissions.roleId, roleId), eq(rolePermissions.permission, permission)));
+
+  it("quyền MỚI thêm vào DEFAULT_ROLES sau lần seed: được thêm, ghi audit, tăng version; chạy lại không đổi gì", async () => {
+    const adminRole = f.roleIds.ADMIN;
+    // Giả lập DB seed từ trước khi DEFAULT_ROLES có "departments.manage".
+    await dropPerm(adminRole, "departments.manage");
     const [before] = await handle.db.select().from(roles).where(eq(roles.id, adminRole));
+    await handle.db
+      .update(roles)
+      .set({
+        syncedDefaultPermissions: before!.syncedDefaultPermissions.filter((p) => p !== "departments.manage"),
+      })
+      .where(eq(roles.id, adminRole));
 
     expect(await syncDefaultRolePermissions(handle.db)).toEqual([
       { role: "Quản trị hệ thống", added: ["departments.manage"] },
     ]);
-    const perms = (
-      await handle.db.select().from(rolePermissions).where(eq(rolePermissions.roleId, adminRole))
-    ).map((r) => r.permission);
-    expect(perms).toContain("departments.manage");
+    expect(await permsOf(adminRole)).toContain("departments.manage");
     const [after] = await handle.db.select().from(roles).where(eq(roles.id, adminRole));
     expect(after!.version).toBe(before!.version + 1);
     expect(
@@ -70,6 +80,37 @@ describe("đồng bộ quyền vai trò mặc định (--sync-default-roles)", (
     ).toHaveLength(1);
 
     expect(await syncDefaultRolePermissions(handle.db)).toEqual([]);
+  });
+
+  it("quyền quản trị viên đã GỠ khỏi vai trò mặc định không bị cấp lại, kể cả khi vai trò đã đổi tên", async () => {
+    const adminRole = f.roleIds.ADMIN;
+    await dropPerm(adminRole, "departments.manage");
+    await handle.db.update(roles).set({ name: "Quản trị (đổi tên)" }).where(eq(roles.id, adminRole));
+    expect(await syncDefaultRolePermissions(handle.db)).toEqual([]);
+    expect(await permsOf(adminRole)).not.toContain("departments.manage");
+  });
+
+  it("vai trò quản trị tự tạo trùng tên vai trò mặc định không bị đụng; vai trò cũ (trước 1.4.0) nhận vào không cấp thêm", async () => {
+    // Vai trò cũ: chưa có default_key, thiếu một quyền mặc định (không biết là quản trị gỡ hay chưa từng có).
+    const adminRole = f.roleIds.ADMIN;
+    await dropPerm(adminRole, "departments.manage");
+    await handle.db
+      .update(roles)
+      .set({ defaultKey: null, syncedDefaultPermissions: [] })
+      .where(eq(roles.id, adminRole));
+    const ids = await ensureDefaultRoles(handle.db);
+    expect(ids.ADMIN).toBe(adminRole);
+    expect(await syncDefaultRolePermissions(handle.db)).toEqual([]);
+    expect(await permsOf(adminRole)).not.toContain("departments.manage");
+
+    // Vai trò tự tạo (không có default_key) mang đúng tên vai trò mặc định đã đổi tên: đồng bộ không cấp quyền cho nó.
+    await handle.db.update(roles).set({ name: "Quản trị cũ" }).where(eq(roles.id, adminRole));
+    const [own] = await handle.db
+      .insert(roles)
+      .values({ name: "Quản trị hệ thống", description: "tự tạo" })
+      .returning();
+    expect(await syncDefaultRolePermissions(handle.db)).toEqual([]);
+    expect(await permsOf(own!.id)).toEqual([]);
   });
 });
 

@@ -9,14 +9,16 @@ Thêm
 
 - `pnpm sample:remove`: gỡ module mẫu (xóa tệp theo `scripts/sample-manifest.json`, cắt khối đánh dấu `sample` trong mã
   và tài liệu, sinh migration `contract` xóa bảng mẫu, kiểm không còn tham chiếu, chạy `verify:quick`). Tự dừng khi dự
-  án đã phát hành. `/feature` đề xuất làm ở lát 0 của module thật đầu tiên.
+  án đã phát hành (có tag `vX.Y.Z` hoặc ghi chép trong `docs/runbooks/releases/`) hoặc không phải repo git. `/feature` đề xuất làm ở lát 0 của module thật đầu tiên.
 - Lõi tự test qua tính năng lõi: thông báo `account.password_reset` (quản trị đặt lại mật khẩu thì báo người đó, qua job
   `JOBS.notify` đẩy sau commit) và `import.finished` (báo kết quả nhập Excel); loại xuất `admin.users.xlsx` (danh sách
-  người dùng theo bộ lọc của màn quản trị); trang chủ có thông báo chưa đọc. Test tích hợp/E2E của lõi không còn dùng
+  người dùng theo bộ lọc của màn quản trị, không có số điện thoại); trang chủ có thông báo chưa đọc. Test tích hợp/E2E của lõi không còn dùng
   module mẫu và chạy được sau khi gỡ; test của mẫu nằm riêng (`apps/api/test/sample`, `apps/worker/src/sample`).
 - Mã chứng từ theo năm `nextDocumentCode(tx, "PR")` (`PR-2026-000001`, bảng `document_counters`, khóa dòng, về 1 mỗi năm).
 - Chính sách giữ tệp sau xóa mềm theo loại (`FILE_RETENTION`, mặc định 7 ngày, `"forever"` cho chứng từ kế toán).
-- Seed `--sync-default-roles`: thêm quyền mới của `DEFAULT_ROLES` vào vai trò mặc định trên DB đã seed (có audit).
+- Seed `--sync-default-roles`: thêm quyền MỚI của `DEFAULT_ROLES` (so với lần seed/đồng bộ trước) vào vai trò mặc định
+  trên DB đã seed, có audit. Quyền quản trị viên đã gỡ không bị cấp lại; vai trò nhận diện bằng `roles.default_key`, không
+  theo tên (migration `0004`).
 - `pnpm db:reset-local [test|dev]`: dựng lại DB cục bộ khi migration chưa commit đã áp rồi phải sinh lại, hoặc DB test bị
   bẩn (gặp khi hai dự án dùng chung dịch vụ dev).
 - E2E đăng nhập một lần mỗi tài khoản (`e2e/auth.setup.ts`, `pageAs` trong `e2e/users.ts`): cả bộ không chạm giới hạn
@@ -36,7 +38,10 @@ Sửa (CI thật trên GitHub)
 - `install.sh`/`install.ps1`: nhánh đầu là `main` (CI chạy khi push `main`); dừng khi Node không phải 22/24 (trừ
   `--force`). Bit +x của `infra/backup-files.sh` trong repo kit.
 - `formatDateTime` dựng `dd/MM/yyyy HH:mm` tường minh, giống nhau trên web, Excel, PDF.
-- Hook `guard-bash` chặn lệnh shell ghi ra ngoài thư mục dự án (trừ thư mục tạm).
+- Hook `guard-bash` chặn lệnh shell ghi ra ngoài thư mục dự án (trừ thư mục tạm); hiểu đúng đường dẫn Git Bash `/d/...`
+  trên Windows.
+- Dọn tệp đã xóa mềm lọc theo `FILE_RETENTION` ngay trong SQL: nhiều tệp giữ mãi không chặn việc dọn loại khác.
+- `check-migrations` bắt thêm `DROP SEQUENCE/VIEW/FUNCTION` chưa đánh dấu contract.
 - `infra/restore-drill.sh` chỉ kiểm bảng lõi.
 
 Lớp agent
@@ -50,12 +55,19 @@ Lớp agent
 
 Lệch kế hoạch
 
+- Image chạy `apk upgrade`/`apt-get upgrade` lúc build: cùng commit build lúc khác có thể ra image khác (lấy bản vá mới
+  hơn). Chấp nhận để image không mang lỗ hổng đã có bản vá; cần tái lập chính xác thì dùng image đã đẩy theo tag.
+
 - Không làm biến `AUTH_LOGIN_LIMIT_PER_MIN`: giới hạn đăng nhập gắn bằng decorator lúc nạp module, không đọc được env đã
   validate; giữ cố định 10 lần/phút (chốt bảo mật) và giải quyết E2E bằng phiên lưu sẵn.
 
 Nâng cấp dự án tạo từ 1.3.x
 
-- Migration `0003` tạo `document_counters` (điền từ mã phiếu đã có) và xóa sequence `pr_code_seq`.
+- Migration `0003` tạo `document_counters` (điền từ mã phiếu đã có; dự án đã gỡ mẫu thì bỏ qua). Sequence `pr_code_seq`
+  được GIỮ để rollback image về 1.3.x vẫn lập phiếu được; xóa bằng migration contract ở bản sau.
+- Migration `0004` thêm `roles.default_key`, `roles.synced_default_permissions`. Lần seed đầu sau khi nâng nhận vai trò
+  mặc định cũ theo tên với mốc là danh sách quyền mặc định hiện tại (không cấp thêm quyền nào lúc nhận). Quyền đã thêm
+  vào `DEFAULT_ROLES` trước khi nâng mà DB chưa có thì quản trị viên cấp trên giao diện.
 - Danh sách phiếu mẫu chuyển sang `/purchase-requests`; liên kết trong thông báo cũ trỏ `/?q=` vẫn mở trang chủ.
 - Web nghe 8080: cập nhật `infra/Caddyfile` (`reverse_proxy web:8080`) cùng lúc với image web mới.
 - E2E: chép `e2e/auth.setup.ts`, `e2e/users.ts`, cấu hình `projects` trong `playwright.config.ts`, thêm `e2e/.auth/` vào

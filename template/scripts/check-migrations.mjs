@@ -15,6 +15,11 @@ const RULES = [
   [/\bDROP\s+TABLE\b/i, "DROP TABLE"],
   [/\bDROP\s+SCHEMA\b/i, "DROP SCHEMA"],
   [/\bDROP\s+TYPE\b/i, "DROP TYPE"],
+  // Bản cũ còn gọi nextval/view/function sẽ lỗi khi rollback image.
+  [
+    /\bDROP\s+(SEQUENCE|VIEW|MATERIALIZED\s+VIEW|FUNCTION|PROCEDURE|TRIGGER)\b/i,
+    "DROP SEQUENCE/VIEW/FUNCTION",
+  ],
   [/\bTRUNCATE\b/i, "TRUNCATE"],
   [/\bDROP\s+(COLUMN\s+(IF\s+EXISTS\s+)?)?ID\b/i, "DROP COLUMN"],
   [/\bRENAME\s+(COLUMN\s+|VALUE\s+)?(ID\s+|''\s+)?TO\b/i, "RENAME"],

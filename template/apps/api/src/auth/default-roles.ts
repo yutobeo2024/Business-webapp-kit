@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { rolePermissions, roles, type DbOrTx } from "@app/db";
 import { writeAudit } from "@app/server";
 import { type Permission, SYSTEM_ROLE_REQUIRED_PERMISSIONS } from "@app/shared";
@@ -39,24 +39,43 @@ export const DEFAULT_ROLES = {
 >;
 export type DefaultRoleKey = keyof typeof DEFAULT_ROLES;
 
-/** Tạo vai trò mặc định còn thiếu (theo tên). Trả id theo khóa. Idempotent. */
+type RoleDef = (typeof DEFAULT_ROLES)[DefaultRoleKey];
+
+/**
+ * Tạo vai trò mặc định còn thiếu. Trả id theo khóa. Idempotent.
+ * Vai trò nhận diện bằng `default_key` (quản trị đổi tên được). Vai trò cùng tên có từ trước khi có cột này (dự án tạo
+ * từ kit < 1.4.0) được NHẬN VÀO với mốc đồng bộ = danh sách quyền mặc định hiện tại: không cấp quyền nào lúc nhận, vì
+ * không biết quản trị viên đã gỡ quyền nào; quyền thêm vào DEFAULT_ROLES SAU đó mới được đồng bộ.
+ */
 export async function ensureDefaultRoles(db: DbOrTx): Promise<Record<DefaultRoleKey, string>> {
   const ids = {} as Record<DefaultRoleKey, string>;
-  for (const [key, def] of Object.entries(DEFAULT_ROLES) as [
-    DefaultRoleKey,
-    (typeof DEFAULT_ROLES)[DefaultRoleKey],
-  ][]) {
-    const [existing] = await db
+  for (const [key, def] of Object.entries(DEFAULT_ROLES) as [DefaultRoleKey, RoleDef][]) {
+    const [byKey] = await db.select({ id: roles.id }).from(roles).where(eq(roles.defaultKey, key));
+    if (byKey) {
+      ids[key] = byKey.id;
+      continue;
+    }
+    const [legacy] = await db
       .select({ id: roles.id })
       .from(roles)
-      .where(sql`lower(${roles.name}) = lower(${def.name})`);
-    if (existing) {
-      ids[key] = existing.id;
+      .where(and(sql`lower(${roles.name}) = lower(${def.name})`, isNull(roles.defaultKey)));
+    if (legacy) {
+      await db
+        .update(roles)
+        .set({ defaultKey: key, syncedDefaultPermissions: [...def.permissions] })
+        .where(eq(roles.id, legacy.id));
+      ids[key] = legacy.id;
       continue;
     }
     const [created] = await db
       .insert(roles)
-      .values({ name: def.name, description: def.description, isSystem: "isSystem" in def && def.isSystem })
+      .values({
+        name: def.name,
+        description: def.description,
+        isSystem: "isSystem" in def && def.isSystem,
+        defaultKey: key,
+        syncedDefaultPermissions: [...def.permissions],
+      })
       .returning({ id: roles.id });
     if (!created) throw new Error(`Không tạo được vai trò ${def.name}`);
     await db
@@ -72,31 +91,37 @@ export async function ensureDefaultRoles(db: DbOrTx): Promise<Record<DefaultRole
 }
 
 /**
- * Thêm vào vai trò mặc định ĐÃ CÓ các quyền mặc định còn thiếu (module mới thêm quyền sau khi DB đã seed). Chỉ thêm,
- * không bao giờ gỡ: quyền quản trị viên đã tự thêm hay tự gỡ khỏi vai trò được giữ nguyên ở lần sau (chỉ những quyền
- * mới so với lần đồng bộ trước mới được thêm lại nếu thiếu; quản trị muốn bỏ hẳn thì đổi tên vai trò hoặc sửa
- * DEFAULT_ROLES). Mỗi vai trò thay đổi được tăng version và ghi audit `role.sync_defaults`.
+ * Thêm vào vai trò mặc định ĐÃ CÓ các quyền mới được thêm vào DEFAULT_ROLES kể từ lần seed/đồng bộ trước (module mới
+ * sau khi DB đã seed). Chỉ thêm quyền chưa từng đồng bộ: quyền quản trị viên đã gỡ khỏi vai trò KHÔNG bị cấp lại, quyền
+ * quản trị tự thêm được giữ. Vai trò nhận diện bằng `default_key`, không theo tên. Mỗi vai trò được thêm quyền thì tăng
+ * version và ghi audit `role.sync_defaults`.
  */
 export async function syncDefaultRolePermissions(
   db: DbOrTx,
 ): Promise<{ role: string; added: Permission[] }[]> {
   const changes: { role: string; added: Permission[] }[] = [];
-  for (const def of Object.values(DEFAULT_ROLES)) {
+  for (const [key, def] of Object.entries(DEFAULT_ROLES) as [DefaultRoleKey, RoleDef][]) {
     const [role] = await db
-      .select({ id: roles.id })
+      .select({ id: roles.id, name: roles.name, synced: roles.syncedDefaultPermissions })
       .from(roles)
-      .where(sql`lower(${roles.name}) = lower(${def.name})`);
+      .where(eq(roles.defaultKey, key))
+      .for("update");
     if (!role) continue; // chưa có thì ensureDefaultRoles tạo
+    const pending = def.permissions.filter((p) => !role.synced.includes(p));
+    if (pending.length === 0) continue;
     const added = await db
       .insert(rolePermissions)
-      .values(def.permissions.map((permission) => ({ roleId: role.id, permission })))
+      .values(pending.map((permission) => ({ roleId: role.id, permission })))
       .onConflictDoNothing()
       .returning({ permission: rolePermissions.permission });
-    if (added.length === 0) continue;
     await db
       .update(roles)
-      .set({ version: sql`${roles.version} + 1` })
+      .set({
+        syncedDefaultPermissions: [...new Set([...role.synced, ...def.permissions])],
+        ...(added.length ? { version: sql`${roles.version} + 1` } : {}),
+      })
       .where(eq(roles.id, role.id));
+    if (added.length === 0) continue;
     const list = added.map((a) => a.permission as Permission).sort();
     await writeAudit(db, {
       actorId: null,
@@ -105,7 +130,7 @@ export async function syncDefaultRolePermissions(
       entityId: role.id,
       after: { added: list },
     });
-    changes.push({ role: def.name, added: list });
+    changes.push({ role: role.name, added: list });
   }
   return changes;
 }

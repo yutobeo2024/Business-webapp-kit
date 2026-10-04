@@ -87,10 +87,20 @@ export const roles = pgTable(
     description: text("description").notNull().default(""),
     /** Vai trò "Quản trị hệ thống": không xóa, không đổi tên, luôn giữ quyền quản trị người dùng và vai trò. */
     isSystem: boolean("is_system").notNull().default(false),
+    /** Khóa trong DEFAULT_ROLES nếu vai trò do seed tạo (nhận diện khi đồng bộ, không theo tên vì quản trị đổi được). */
+    defaultKey: text("default_key"),
+    /**
+     * Quyền mặc định đã từng cấp qua seed/đồng bộ. `--sync-default-roles` chỉ thêm quyền mặc định CHƯA có trong danh
+     * sách này, nên quyền quản trị viên đã gỡ không bị cấp lại.
+     */
+    syncedDefaultPermissions: jsonb("synced_default_permissions").$type<string[]>().notNull().default([]),
     version: integer("version").notNull().default(1),
     ...timestamps,
   },
-  (t) => [uniqueIndex("roles_name_lower_uq").on(sql`lower(${t.name})`)],
+  (t) => [
+    uniqueIndex("roles_name_lower_uq").on(sql`lower(${t.name})`),
+    uniqueIndex("roles_default_key_uq").on(t.defaultKey),
+  ],
 );
 
 export const rolePermissions = pgTable(

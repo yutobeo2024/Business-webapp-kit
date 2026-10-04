@@ -266,6 +266,15 @@ if (process.platform === "win32") {
     [".env::$DATA", BLOCK],
     [otherDrive, BLOCK],
   );
+  // Git Bash viết ổ đĩa kiểu /d/...: phải hiểu đúng là D:\... (trong dự án, thư mục tạm, hay ngoài).
+  const msys = (p) => p.replace(/^([a-zA-Z]):/, (_, d) => `/${d.toLowerCase()}`).replace(/\\/g, "/");
+  const otherLetter = /^[cC]:/.test(root) ? "d" : "c";
+  bash.push(
+    [`echo x > ${msys(root)}/selftest-ghi.txt`, PASS],
+    [`echo x > ${msys(tmpdir())}/selftest-ghi.txt`, PASS],
+    [`echo x > ${msys(root)}/.claude/hooks/x.mjs`, BLOCK],
+    [`echo x > /${otherLetter}/x/ghi.txt`, BLOCK],
+  );
 }
 
 let failed = 0;

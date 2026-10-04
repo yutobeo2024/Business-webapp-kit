@@ -11,7 +11,6 @@ import {
   type CurrentUser,
   type ExportParams,
   type ExportType,
-  formatPhone,
   USER_STATUS_LABELS,
 } from "@app/shared";
 import type { PdfRenderer } from "./pdf.js";
@@ -116,7 +115,10 @@ export async function writeXlsx(
   );
 }
 
-/** Lõi: danh sách người dùng theo bộ lọc của màn quản trị (quyền users.manage đã kiểm ở processor). */
+/**
+ * Lõi: danh sách người dùng theo bộ lọc của màn quản trị (quyền users.manage đã kiểm ở processor). Cùng cột với màn danh
+ * sách; KHÔNG xuất số điện thoại (dữ liệu cá nhân chỉ dùng cho Zalo, spec 003).
+ */
 const usersXlsx: Runner<"admin.users.xlsx"> = async (params, ctx) => {
   const { buffer, rowCount } = await writeXlsx(
     ctx,
@@ -124,7 +126,6 @@ const usersXlsx: Runner<"admin.users.xlsx"> = async (params, ctx) => {
     [
       { header: "Họ tên", key: "fullName", width: 28 },
       { header: "Email", key: "email", width: 32 },
-      { header: "Số di động", key: "phone", width: 16 },
       { header: "Phòng ban", key: "department", width: 26 },
       { header: "Vai trò", key: "roles", width: 36 },
       { header: "Trạng thái", key: "status", width: 18 },
@@ -140,7 +141,6 @@ const usersXlsx: Runner<"admin.users.xlsx"> = async (params, ctx) => {
           add({
             fullName: user.fullName,
             email: user.email,
-            phone: user.phone ? formatPhone(user.phone) : "",
             department: departmentName ?? "",
             roles: roles.map((r) => r.name).join(", "),
             status: USER_STATUS_LABELS[!user.isActive ? "inactive" : locked ? "locked" : "active"],

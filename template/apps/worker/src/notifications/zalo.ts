@@ -6,7 +6,7 @@
 import { eq } from "drizzle-orm";
 import { integrationTokens, type Db } from "@app/db";
 import { decryptSecret, encryptSecret } from "@app/server";
-import { type NotificationData, type NotificationType } from "@app/shared";
+import { IMPORT_STATUS_LABELS, type NotificationData, type NotificationType } from "@app/shared";
 import { formatVnd } from "@app/shared"; // sample
 import {
   type NotificationSender,
@@ -25,7 +25,7 @@ export const ZALO_PARAMS: { [T in NotificationType]: (d: NotificationData<T>) =>
   "account.password_reset": (d) => ({ nguoi_dat_lai: d.resetByName }),
   "import.finished": (d) => ({
     loai_du_lieu: d.label,
-    ket_qua: d.status,
+    ket_qua: IMPORT_STATUS_LABELS[d.status],
     so_dong: String(d.importedCount ?? 0),
     so_loi: String(d.errorCount),
   }),
