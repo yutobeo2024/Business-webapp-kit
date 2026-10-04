@@ -1,5 +1,10 @@
 # Caddy bên trong container web: chỉ phục vụ file tĩnh của SPA. TLS do Caddy ngoài (infra/Caddyfile) xử lý.
-:80 {
+# Cổng 8080: container chạy user không phải root.
+{
+	admin off
+}
+
+:8080 {
 	root * /srv
 	encode zstd gzip
 

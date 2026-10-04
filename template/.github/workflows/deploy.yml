@@ -31,7 +31,7 @@ jobs:
             echo "::error::Tag không hợp lệ: chỉ cho phép chữ, số, dấu chấm, gạch dưới, gạch ngang"
             exit 1
           fi
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Cấu hình SSH (ghim host key, chống giả mạo máy chủ)
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
