@@ -100,6 +100,8 @@ Nâng cấp dự án tạo từ 1.3.x
 
 - Migration `0003` tạo `document_counters` (điền từ mã phiếu đã có; dự án đã gỡ mẫu thì bỏ qua). Sequence `pr_code_seq`
   được GIỮ để rollback image về 1.3.x vẫn lập phiếu được; xóa bằng migration contract ở bản sau.
+- `check-migrations` bắt thêm `DROP SEQUENCE/VIEW/FUNCTION`: migration cũ của dự án có các lệnh này (ví dụ thay
+  sequence mã phiếu bằng bộ đếm) sẽ làm CI đỏ. Chưa phát hành thì thêm dòng đầu `-- contract: <lý do>`.
 - Migration `0004` thêm `roles.default_key`, `roles.synced_default_permissions`. Lần seed đầu sau khi nâng nhận vai trò
   mặc định cũ theo tên với mốc là danh sách quyền mặc định hiện tại (không cấp thêm quyền nào lúc nhận). Quyền đã thêm
   vào `DEFAULT_ROLES` trước khi nâng mà DB chưa có thì quản trị viên cấp trên giao diện.
