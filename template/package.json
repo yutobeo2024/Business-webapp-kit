@@ -22,7 +22,8 @@
     "db:seed": "pnpm --filter @app/api run seed",
     "dev:services": "docker compose -f infra/compose.dev.yml up -d",
     "claude:selftest": "node .claude/hooks/selftest.mjs",
-    "sample:remove": "node scripts/remove-sample.mjs"
+    "sample:remove": "node scripts/remove-sample.mjs",
+    "db:reset-local": "node scripts/db-reset-local.mjs"
   },
   "devDependencies": {
     "@app/tsconfig": "workspace:*",

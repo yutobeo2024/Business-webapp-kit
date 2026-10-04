@@ -1,5 +1,65 @@
 # Nhật ký thay đổi của kit
 
+## 1.4.0 (04/10/2026)
+
+Bước 3 (dogfood): sửa những chỗ kit gây vướng khi Claude Code xây module tạm ứng/quyết toán thật trên dự án tạo từ 1.3.0,
+và khi CI của dự án đó chạy trên GitHub lần đầu. CI xanh ngay lần đầu, lõi tự đứng, gỡ module mẫu bằng một lệnh.
+
+Thêm
+
+- `pnpm sample:remove`: gỡ module mẫu (xóa tệp theo `scripts/sample-manifest.json`, cắt khối đánh dấu `sample` trong mã
+  và tài liệu, sinh migration `contract` xóa bảng mẫu, kiểm không còn tham chiếu, chạy `verify:quick`). Tự dừng khi dự
+  án đã phát hành. `/feature` đề xuất làm ở lát 0 của module thật đầu tiên.
+- Lõi tự test qua tính năng lõi: thông báo `account.password_reset` (quản trị đặt lại mật khẩu thì báo người đó, qua job
+  `JOBS.notify` đẩy sau commit) và `import.finished` (báo kết quả nhập Excel); loại xuất `admin.users.xlsx` (danh sách
+  người dùng theo bộ lọc của màn quản trị); trang chủ có thông báo chưa đọc. Test tích hợp/E2E của lõi không còn dùng
+  module mẫu và chạy được sau khi gỡ; test của mẫu nằm riêng (`apps/api/test/sample`, `apps/worker/src/sample`).
+- Mã chứng từ theo năm `nextDocumentCode(tx, "PR")` (`PR-2026-000001`, bảng `document_counters`, khóa dòng, về 1 mỗi năm).
+- Chính sách giữ tệp sau xóa mềm theo loại (`FILE_RETENTION`, mặc định 7 ngày, `"forever"` cho chứng từ kế toán).
+- Seed `--sync-default-roles`: thêm quyền mới của `DEFAULT_ROLES` vào vai trò mặc định trên DB đã seed (có audit).
+- `pnpm db:reset-local [test|dev]`: dựng lại DB cục bộ khi migration chưa commit đã áp rồi phải sinh lại, hoặc DB test bị
+  bẩn (gặp khi hai dự án dùng chung dịch vụ dev).
+- E2E đăng nhập một lần mỗi tài khoản (`e2e/auth.setup.ts`, `pageAs` trong `e2e/users.ts`): cả bộ không chạm giới hạn
+  10 lần đăng nhập/phút.
+- Mẫu PDF tối thiểu `pdf-check` cho test và smoke image worker (không phụ thuộc module nghiệp vụ).
+- CI cho repo kit (`.github/workflows/kit-ci.yml`): bộ kiểm của template trên hai biến thể (còn mẫu, đã gỡ mẫu), cài dự
+  án bằng `install.sh`, build 3 image + kiểm không chạy root + trivy image + in PDF thử, gitleaks, actionlint, pnpm audit.
+
+Sửa (CI thật trên GitHub)
+
+- gitleaks báo nhầm giá trị giữ chỗ: `.gitleaks.toml` chỉ bỏ qua đúng các giá trị đó, giữ luật mặc định.
+- Image web chạy root (trivy AVD-DS-0002): chạy user `web`, Caddy nghe 8080, tắt admin API; `infra/Caddyfile` trỏ
+  `web:8080`. Image api/worker gỡ npm/corepack/yarn đi kèm image node (lỗ hổng HIGH dù app không dùng) và nâng gói hệ
+  thống lúc build.
+- Action GitHub nâng lên bản chạy Node 24, pin SHA. Dependabot bỏ qua nâng bản lớn của image postgres/redis/node/caddy.
+- `install.sh`/`install.ps1`: nhánh đầu là `main` (CI chạy khi push `main`); dừng khi Node không phải 22/24 (trừ
+  `--force`). Bit +x của `infra/backup-files.sh` trong repo kit.
+- `formatDateTime` dựng `dd/MM/yyyy HH:mm` tường minh, giống nhau trên web, Excel, PDF.
+- Hook `guard-bash` chặn lệnh shell ghi ra ngoài thư mục dự án (trừ thư mục tạm).
+- `infra/restore-drill.sh` chỉ kiểm bảng lõi.
+
+Lớp agent
+
+- `/business-flow`: tối đa 7 câu, mỗi câu một ý, điểm có mặc định gom thành danh sách giả định; quy trình nhiều loại
+  chứng từ thì đề xuất tách spec (dưới ~250 dòng).
+- `/feature`: lát 0 gỡ mẫu; E2E tối thiểu chạy ngay trong lát có giao diện; khi lặp chạy test theo tệp, toàn bộ một lần
+  cuối lát; đổi `DEFAULT_ROLES` thì `--sync-default-roles`; không ghi ra ngoài dự án.
+- `/db-migration`: cách sinh lại migration chưa commit đã áp vào DB cục bộ. CLAUDE.md, rule testing/backend/frontend
+  trỏ vào lõi thay vì module mẫu.
+
+Lệch kế hoạch
+
+- Không làm biến `AUTH_LOGIN_LIMIT_PER_MIN`: giới hạn đăng nhập gắn bằng decorator lúc nạp module, không đọc được env đã
+  validate; giữ cố định 10 lần/phút (chốt bảo mật) và giải quyết E2E bằng phiên lưu sẵn.
+
+Nâng cấp dự án tạo từ 1.3.x
+
+- Migration `0003` tạo `document_counters` (điền từ mã phiếu đã có) và xóa sequence `pr_code_seq`.
+- Danh sách phiếu mẫu chuyển sang `/purchase-requests`; liên kết trong thông báo cũ trỏ `/?q=` vẫn mở trang chủ.
+- Web nghe 8080: cập nhật `infra/Caddyfile` (`reverse_proxy web:8080`) cùng lúc với image web mới.
+- E2E: chép `e2e/auth.setup.ts`, `e2e/users.ts`, cấu hình `projects` trong `playwright.config.ts`, thêm `e2e/.auth/` vào
+  `.gitignore`, đổi test sang `pageAs`.
+
 ## 1.3.0 (03/10/2026)
 
 Bước 2c: thông báo (trong app, email, Zalo ZNS) và nhập Excel, lõi dùng chung cho mọi dự án. Spec:

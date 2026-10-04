@@ -22,6 +22,14 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
 - `pnpm verify:quick` = lint + typecheck + unit test. PHẢI xanh trước khi báo xong (hook Stop tự chạy).
 - `pnpm test:integration` (cần `DATABASE_URL=.../app_test`, `REDIS_URL=redis://localhost:6379/15`)
 - DB: sửa `packages/db/src/schema.ts` rồi `pnpm db:generate --name <ten_thay_doi>`; áp dụng: `pnpm db:migrate`.
+  DB cục bộ bẩn hoặc lệch migration chưa commit: `pnpm db:reset-local` (test) / `pnpm db:reset-local dev`.
+- `pnpm test:e2e` (cần `pnpm build`, DB đã migrate + `pnpm db:seed -- --demo`).
+
+<!-- sample:begin -->
+
+- `pnpm sample:remove`: gỡ module mẫu, chạy TRƯỚC khi viết module thật đầu tiên (commit riêng).
+
+<!-- sample:end -->
 
 ## Lõi có sẵn: dùng lại, không viết lại
 

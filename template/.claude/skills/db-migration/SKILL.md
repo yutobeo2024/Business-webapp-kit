@@ -22,6 +22,10 @@ description: Thay đổi schema PostgreSQL an toàn cho production theo mô hìn
    (môi trường đã tạo trước thì no-op, môi trường mới/dev thì tạo bình thường).
 4. **Đọc SQL sinh ra.** Có DROP ngoài ý muốn? Có khóa bảng lâu? Đổi tên cột có bị sinh thành DROP + ADD (mất dữ liệu)?
 5. **Kiểm.** `pnpm build && pnpm db:migrate` trên DB dev; `pnpm test:integration`.
+   Cần sửa migration CHƯA commit mà đã áp vào DB cục bộ: xóa file `.sql` đó, xóa snapshot và mục tương ứng trong
+   `packages/db/migrations/meta/` (`NNNN_snapshot.json`, mục cuối của `_journal.json`), sửa schema, sinh lại, rồi
+   `pnpm build && pnpm db:reset-local` (DB test) và `pnpm db:reset-local dev` (DB dev, mất dữ liệu dev). Đừng sửa tay
+   SQL đã áp: DB cục bộ sẽ lệch migration mà không báo.
 6. **Báo cáo:** loại thay đổi, cần downtime không, rollback thế nào, bước contract (nếu có) để ở release nào.
 
 Không sửa migration đã commit (hook chặn). Không dùng `drizzle-kit push`.

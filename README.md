@@ -1,7 +1,7 @@
 # Business Web App Kit
 
 Bộ khởi tạo production cho web app quy trình nghiệp vụ giao cho doanh nghiệp, làm việc cùng Claude Code.
-Phiên bản kit: 1.3.0 (03/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
+Phiên bản kit: 1.4.0 (04/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
 
 ## Kit gồm gì
 
@@ -11,7 +11,7 @@ Phiên bản kit: 1.3.0 (03/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
 | Lõi quản trị | Phân quyền động (quyền trong mã, vai trò cấu hình trên giao diện), quản lý người dùng, vai trò, phòng ban, mật khẩu tạm, mẫu danh sách tìm/lọc/sắp xếp | `apps/api/src/modules/admin`, `apps/web/src/features/admin` |
 | Lõi thông báo và nhập Excel | Thông báo trong app, email (SMTP), Zalo ZNS theo quyền người nhận, cài đặt kênh theo người; nhập Excel hai bước tất cả hoặc không | `packages/server/src/{notifications,imports}`, `apps/worker/src/{notifications,imports}` |
 | Lõi tệp và xuất file | Đính kèm (kiểm loại theo nội dung, lưu đĩa qua interface sẵn sàng cho S3), xuất Excel/PDF chạy nền trong worker cùng phạm vi xem với màn hình, sao lưu tệp | `packages/server`, `apps/api/src/files`, `apps/api/src/modules/exports`, `apps/worker/src/exports` |
-| Kiểm thử | Unit, tích hợp trên DB thật, E2E Playwright, kiểm script vận hành bằng docker giả | `*.spec.ts`, `*.int.spec.ts`, `e2e/`, `tests/infra/` |
+| Kiểm thử | Unit, tích hợp trên DB thật, E2E Playwright (đăng nhập một lần mỗi vai trò), kiểm script vận hành bằng docker giả; test lõi không phụ thuộc module mẫu | `*.spec.ts`, `*.int.spec.ts`, `e2e/`, `tests/infra/` |
 | CI/CD | Kiểm tra mọi PR; merge main -> staging; tag -> production có người duyệt; rollback một nút | `.github/workflows/` |
 | Hạ tầng | Dockerfile 3 app, Compose production, Caddy HTTPS tự động | `infra/` |
 | Vận hành | Deploy tự rollback, sao lưu, khôi phục, diễn tập, cảnh báo, chuẩn bị server | `infra/*.sh` |
@@ -31,11 +31,11 @@ Trước khi giao khách: [template/docs/PRODUCTION-CHECKLIST.md](template/docs/
 Sau đó trong thư mục dự án: làm theo `README.md` của dự án (cài, chạy dev), sửa phần `<...>` trong `CLAUDE.md`,
 rồi kiểm `pnpm verify:quick` và `pnpm claude:selftest` đều xanh. Mở Claude Code, gõ `/hooks` để thấy 4 hook đã được nạp.
 
-Dự án đầu tiên: giữ module mẫu `purchase-requests` làm khuôn cho đến khi có module thật đầu tiên, rồi xóa module mẫu,
-spec `001`, quyền `PR_PERMISSIONS` và vai trò mặc định nghiệp vụ, phần phiếu trong `packages/server/src/purchase-requests`,
-hai loại xuất mẫu (`packages/shared/src/exports.ts`, runner và mẫu in trong `apps/worker/src/exports`), migration mẫu
-(tạo lại migration `init` từ schema thật). Lõi quản trị (spec `000`), lõi tệp, xuất file (spec `002`), lõi thông báo, nhập Excel (spec `003`) giữ lại; loại thông
-báo của phiếu (`pr.*` trong `packages/shared/src/notifications.ts`, mẫu nội dung, `ZALO_PARAMS`) xóa cùng module mẫu.
+Module mẫu `purchase-requests` (phiếu đề nghị, spec `001`) chỉ để học cách viết module. Trước module thật đầu tiên:
+`pnpm sample:remove` (commit riêng; `/feature` tự đề xuất làm ở lát 0). Lệnh xóa tệp của mẫu theo
+`scripts/sample-manifest.json`, cắt các khối đánh dấu `sample`, sinh migration xóa bảng mẫu, kiểm không còn tham chiếu
+rồi chạy `verify:quick`. Chỉ dùng trước lần phát hành đầu tiên (lệnh tự dừng nếu `docs/runbooks/releases/` có ghi chép).
+Lõi quản trị (spec `000`), tệp và xuất file (`002`), thông báo và nhập Excel (`003`) giữ lại, kèm bộ test riêng.
 
 ## Quy trình làm việc hằng ngày
 
@@ -61,4 +61,9 @@ Khi cần cách ly ở mức hệ điều hành, bật sandbox của Claude Code
 
 - Phải nhắc AI cùng một điều lần thứ hai: thêm vào rule đúng đường dẫn, không nhồi vào CLAUDE.md.
 - AI làm hỏng thứ không được hỏng: biến thành hook, thêm tình huống vào `.claude/hooks/selftest.mjs`.
+- CI của kit (`.github/workflows/kit-ci.yml`) chạy bộ kiểm của template trên hai biến thể: còn module mẫu và sau
+  `pnpm sample:remove`; thêm cài dự án bằng `install.sh`, build 3 image + trivy image + in PDF thử. Phải xanh trước khi
+  phát hành bản kit.
+- Sửa module mẫu hay thêm chỗ đăng ký mới của nó vào lõi: đánh dấu `// sample:begin` ... `// sample:end` (hoặc dòng
+  `// sample`), tệp riêng của mẫu ghi vào `scripts/sample-manifest.json`; kit-ci bắt chỗ quên.
 - Mỗi quý: `/upgrade-deps`, chạy `/doctor prompt-audit` trong Claude Code để tìm hướng dẫn lỗi thời, cập nhật CHANGELOG của kit.
