@@ -1,5 +1,17 @@
 # Báo cáo kiểm chứng kit
 
+## 1.5.0: nâng dự án đã tạo lên bản kit mới (04/10/2026)
+
+| Hạng mục | Kiểm bằng | Kết quả |
+|---|---|---|
+| `kit-sync`: lấy bản kit, thêm, xóa, trộn ba chiều, xung đột, dự án đã gỡ mẫu, bỏ qua lockfile/migration, thêm khóa `.env` thiếu, cây bẩn bị từ chối | `scripts/kit-sync.test.mjs` (repo kit và dự án giả) | 3/3 xanh |
+| Dự án cài từ 1.4.0, có sửa riêng, nâng lên 1.4.1 | chạy thật ở máy (kịch bản của job `kit-sync` trong kit-ci) | không xung đột, sửa của dự án còn, build + verify xanh |
+| Dự án dogfood `tam-ung` (tạo từ 1.3.0, đã gỡ mẫu, module tạm ứng thật) nâng lên 1.5.0 | `kit-sync` (23 lấy bản kit, 10 thêm, 6 trộn sạch, 55 xung đột, 1 tệp bảo vệ trộn tay) rồi Claude Code thật chạy `/kit-upgrade` ($11.40) | tích hợp 196 api + 76 worker, E2E 13/13 x2 trên DB test riêng của dự án |
+| CI thật của dự án sau nâng cấp | `yutobeo2024/tam-ung-dogfood` PR #1 | quality, tích hợp, E2E, quét bảo mật (image web không chạy root) xanh |
+
+Lần nâng đầu bắt thêm 3 chỗ, đã sửa trong kit: `.env` thiếu khóa mới (kit-sync tự thêm), tệp trộn chưa format, luật
+migration mới bắt migration cũ của dự án (skill chạy check-migrations, CHANGELOG ghi chú).
+
 ## 1.4.0: sửa theo dogfood, CI thật trên GitHub (04/10/2026)
 
 Lần đầu kit được kiểm bằng CI thật trên GitHub, không chỉ trên máy.
