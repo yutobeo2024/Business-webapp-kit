@@ -45,7 +45,8 @@ Tệp trong mục "Tệp bảo vệ xung đột" (hook, settings, infra, workflo
 
 ## 3. Kiểm tra
 
-`pnpm verify:quick`, `pnpm test:integration`, `pnpm test:e2e` (cần DB dev đã migrate), `pnpm claude:selftest`. Đỏ thì sửa
+`pnpm format` (tệp trộn chưa được format; CI chạy `format:check`), `pnpm verify:quick`, `pnpm test:integration`,
+`pnpm test:e2e` (cần DB dev đã migrate), `pnpm claude:selftest`. Đỏ thì sửa
 theo nguyên tắc ở mục 1, không xóa hay `.skip` test.
 
 ## 4. Báo cáo và dừng
