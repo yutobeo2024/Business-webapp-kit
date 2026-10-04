@@ -4,7 +4,7 @@
 
 Bước 4 của lộ trình: nâng dự án đã tạo lên bản kit mới.
 
-- `scripts/kit-sync.mjs` (gốc repo kit): so từng tệp template giữa bản kit lúc cài, bản kit mới và dự án. Dự án chưa
+- `scripts/kit-sync.mjs` (gốc repo kit, thêm vào `.env` của dự án các khóa mới còn thiếu, không sửa khóa cũ): so từng tệp template giữa bản kit lúc cài, bản kit mới và dự án. Dự án chưa
   sửa thì lấy bản kit, cả hai cùng sửa thì trộn ba chiều (`git merge-file`), còn xung đột thì để dấu cho người/agent.
   Làm trên nhánh `kit-sync/<từ>-<lên>`, không commit; không chép migration của kit (báo để sinh lại từ schema, kèm SQL
   dữ liệu cần port), không đụng `.env`, lockfile; dự án đã gỡ mẫu thì không đưa tệp mẫu trở lại và cắt khối `sample`
@@ -104,6 +104,8 @@ Nâng cấp dự án tạo từ 1.3.x
   mặc định cũ theo tên với mốc là danh sách quyền mặc định hiện tại (không cấp thêm quyền nào lúc nhận). Quyền đã thêm
   vào `DEFAULT_ROLES` trước khi nâng mà DB chưa có thì quản trị viên cấp trên giao diện.
 - Danh sách phiếu mẫu chuyển sang `/purchase-requests`; liên kết trong thông báo cũ trỏ `/?q=` vẫn mở trang chủ.
+- Người dùng thấy: route `/` thành trang chủ của lõi (lời chào, thông báo chưa đọc, lối tắt) thay cho trang dự án đặt ở
+  `/`; E2E lõi dựa vào trang này. Muốn giữ trang cũ thì đổi `homeRoute` và sửa `e2e/admin.spec.ts` theo.
 - Web nghe 8080: cập nhật `infra/Caddyfile` (`reverse_proxy web:8080`) cùng lúc với image web mới.
 - E2E: chép `e2e/auth.setup.ts`, `e2e/users.ts`, cấu hình `projects` trong `playwright.config.ts`, thêm `e2e/.auth/` vào
   `.gitignore`, đổi test sang `pageAs`.

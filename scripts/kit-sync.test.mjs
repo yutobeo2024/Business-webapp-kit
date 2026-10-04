@@ -48,6 +48,8 @@ const V2 = {
   "template/new.ts": "moi\n", // kit thêm
   "template/same-idea.ts": "kit làm\n", // dự án đã tự có tệp cùng tên
   "template/pnpm-lock.yaml": "lock: 2\n",
+  "template/.env.example":
+    "A=1\nDATABASE_URL=postgresql://app:app@localhost:5432/app_dev\nTEST_DATABASE_URL=postgresql://app:app@localhost:5432/app_test\nNEW_KEY=gia-tri\n",
   "template/packages/db/migrations/0001_add.sql":
     "CREATE TABLE b (id int);\n--> statement-breakpoint\nINSERT INTO b SELECT id FROM a;\n",
   "template/infra/deploy.sh": "echo 2\n",
@@ -86,7 +88,7 @@ function makeProject(kit, { removeSample = false } = {}) {
       .map(([p, c]) => [p.slice("template/".length), c]),
   );
   put(proj, files);
-  put(proj, { ".env": "A=1\nSECRET=x\n" });
+  put(proj, { ".env": "A=khac\nSECRET=x\nDATABASE_URL=postgresql://app:app@localhost:5432/kho_dev\n" });
   git(proj, "init", "-q", "-b", "main");
   writeFileSync(join(proj, ".gitignore"), ".env\n");
   git(proj, "add", "-A");
@@ -128,10 +130,16 @@ test("phân loại và áp dụng: kit đổi, thêm, xóa, trộn, xung đột,
   assert.equal(read(proj, "module.ts"), "nghiep vu\n");
   assert.equal(read(proj, "pnpm-lock.yaml"), "lock: 1\n");
   assert.equal(existsSync(join(proj, "packages/db/migrations/0001_add.sql")), false);
-  assert.equal(read(proj, ".env"), "A=1\nSECRET=x\n");
+  // .env: chỉ thêm khóa thiếu (DB test suy từ DB dev của dự án), không sửa khóa đã có
+  const env = read(proj, ".env");
+  assert.match(env, /^A=khac\nSECRET=x\n/);
+  assert.match(env, /TEST_DATABASE_URL=postgresql:\/\/app:app@localhost:5432\/kho_test\n/);
+  assert.match(env, /NEW_KEY=gia-tri\n/);
+  assert.equal((env.match(/^DATABASE_URL=/gm) || []).length, 1);
+  assert.match(read(proj, "docs/kit-sync/1.0.0-1.1.0.md"), /NEW_KEY=gia-tri/);
   assert.equal(read(proj, "infra/deploy.sh"), "echo 2\n"); // tệp bảo vệ, dự án không đổi: lấy bản kit
 
-  assert.deepEqual(r.groups.updated.sort(), ["apps/api/src/modules/purchase-requests/pr.ts", "core.ts", "infra/deploy.sh", "registry.ts"]);
+  assert.deepEqual(r.groups.updated.sort(), [".env.example", "apps/api/src/modules/purchase-requests/pr.ts", "core.ts", "infra/deploy.sh", "registry.ts"]);
   assert.deepEqual(r.groups.added.sort(), ["apps/api/src/modules/purchase-requests/pr-new.ts", "new.ts", "scripts/sample-manifest.json"]);
   assert.deepEqual(r.groups.deleted, ["old.ts"]);
   assert.deepEqual(r.groups.merged, ["shared.ts"]);
@@ -161,7 +169,7 @@ test("dry-run không sửa gì; cây bẩn bị từ chối; .kit.json được 
   const kit = makeKit();
   const proj = makeProject(kit);
   const r = syncProject({ kitDir: kit, projectDir: proj, to: "1.1.0", dryRun: true });
-  assert.equal(r.groups.updated.length, 4);
+  assert.equal(r.groups.updated.length, 5);
   assert.equal(read(proj, "core.ts"), "a\nb\nc\n");
   assert.equal(git(proj, "branch", "--show-current").trim(), "main");
 

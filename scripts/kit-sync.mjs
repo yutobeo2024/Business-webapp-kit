@@ -9,6 +9,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parseEnv } from "node:util";
 
 const KIT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // Cắt khối `sample` đúng như lệnh `pnpm sample:remove` của kit.
@@ -222,8 +223,17 @@ export function syncProject({ kitDir = KIT_DIR, projectDir, from, to, dryRun = f
         return { path: p, sql, data };
       });
 
+    const envAdds = missingEnv(projectDir, target.get(".env.example") && blob(kitDir, target.get(".env.example").sha));
     const sha = git(kitDir, ["rev-list", "-n", "1", ref(to)]).stdout.trim();
-    const report = renderReport({ from, to, groups, migrations, notes: changelogBetween(kitDir, to, from), sampleRemoved });
+    const report = renderReport({
+      from,
+      to,
+      groups,
+      migrations,
+      envAdds,
+      notes: changelogBetween(kitDir, to, from),
+      sampleRemoved,
+    });
 
     if (!dryRun) {
       git(projectDir, ["checkout", "-q", "-b", `kit-sync/${from}-${to}`]);
@@ -234,6 +244,13 @@ export function syncProject({ kitDir = KIT_DIR, projectDir, from, to, dryRun = f
         if (executables.includes(p)) chmodSync(f, 0o755);
       }
       for (const p of deletes) rmSync(join(projectDir, p), { force: true });
+      if (envAdds.length) {
+        // .env không nằm trong git: chỉ THÊM khóa còn thiếu, không bao giờ sửa giá trị đã có.
+        const f = join(projectDir, ".env");
+        const cur = readFileSync(f, "utf8");
+        const add = envAdds.map(([k, v]) => `${k}=${v}`).join("\n");
+        writeFileSync(f, `${cur.replace(/\n*$/, "\n")}\n# Thêm bởi kit-sync ${to} (xem .env.example)\n${add}\n`);
+      }
       writeFileSync(join(projectDir, ".kit.json"), `${JSON.stringify({ version: to, commit: sha }, null, 2)}\n`);
       const rp = join(projectDir, "docs", "kit-sync", `${from}-${to}.md`);
       mkdirSync(dirname(rp), { recursive: true });
@@ -247,7 +264,36 @@ export function syncProject({ kitDir = KIT_DIR, projectDir, from, to, dryRun = f
   }
 }
 
-function renderReport({ from, to, groups, migrations, notes, sampleRemoved }) {
+/**
+ * Khóa có trong .env.example của kit mới mà .env của dự án chưa có: [khóa, giá trị]. DB/Redis test suy từ cấu hình dev
+ * của dự án (DB riêng mỗi dự án, kit 1.4.1), còn lại lấy giá trị mẫu. Không có .env (CI) thì không làm gì.
+ */
+function missingEnv(projectDir, exampleBuf) {
+  const f = join(projectDir, ".env");
+  if (!exampleBuf || !existsSync(f)) return [];
+  const cur = parseEnv(readFileSync(f, "utf8"));
+  const example = parseEnv(exampleBuf.toString("utf8"));
+  const out = [];
+  for (const [k, v] of Object.entries(example)) {
+    if (k in cur) continue;
+    let value = v;
+    if (k === "TEST_DATABASE_URL" && cur.DATABASE_URL) {
+      const u = new URL(cur.DATABASE_URL);
+      const db = u.pathname.slice(1);
+      u.pathname = `/${db.endsWith("_dev") ? db.slice(0, -4) : db}_test`;
+      value = u.toString();
+    } else if (k === "TEST_REDIS_URL" && cur.REDIS_URL) {
+      const u = new URL(cur.REDIS_URL);
+      const n = Number(u.pathname.slice(1) || "0");
+      u.pathname = `/${n >= 1 && n <= 7 ? n + 8 : 15}`;
+      value = u.toString();
+    }
+    out.push([k, value]);
+  }
+  return out;
+}
+
+function renderReport({ from, to, groups, migrations, envAdds, notes, sampleRemoved }) {
   const list = (a) => (a.length ? a.map((p) => `- \`${p}\``).join("\n") : "- (không có)");
   const lines = [
     `# Nâng kit ${from} lên ${to}`,
@@ -266,6 +312,13 @@ function renderReport({ from, to, groups, migrations, notes, sampleRemoved }) {
     "Hook chặn agent sửa các tệp này. Bản kit mới nằm cạnh bên với đuôi `.kit-" + to + "`; trộn xong thì xóa tệp đó.",
     "",
     list(groups.protectedConflicts),
+    "",
+    `## Biến .env đã thêm (${envAdds.length})`,
+    "",
+    "Khóa mới trong `.env.example` của kit mà `.env` chưa có, đã thêm vào cuối `.env` (không sửa khóa cũ). Kiểm lại giá",
+    "trị, nhất là trên máy chủ (`infra/.env` do người vận hành giữ, công cụ không đụng).",
+    "",
+    envAdds.length ? envAdds.map(([k, v]) => `- \`${k}=${v}\``).join("\n") : "- (không có)",
     "",
     "## Cần xem lại",
     "",
