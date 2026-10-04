@@ -22,7 +22,9 @@ RUN turbo run build --filter=@app/worker... \
 
 FROM node:24-bookworm-slim AS runtime
 # Chromium + font Noto (đủ dấu tiếng Việt) cho PDF. Không tải trình duyệt lúc chạy.
+# upgrade: lấy bản vá bảo mật mới hơn image gốc (trivy image chặn HIGH đã có bản vá).
 RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends chromium fonts-noto-core \
  && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
@@ -30,8 +32,11 @@ ENV NODE_ENV=production \
     STORAGE_DIR=/data/files
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
-# Thư mục tệp (compose mount thư mục host vào đây).
-RUN mkdir -p /data/files && chown node:node /data/files
+# Thư mục tệp (compose mount thư mục host vào đây). Gỡ npm/corepack đi kèm image node: lúc chạy chỉ cần node, còn npm
+# mang theo dependency riêng hay dính lỗ hổng (trivy image báo HIGH dù app không dùng).
+RUN mkdir -p /data/files && chown node:node /data/files \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 USER node
 # Worker không có cổng HTTP. Docker tự khởi động lại khi tiến trình thoát (restart: unless-stopped).
 CMD ["node", "--enable-source-maps", "dist/main.js"]

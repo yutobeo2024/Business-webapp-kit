@@ -22,8 +22,13 @@ FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
-# Thư mục tệp (compose mount thư mục host vào đây).
-RUN mkdir -p /data/files && chown node:node /data/files
+# Thư mục tệp (compose mount thư mục host vào đây). Gỡ npm/corepack đi kèm image node: lúc chạy chỉ cần node, còn npm
+# mang theo dependency riêng hay dính lỗ hổng (trivy image báo HIGH dù app không dùng).
+# apk upgrade: lấy bản vá bảo mật mới hơn image gốc.
+RUN apk upgrade --no-cache \
+ && mkdir -p /data/files && chown node:node /data/files \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 ENV STORAGE_DIR=/data/files
 USER node
 EXPOSE 3000

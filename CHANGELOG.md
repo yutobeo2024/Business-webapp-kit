@@ -29,8 +29,9 @@ Sửa (CI thật trên GitHub)
 
 - gitleaks báo nhầm giá trị giữ chỗ: `.gitleaks.toml` chỉ bỏ qua đúng các giá trị đó, giữ luật mặc định.
 - Image web chạy root (trivy AVD-DS-0002): chạy user `web`, Caddy nghe 8080, tắt admin API; `infra/Caddyfile` trỏ
-  `web:8080`. Image api/worker gỡ npm/corepack/yarn đi kèm image node (lỗ hổng HIGH dù app không dùng) và nâng gói hệ
-  thống lúc build.
+  `web:8080`. Image api/worker gỡ npm/corepack/yarn đi kèm image node (lỗ hổng HIGH dù app không dùng); cả 3 image nâng
+  gói hệ thống lúc build. Caddy 2.10 lên 2.11.6 (image web và proxy HTTPS trong `compose.prod.yml`): binary 2.10 có 59
+  lỗ hổng HIGH/CRITICAL. Kiểm bằng trivy image: 3 image và image proxy không còn HIGH/CRITICAL đã có bản vá.
 - Action GitHub nâng lên bản chạy Node 24, pin SHA. Dependabot bỏ qua nâng bản lớn của image postgres/redis/node/caddy.
 - `install.sh`/`install.ps1`: nhánh đầu là `main` (CI chạy khi push `main`); dừng khi Node không phải 22/24 (trừ
   `--force`). Bit +x của `infra/backup-files.sh` trong repo kit.
