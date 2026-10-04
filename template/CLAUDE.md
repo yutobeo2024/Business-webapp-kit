@@ -20,7 +20,7 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
 
 - `pnpm dev:services` (Postgres + Redis bằng Docker), `pnpm dev`, `pnpm build`
 - `pnpm verify:quick` = lint + typecheck + unit test. PHẢI xanh trước khi báo xong (hook Stop tự chạy).
-- `pnpm test:integration` (cần `DATABASE_URL=.../app_test`, `REDIS_URL=redis://localhost:6379/15`)
+- `pnpm test:integration` (DB/Redis test của dự án lấy từ `TEST_DATABASE_URL`, `TEST_REDIS_URL` trong `.env`)
 - DB: sửa `packages/db/src/schema.ts` rồi `pnpm db:generate --name <ten_thay_doi>`; áp dụng: `pnpm db:migrate`.
   DB cục bộ bẩn hoặc lệch migration chưa commit: `pnpm db:reset-local` (test) / `pnpm db:reset-local dev`.
 - `pnpm test:e2e` (cần `pnpm build`, DB đã migrate + `pnpm db:seed -- --demo`).

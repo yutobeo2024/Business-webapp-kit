@@ -1,5 +1,22 @@
 # Nhật ký thay đổi của kit
 
+## 1.4.1 (04/10/2026)
+
+Sửa theo dogfood đợt 2 (lát 7-8 của module tạm ứng, chạy với lớp agent 1.4.0: mỗi lát $10-11, rẻ hơn 25-75% đợt 1).
+
+- Mỗi dự án có DB và Redis riêng trên dịch vụ dev dùng chung (finding #29, #31): installer đặt `DATABASE_URL`,
+  `REDIS_URL`, `TEST_DATABASE_URL`, `TEST_REDIS_URL` trong `.env` theo tên thư mục dự án (bỏ dấu tiếng Việt). Trước đây
+  mọi dự án dùng chung `app_test` và Redis số 0: migration của dự án này làm hỏng DB test của dự án kia, worker dự án này
+  có thể nhận job của dự án kia.
+- `pnpm test:integration` cục bộ tự lấy DB/Redis test từ `.env`, không cần gõ biến môi trường. CI đặt biến như cũ.
+- `pnpm db:reset-local [dev]` đọc tên DB từ `.env`, chỉ chạy với DB localhost, và là bước tạo DB khi cài lần đầu (thay
+  `db:migrate` + `db:seed` trong hướng dẫn).
+- Rule E2E: chạy lại nhiều lần trên cùng DB phải vẫn xanh (dữ liệu theo dấu thời gian, không dựa vào trạng thái DB dev).
+
+Nâng cấp dự án tạo từ 1.4.0: thêm `TEST_DATABASE_URL`, `TEST_REDIS_URL` vào `.env` (xem `.env.example`), chép
+`apps/api/test/test-env.ts`, hai `vitest.integration.config.ts`, `scripts/db-reset-local.mjs`. Đổi tên DB dev/test riêng
+thì chạy `pnpm db:reset-local dev` và `pnpm db:reset-local` (DB dev cũ không bị xóa, tự chép dữ liệu nếu cần).
+
 ## 1.4.0 (04/10/2026)
 
 Bước 3 (dogfood): sửa những chỗ kit gây vướng khi Claude Code xây module tạm ứng/quyết toán thật trên dự án tạo từ 1.3.0,

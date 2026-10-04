@@ -13,6 +13,7 @@ paths:
   fixture riêng.
 - E2E (`e2e/`): Playwright, cho tiêu chí nghiệm thu chính của từng lát có giao diện. Tài khoản từ `pnpm db:seed -- --demo`,
   khai báo trong `e2e/users.ts`; mở trang bằng `pageAs("vai-tro")` (phiên lưu sẵn bởi `auth.setup.ts`). Không đăng nhập lại
-  trong từng test (giới hạn 10 lần/phút mỗi IP), không bấm Đăng xuất.
+  trong từng test (giới hạn 10 lần/phút mỗi IP), không bấm Đăng xuất. Chạy lại nhiều lần trên cùng DB phải vẫn xanh: dữ
+  liệu tạo trong test mang dấu thời gian (tên, mã), không dựa vào trạng thái DB dev; cần DB demo mới thì `pnpm db:reset-local dev`.
 - Tên test là hành vi tiếng Việt và dẫn mã quy tắc: `it("BR-02: trưởng phòng khác phòng ban bị chặn")`.
 - Cấm: xóa hoặc `.skip` test đang đỏ, sửa assertion cho khớp kết quả sai, hạ ngưỡng kiểm tra để qua CI.

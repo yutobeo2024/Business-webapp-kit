@@ -217,6 +217,9 @@ jobs:
           cd "$RUNNER_TEMP/du-an-moi"
           test "$(git branch --show-current)" = main
           bad=$(git ls-files -s infra/*.sh | grep -v '^100755' || true); test -z "$bad"
+          # DB riêng theo tên thư mục dự án (nhiều dự án dùng chung dịch vụ dev).
+          grep -qx 'DATABASE_URL=postgresql://app:app@localhost:5432/du_an_moi_dev' .env
+          grep -qx 'TEST_DATABASE_URL=postgresql://app:app@localhost:5432/du_an_moi_test' .env
           pnpm install --frozen-lockfile
           pnpm build
           pnpm verify:quick

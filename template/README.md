@@ -7,12 +7,14 @@ Web app quản lý quy trình nghiệp vụ cho <khách hàng>.
 Yêu cầu: Node 24 (xem `.nvmrc`), pnpm 10 (`corepack enable`), Docker.
 
 ```bash
-cp .env.example .env              # đổi SEED_ADMIN_PASSWORD
+cp .env.example .env              # đổi SEED_ADMIN_PASSWORD (installer đã tạo sẵn, kèm tên DB riêng của dự án)
 pnpm install
 pnpm exec playwright install chromium  # in PDF ở worker, test tích hợp worker và E2E
 pnpm dev:services                 # PostgreSQL + Redis
-pnpm build && pnpm db:migrate
-pnpm db:seed -- --demo            # vai trò mặc định, tài khoản quản trị + tài khoản demo (mật khẩu = SEED_ADMIN_PASSWORD)
+pnpm build
+pnpm db:reset-local dev           # tạo DB dev của dự án, migrate, seed: vai trò mặc định, quản trị + tài khoản demo
+                                  # (mật khẩu = SEED_ADMIN_PASSWORD). Sau đó dùng pnpm db:migrate khi có migration mới.
+pnpm db:reset-local               # tạo DB test của dự án (TEST_DATABASE_URL)
 pnpm dev                          # API :3000, web :5173
 ```
 
@@ -22,8 +24,7 @@ pnpm dev                          # API :3000, web :5173
 
 ```bash
 pnpm verify:quick                                             # lint + typecheck + unit test
-DATABASE_URL=postgresql://app:app@localhost:5432/app_test \
-REDIS_URL=redis://localhost:6379/15 pnpm test:integration     # DB và Redis thật
+pnpm test:integration                                         # DB và Redis thật (TEST_DATABASE_URL, TEST_REDIS_URL)
 pnpm claude:selftest                                          # tự kiểm hook Claude Code
 ```
 

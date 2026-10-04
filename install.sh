@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tạo dự án mới từ kit. Dùng: ./install.sh <thư-mục-dự-án-mới>
 set -Eeuo pipefail
-VERSION="1.4.0"
+VERSION="1.4.1"
 SRC="$(cd "$(dirname "$0")/template" && pwd)"
 FORCE=0
 [[ "${1:-}" == "--force" ]] && { FORCE=1; shift; }
@@ -28,6 +28,18 @@ tar -C "$SRC" --exclude=node_modules --exclude=dist --exclude=.turbo --exclude=.
   --exclude=test-results --exclude=playwright-report --exclude=coverage --exclude=.data -cf - . | tar -C "$DEST" -xf -
 chmod +x "$DEST"/infra/*.sh
 cp "$DEST/.env.example" "$DEST/.env"
+# DB và Redis riêng cho dự án này (nhiều dự án dùng chung dịch vụ dev): tên DB theo tên thư mục, chỉ số Redis theo băm.
+# Bỏ dấu tiếng Việt (Quản Lý Kho -> quan_ly_kho); không có Node (cài bằng --force) thì chỉ giữ chữ không dấu.
+SLUG="$(node -e 'console.log(process.argv[1].normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D"))' \
+  "$(basename "$DEST")" 2>/dev/null || basename "$DEST")"
+SLUG="$(printf '%s' "$SLUG" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-40)"
+[[ "$SLUG" =~ ^[a-z] ]] || SLUG="app_${SLUG}"
+HASH="$(printf '%s' "$SLUG" | cksum | cut -d' ' -f1)"
+REDIS_DEV=$(( 1 + HASH % 7 )); REDIS_TEST=$(( 8 + HASH % 8 ))
+sed -i.bak -e "s#/app_dev\$#/${SLUG}_dev#" -e "s#/app_test\$#/${SLUG}_test#" \
+  -e "s#^REDIS_URL=redis://localhost:6379/1\$#REDIS_URL=redis://localhost:6379/${REDIS_DEV}#" \
+  -e "s#^TEST_REDIS_URL=redis://localhost:6379/15\$#TEST_REDIS_URL=redis://localhost:6379/${REDIS_TEST}#" "$DEST/.env"
+rm -f "$DEST/.env.bak"
 # Git trên Windows (core.filemode=false) bỏ bit +x: đặt lại trong index để máy chủ Linux chạy được script.
 ( cd "$DEST" && git init -q -b main && git add -A && git update-index --chmod=+x infra/*.sh \
   && git -c commit.gpgsign=false commit -qm "chore: khởi tạo từ business-webapp-kit $VERSION" ) \
@@ -37,7 +49,8 @@ cat <<MSG
 Tiếp theo:
   cd "$DEST"
   # sửa SEED_ADMIN_PASSWORD trong .env và phần <...> trong CLAUDE.md
-  pnpm install && pnpm dev:services && pnpm build && pnpm db:migrate && pnpm db:seed -- --demo
+  pnpm install && pnpm dev:services && pnpm build
+  pnpm db:reset-local dev && pnpm db:reset-local   # tạo DB dev (kèm dữ liệu demo) và DB test riêng của dự án
   pnpm verify:quick && pnpm claude:selftest
 Nhánh chính là main (CI/CD chạy khi push main và tag vX.Y.Z).
 MSG
