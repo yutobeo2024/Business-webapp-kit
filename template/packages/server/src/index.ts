@@ -18,3 +18,4 @@ export * from "./imports/definitions.js";
 export * from "./imports/xlsx.js";
 export * from "./imports/zip-guard.js";
 export * from "./db-errors.js";
+export * from "./document-codes.js";

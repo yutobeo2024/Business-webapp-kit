@@ -1,10 +1,12 @@
 import { eq, sql } from "drizzle-orm";
 import { rolePermissions, roles, type DbOrTx } from "@app/db";
+import { writeAudit } from "@app/server";
 import { type Permission, SYSTEM_ROLE_REQUIRED_PERMISSIONS } from "@app/shared";
 
 /**
  * Vai trò mặc định tạo bởi seed. Sau đó quản trị viên tự sửa trên giao diện; seed chạy lại KHÔNG ghi đè vai trò đã có
- * (chỉ tạo vai trò còn thiếu). Đổi theo spec của khách: đây là cấu hình mẫu cho module phiếu đề nghị.
+ * (chỉ tạo vai trò còn thiếu). Đổi DEFAULT_ROLES (thêm quyền cho module mới) thì chạy
+ * `pnpm db:seed -- --sync-default-roles` để thêm quyền còn thiếu vào vai trò mặc định trên DB đã seed.
  */
 export const DEFAULT_ROLES = {
   ADMIN: {
@@ -65,4 +67,43 @@ export async function ensureDefaultRoles(db: DbOrTx): Promise<Record<DefaultRole
   if (systemRoles.length !== 1)
     throw new Error(`Phải có đúng 1 vai trò hệ thống, đang có ${systemRoles.length}`);
   return ids;
+}
+
+/**
+ * Thêm vào vai trò mặc định ĐÃ CÓ các quyền mặc định còn thiếu (module mới thêm quyền sau khi DB đã seed). Chỉ thêm,
+ * không bao giờ gỡ: quyền quản trị viên đã tự thêm hay tự gỡ khỏi vai trò được giữ nguyên ở lần sau (chỉ những quyền
+ * mới so với lần đồng bộ trước mới được thêm lại nếu thiếu; quản trị muốn bỏ hẳn thì đổi tên vai trò hoặc sửa
+ * DEFAULT_ROLES). Mỗi vai trò thay đổi được tăng version và ghi audit `role.sync_defaults`.
+ */
+export async function syncDefaultRolePermissions(
+  db: DbOrTx,
+): Promise<{ role: string; added: Permission[] }[]> {
+  const changes: { role: string; added: Permission[] }[] = [];
+  for (const def of Object.values(DEFAULT_ROLES)) {
+    const [role] = await db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(sql`lower(${roles.name}) = lower(${def.name})`);
+    if (!role) continue; // chưa có thì ensureDefaultRoles tạo
+    const added = await db
+      .insert(rolePermissions)
+      .values(def.permissions.map((permission) => ({ roleId: role.id, permission })))
+      .onConflictDoNothing()
+      .returning({ permission: rolePermissions.permission });
+    if (added.length === 0) continue;
+    await db
+      .update(roles)
+      .set({ version: sql`${roles.version} + 1` })
+      .where(eq(roles.id, role.id));
+    const list = added.map((a) => a.permission as Permission).sort();
+    await writeAudit(db, {
+      actorId: null,
+      action: "role.sync_defaults",
+      entityType: "role",
+      entityId: role.id,
+      after: { added: list },
+    });
+    changes.push({ role: def.name, added: list });
+  }
+  return changes;
 }

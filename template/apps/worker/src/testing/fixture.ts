@@ -8,7 +8,7 @@ import type { Permission, PrStatus } from "@app/shared";
 /** Xóa sạch dữ liệu giữa các test, tạo hai phòng ban KD, KT. */
 export async function resetWorkerDb(db: Db): Promise<{ deptKd: string; deptKt: string }> {
   await db.execute(
-    sql`truncate table audit_logs, import_jobs, integration_tokens, notification_deliveries, user_notification_settings, notifications, export_jobs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
+    sql`truncate table audit_logs, document_counters, import_jobs, integration_tokens, notification_deliveries, user_notification_settings, notifications, export_jobs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
   );
   const [kd] = await db.insert(departments).values({ code: "KD", name: "Kinh doanh" }).returning();
   const [kt] = await db.insert(departments).values({ code: "KT", name: "Kế toán" }).returning();

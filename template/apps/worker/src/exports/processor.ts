@@ -3,10 +3,10 @@
  * chạy lại sau lỗi không tạo tệp thừa (tệp chỉ được ghi nhận khi transaction cập nhật DONE thành công).
  */
 import { type Job, UnrecoverableError } from "bullmq";
-import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
 import type { Logger } from "pino";
 import { exportJobs, files, importJobs, users, type Db } from "@app/db";
-import { type FileStorage, loadAccess, storeFile, withStoredFile } from "@app/server";
+import { canPurgeDeletedFile, type FileStorage, loadAccess, storeFile, withStoredFile } from "@app/server";
 import { can, createExportSchema, EXPORT_TYPES, exportRunJobSchema, JOBS } from "@app/shared";
 import type { PdfRenderer } from "./pdf.js";
 import { ExportUserError, type RunnerContext, runExportType } from "./runners.js";
@@ -174,11 +174,24 @@ export async function cleanupFiles(
     .innerJoin(files, eq(files.id, exportJobs.fileId))
     .where(and(isNotNull(exportJobs.expiresAt), lt(exportJobs.expiresAt, now)))
     .limit(5000);
-  const deletedAttachments = await db
-    .select({ id: files.id, key: files.storageKey })
-    .from(files)
-    .where(lt(files.deletedAt, new Date(now.getTime() - SOFT_DELETE_GRACE_MS)))
-    .limit(5000);
+  // Đính kèm đã xóa mềm: giữ theo FILE_RETENTION của từng loại (chứng từ "forever" không bao giờ bị xóa vật lý).
+  const deletedAttachments = (
+    await db
+      .select({
+        id: files.id,
+        key: files.storageKey,
+        entityType: files.entityType,
+        deletedAt: files.deletedAt,
+      })
+      .from(files)
+      .where(
+        and(
+          lt(files.deletedAt, new Date(now.getTime() - 24 * 60 * 60 * 1000)),
+          notInArray(files.entityType, ["export_job", "import_job"]),
+        ),
+      )
+      .limit(5000)
+  ).filter((f) => canPurgeDeletedFile(f.entityType, f.deletedAt!, now));
 
   // Tệp nhập Excel: không cần giữ khi lần nhập đã kết thúc quá 7 ngày (dữ liệu đã vào DB, audit giữ sha256).
   const finishedImports = await db

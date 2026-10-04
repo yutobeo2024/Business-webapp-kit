@@ -5,8 +5,9 @@
 // rồi xét tên lệnh và đối số ở MỌI vị trí. Một regex trên cả chuỗi bị lách quá dễ.
 // Giới hạn: không đọc được mã bên trong node -e, python -c... (xem README "Giới hạn cần biết").
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import { block, isGitTracked, pass, projectDir, readInputStrict, resolveTarget } from "./_lib.mjs";
 
 const input = readInputStrict();
@@ -237,12 +238,39 @@ function isEnvFile(tok) {
   return /^\.env($|[.*?[])/.test(b) && b !== ".env.example";
 }
 
+// Ngoài dự án chỉ được ghi vào thư mục tạm và thư mục làm việc của Claude Code (giống protect-files): agent không
+// được rải file (patch, bản sao, log) ra thư mục khác trên máy người dùng.
+const realDir = (p) => {
+  try {
+    return realpathSync.native(p);
+  } catch {
+    return p;
+  }
+};
+const OUTSIDE_OK = [join(homedir(), ".claude", "plans"), join(homedir(), ".claude", "projects"), tmpdir()].map(realDir);
+const DEVICES = /^(\/dev\/(null|stdout|stderr|tty|fd\/\d+)|nul|con|\$null)$/i;
+function outsideAllowed(t, abs) {
+  if (DEVICES.test(t) || /^\/tmp(\/|$)/.test(t) || /^\/dev\//.test(t)) return true;
+  return OUTSIDE_OK.some((d) => {
+    const r = relative(d, abs);
+    return !r.startsWith("..") && !/^[a-zA-Z]:|^[\\/]/.test(r);
+  });
+}
+
 /** Lý do nếu ghi vào file/thư mục này phá cơ chế bảo vệ; null nếu được ghi. */
 function protectedReason(tok) {
   const t = tok.replace(/^[<>]+/, "").replace(/\\/g, "/");
-  if (!t || t.startsWith("-") || /^[a-z][a-z0-9+.-]*:\/\//i.test(t)) return null;
-  const { rel, key, outside } = resolveTarget(t, root);
-  if (outside) return null;
+  if (!t || t.startsWith("-") || /^[a-z][a-z0-9+.-]*:\/\//i.test(t) || /^&\d$/.test(t)) return null;
+  if (DEVICES.test(t)) return null;
+  // Shell mở rộng ~ và $HOME trước khi chạy: xét đúng nơi sẽ ghi.
+  const home = /^(~|\$HOME|\$\{HOME\})(\/|$)/.exec(t);
+  const target = home ? join(homedir(), t.slice(home[1].length)) : t;
+  const { abs, rel, key, outside } = resolveTarget(target, root);
+  if (outside) {
+    return outsideAllowed(t, abs)
+      ? null
+      : `ghi ra ngoài thư mục dự án (${t}). Để thay đổi trong dự án (ví dụ staging) hoặc dùng thư mục tạm.`;
+  }
   if (key === ".claude" || /^\.claude\/(hooks(\/|$)|settings(\.local)?\.json$)/.test(key))
     return `${rel} là cơ chế bảo vệ của dự án (hook, settings).`;
   if (/(^|\/)pnpm-lock\.yaml$/.test(key)) return "pnpm-lock.yaml chỉ được đổi qua pnpm add/remove.";

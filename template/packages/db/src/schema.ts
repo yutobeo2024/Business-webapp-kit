@@ -8,7 +8,6 @@ import {
   integer,
   jsonb,
   pgEnum,
-  pgSequence,
   pgTable,
   primaryKey,
   text,
@@ -137,7 +136,16 @@ export const sessions = pgTable(
   (t) => [index("sessions_user_idx").on(t.userId), index("sessions_expires_idx").on(t.expiresAt)],
 );
 
-export const prCodeSeq = pgSequence("pr_code_seq", { startWith: 1, increment: 1 });
+/** Bộ đếm mã chứng từ theo (tiền tố, năm): nextDocumentCode trong packages/server/src/document-codes.ts. */
+export const documentCounters = pgTable(
+  "document_counters",
+  {
+    prefix: text("prefix").notNull(),
+    year: integer("year").notNull(),
+    last: integer("last").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.prefix, t.year] })],
+);
 
 export const purchaseRequests = pgTable(
   "purchase_requests",

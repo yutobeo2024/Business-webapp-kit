@@ -1,9 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Queue } from "bullmq";
-import { prCodeSeq, purchaseRequests, users, type Db, type DbOrTx } from "@app/db";
+import { purchaseRequests, users, type Db, type DbOrTx } from "@app/db";
 import {
-  businessYear,
   can,
   calcTotal,
   type CreatePurchaseRequestInput,
@@ -20,7 +19,13 @@ import { writeAudit } from "../../common/audit.js";
 import { BusinessError, Errors } from "../../common/business-error.js";
 import { DB } from "../../db/db.module.js";
 import { enqueueAfterCommit, NOTIFICATIONS_QUEUE } from "../../queue/queue.module.js";
-import { canView, findViewablePurchaseRequest, listPurchaseRequests, viewScope } from "@app/server";
+import {
+  canView,
+  findViewablePurchaseRequest,
+  listPurchaseRequests,
+  viewScope,
+  nextDocumentCode,
+} from "@app/server";
 import { canManageAttachments } from "./attachments.service.js";
 import { allowedEvents, decide } from "./state-machine.js";
 
@@ -58,12 +63,6 @@ export class PurchaseRequestsService {
     };
   }
 
-  private async nextCode(tx: DbOrTx): Promise<string> {
-    const res = await tx.execute<{ n: string }>(sql`select nextval(${prCodeSeq.seqName}) as n`);
-    const n = Number(res.rows[0]?.n);
-    return `PR-${businessYear()}-${String(n).padStart(6, "0")}`;
-  }
-
   async create(
     actor: CurrentUser,
     input: CreatePurchaseRequestInput,
@@ -83,7 +82,7 @@ export class PurchaseRequestsService {
       const [created] = await tx
         .insert(purchaseRequests)
         .values({
-          code: await this.nextCode(tx),
+          code: await nextDocumentCode(tx, "PR"),
           title: input.title,
           items: input.items,
           note: input.note ?? null,

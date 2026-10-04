@@ -2,9 +2,10 @@ import type { INestApplication } from "@nestjs/common";
 import { and, eq } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { auditLogs, rolePermissions, sessions, users, type DbHandle } from "@app/db";
+import { auditLogs, rolePermissions, roles, sessions, users, type DbHandle } from "@app/db";
 import { createApp } from "../src/bootstrap.js";
 import { hashPassword } from "../src/auth/crypto.js";
+import { syncDefaultRolePermissions } from "../src/auth/default-roles.js";
 import {
   nextIp,
   openDb,
@@ -45,6 +46,32 @@ async function login(email: string, password = TEST_PASSWORD) {
   return a;
 }
 const newPr = { title: "Mua giấy in quý 4", items: [{ name: "Giấy", quantity: 1, unitPrice: 1000 }] };
+
+describe("đồng bộ quyền vai trò mặc định (--sync-default-roles)", () => {
+  it("thêm quyền mặc định còn thiếu, giữ quyền quản trị viên tự thêm, ghi audit, tăng version; chạy lại không đổi gì", async () => {
+    const managerRole = f.roleIds.MANAGER;
+    await handle.db
+      .delete(rolePermissions)
+      .where(and(eq(rolePermissions.roleId, managerRole), eq(rolePermissions.permission, "pr.export")));
+    await handle.db.insert(rolePermissions).values({ roleId: managerRole, permission: "pr.view.all" });
+    const [before] = await handle.db.select().from(roles).where(eq(roles.id, managerRole));
+
+    expect(await syncDefaultRolePermissions(handle.db)).toEqual([
+      { role: "Trưởng phòng", added: ["pr.export"] },
+    ]);
+    const perms = (
+      await handle.db.select().from(rolePermissions).where(eq(rolePermissions.roleId, managerRole))
+    ).map((r) => r.permission);
+    expect(perms).toEqual(expect.arrayContaining(["pr.export", "pr.view.all"]));
+    const [after] = await handle.db.select().from(roles).where(eq(roles.id, managerRole));
+    expect(after!.version).toBe(before!.version + 1);
+    expect(
+      await handle.db.select().from(auditLogs).where(eq(auditLogs.action, "role.sync_defaults")),
+    ).toHaveLength(1);
+
+    expect(await syncDefaultRolePermissions(handle.db)).toEqual([]);
+  });
+});
 
 describe("Phân quyền theo quyền, vai trò cấu hình trong DB", () => {
   it("me trả vai trò và quyền, không có tên vai trò cứng", async () => {

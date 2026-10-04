@@ -8,6 +8,23 @@ import { files, type DbOrTx } from "@app/db";
 import { FILE_TYPES, type FileDto, type FileTypeKey, fileTypeLabels } from "@app/shared";
 import { type FileStorage, newStorageKey } from "./storage.js";
 
+/**
+ * Thời gian GIỮ tệp vật lý sau khi xóa mềm, theo entity_type (spec 002). Mặc định 7 ngày (khôi phục khi xóa nhầm).
+ * Chứng từ phải lưu theo luật (kế toán: 10 năm) khai báo "forever": job dọn dẹp không bao giờ xóa vật lý.
+ * Tệp xuất (export_job) và tệp nhập (import_job) có vòng đời riêng, không theo bảng này.
+ */
+export const FILE_RETENTION: Record<string, number | "forever"> = {
+  purchase_request: 7, // sample: đính kèm phiếu mẫu
+};
+export const DEFAULT_FILE_RETENTION_DAYS = 7;
+
+/** Tệp đã xóa mềm lúc `deletedAt` của loại `entityType` có được xóa vật lý vào lúc `now` không. */
+export function canPurgeDeletedFile(entityType: string, deletedAt: Date, now = new Date()): boolean {
+  const keep = FILE_RETENTION[entityType] ?? DEFAULT_FILE_RETENTION_DAYS;
+  if (keep === "forever") return false;
+  return deletedAt.getTime() <= now.getTime() - keep * 24 * 60 * 60 * 1000;
+}
+
 export class FileRejectedError extends Error {
   constructor(
     public readonly code: "FILE_TYPE_NOT_ALLOWED" | "FILE_TOO_LARGE" | "FILE_EMPTY",

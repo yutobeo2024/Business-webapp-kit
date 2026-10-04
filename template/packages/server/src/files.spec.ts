@@ -2,7 +2,14 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { contentDisposition, detectAllowedType, FileRejectedError, safeDisplayName } from "./files.js";
+import {
+  canPurgeDeletedFile,
+  contentDisposition,
+  detectAllowedType,
+  FILE_RETENTION,
+  FileRejectedError,
+  safeDisplayName,
+} from "./files.js";
 import { LocalFileStorage, newStorageKey } from "./storage.js";
 
 const PDF = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
@@ -77,5 +84,21 @@ describe("tên tệp", () => {
     expect(contentDisposition("Bảng (bản 2) 'cuối'.pdf")).toContain(
       "filename*=UTF-8''B%E1%BA%A3ng%20%28b%E1%BA%A3n%202%29%20%27cu%E1%BB%91i%27.pdf",
     );
+  });
+});
+
+describe("chính sách lưu tệp đã xóa mềm", () => {
+  const now = new Date("2026-10-04T00:00:00Z");
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000);
+  it("mặc định giữ 7 ngày; loại khai báo forever (chứng từ) không bao giờ xóa vật lý", () => {
+    expect(canPurgeDeletedFile("loai_chua_khai_bao", daysAgo(6), now)).toBe(false);
+    expect(canPurgeDeletedFile("loai_chua_khai_bao", daysAgo(7), now)).toBe(true);
+    FILE_RETENTION.chung_tu_test = "forever";
+    FILE_RETENTION.giu_30_ngay_test = 30;
+    expect(canPurgeDeletedFile("chung_tu_test", daysAgo(4000), now)).toBe(false);
+    expect(canPurgeDeletedFile("giu_30_ngay_test", daysAgo(29), now)).toBe(false);
+    expect(canPurgeDeletedFile("giu_30_ngay_test", daysAgo(30), now)).toBe(true);
+    delete FILE_RETENTION.chung_tu_test;
+    delete FILE_RETENTION.giu_30_ngay_test;
   });
 });
