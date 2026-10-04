@@ -1,5 +1,23 @@
 # Nhật ký thay đổi của kit
 
+## 1.5.0 (04/10/2026)
+
+Bước 4 của lộ trình: nâng dự án đã tạo lên bản kit mới.
+
+- `scripts/kit-sync.mjs` (gốc repo kit): so từng tệp template giữa bản kit lúc cài, bản kit mới và dự án. Dự án chưa
+  sửa thì lấy bản kit, cả hai cùng sửa thì trộn ba chiều (`git merge-file`), còn xung đột thì để dấu cho người/agent.
+  Làm trên nhánh `kit-sync/<từ>-<lên>`, không commit; không chép migration của kit (báo để sinh lại từ schema, kèm SQL
+  dữ liệu cần port), không đụng `.env`, lockfile; dự án đã gỡ mẫu thì không đưa tệp mẫu trở lại và cắt khối `sample`
+  trước khi trộn; tệp bị hook bảo vệ mà xung đột thì để bản kit cạnh bên cho người trộn. Báo cáo
+  `docs/kit-sync/<từ>-<lên>.md` gồm ghi chú "Nâng cấp" của các bản ở giữa.
+- Skill `/kit-upgrade` trong dự án: giải xung đột (lõi theo kit, nghiệp vụ của dự án giữ, thứ dự án tự làm trùng lõi thì
+  chuyển sang lõi), sinh migration, kiểm tra, báo việc cho người.
+- Installer ghi `.kit.json` (phiên bản, commit kit). Mỗi bản kit có tag `kit-vX.Y.Z`.
+- kit-ci: test công cụ, và nâng thật một dự án cài từ bản kit trước lên bản mới nhất (build + verify).
+
+Nâng cấp dự án tạo từ 1.4.x trở về trước: chạy `node <kit>/scripts/kit-sync.mjs <dự án> --from <bản đã cài>`, rồi
+`/kit-upgrade` trong dự án (skill này đến cùng lần đồng bộ).
+
 ## 1.4.1 (04/10/2026)
 
 Sửa theo dogfood đợt 2 (lát 7-8 của module tạm ứng, chạy với lớp agent 1.4.0: mỗi lát $10-11, rẻ hơn 25-75% đợt 1).

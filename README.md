@@ -1,7 +1,7 @@
 # Business Web App Kit
 
 Bộ khởi tạo production cho web app quy trình nghiệp vụ giao cho doanh nghiệp, làm việc cùng Claude Code.
-Phiên bản kit: 1.4.1 (04/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
+Phiên bản kit: 1.5.0 (04/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
 
 ## Kit gồm gì
 
@@ -57,10 +57,25 @@ Giới hạn cần biết: deny rule và hook đọc nội dung lệnh, nên m�
 vẫn đọc được `.env` hoặc ghi vào file được bảo vệ.
 Khi cần cách ly ở mức hệ điều hành, bật sandbox của Claude Code hoặc chạy trong dev container.
 
+## Nâng cấp dự án đã tạo lên bản kit mới
+
+```bash
+node scripts/kit-sync.mjs <thư-mục-dự-án> --dry-run   # xem trước: tệp nào lấy bản kit, trộn, xung đột
+node scripts/kit-sync.mjs <thư-mục-dự-án>             # làm trên nhánh kit-sync/<từ>-<lên> của dự án, không commit
+```
+
+Rồi mở Claude Code trong dự án, chạy `/kit-upgrade`: giải xung đột (lõi theo kit, nghiệp vụ của dự án giữ), sinh
+migration từ schema đã trộn, chạy kiểm tra. Phiên bản kit của dự án ghi trong `.kit.json` (installer tạo); dự án cũ
+hơn 1.5.0 không có tệp này thì công cụ đọc từ commit đầu hoặc `--from X.Y.Z`. Mỗi bản kit có tag `kit-vX.Y.Z`.
+Công cụ không chép migration của kit (sinh lại trong dự án), không đụng `.env`, lockfile; tệp bị hook bảo vệ mà xung
+đột thì để bản kit cạnh bên (`.kit-X.Y.Z`) cho người trộn.
+
 ## Bảo trì chính kit này
 
 - Phải nhắc AI cùng một điều lần thứ hai: thêm vào rule đúng đường dẫn, không nhồi vào CLAUDE.md.
 - AI làm hỏng thứ không được hỏng: biến thành hook, thêm tình huống vào `.claude/hooks/selftest.mjs`.
+- Phát hành bản kit: cập nhật CHANGELOG (có mục "Nâng cấp dự án tạo từ ..."), `VERSION` trong hai installer, gắn tag
+  `kit-vX.Y.Z` (không dùng `vX.Y.Z`: `sample:remove` coi đó là dự án đã phát hành).
 - CI của kit (`.github/workflows/kit-ci.yml`) chạy bộ kiểm của template trên hai biến thể: còn module mẫu và sau
   `pnpm sample:remove`; thêm cài dự án bằng `install.sh`, build 3 image + trivy image + in PDF thử. Phải xanh trước khi
   phát hành bản kit.

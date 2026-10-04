@@ -102,6 +102,7 @@ Xem module nghiệp vụ đã có của dự án, hoặc mẫu gốc trong lịc
 
 - Yêu cầu mới chưa có spec: `/business-flow`, dừng lại chờ duyệt.
 - Có spec đã duyệt: `/feature docs/specs/NNN-xxx.md` (lát cắt dọc: schema -> service + test -> controller -> UI -> E2E).
+- Nâng bản kit (sau khi đã chạy `kit-sync`, có `docs/kit-sync/*.md`): `/kit-upgrade`.
 - Đổi schema DB: theo `/db-migration`. Đụng auth, phân quyền, upload, xuất dữ liệu: chạy `/security-audit`.
 - Không tự thêm thư viện; cần thì nêu lý do và chờ đồng ý. Không sửa ngoài phạm vi task, thấy vấn đề thì ghi cuối báo cáo.
 - Không chắc về nghiệp vụ: hỏi, không đoán.

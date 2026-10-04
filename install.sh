@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tạo dự án mới từ kit. Dùng: ./install.sh <thư-mục-dự-án-mới>
 set -Eeuo pipefail
-VERSION="1.4.1"
+VERSION="1.5.0"
 SRC="$(cd "$(dirname "$0")/template" && pwd)"
 FORCE=0
 [[ "${1:-}" == "--force" ]] && { FORCE=1; shift; }
@@ -40,6 +40,9 @@ sed -i.bak -e "s#/app_dev\$#/${SLUG}_dev#" -e "s#/app_test\$#/${SLUG}_test#" \
   -e "s#^REDIS_URL=redis://localhost:6379/1\$#REDIS_URL=redis://localhost:6379/${REDIS_DEV}#" \
   -e "s#^TEST_REDIS_URL=redis://localhost:6379/15\$#TEST_REDIS_URL=redis://localhost:6379/${REDIS_TEST}#" "$DEST/.env"
 rm -f "$DEST/.env.bak"
+# Phiên bản kit đã dùng: `node <kit>/scripts/kit-sync.mjs <dự án>` dựa vào đây để nâng cấp dự án lên bản kit mới.
+KIT_COMMIT="$(git -C "$(dirname "$0")" rev-parse HEAD 2>/dev/null || echo unknown)"
+printf '{\n  "version": "%s",\n  "commit": "%s"\n}\n' "$VERSION" "$KIT_COMMIT" > "$DEST/.kit.json"
 # Git trên Windows (core.filemode=false) bỏ bit +x: đặt lại trong index để máy chủ Linux chạy được script.
 ( cd "$DEST" && git init -q -b main && git add -A && git update-index --chmod=+x infra/*.sh \
   && git -c commit.gpgsign=false commit -qm "chore: khởi tạo từ business-webapp-kit $VERSION" ) \

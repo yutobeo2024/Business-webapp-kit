@@ -2,7 +2,7 @@
 # File lưu UTF-8 CÓ BOM: thiếu BOM thì PowerShell 5.1 đọc theo bảng mã ANSI, tiếng Việt bị lỗi font cả trong commit.
 param([Parameter(Mandatory = $true)][string]$Dest, [switch]$Force)
 $ErrorActionPreference = "Stop"
-$Version = "1.4.1"
+$Version = "1.5.0"
 $Src = Join-Path $PSScriptRoot "template"
 
 # Dự án khóa Node 22/24 LTS (engine-strict): Node khác thì mọi lệnh pnpm lồng nhau, kể cả hook Stop của Claude Code, đều lỗi.
@@ -36,6 +36,10 @@ $EnvText = $EnvText -replace '(?m)/app_dev(?=\r?$)', "/$($Slug)_dev" -replace '(
 $EnvText = $EnvText -replace '(?m)^REDIS_URL=redis://localhost:6379/1(?=\r?$)', "REDIS_URL=redis://localhost:6379/$(1 + $Hash % 7)"
 $EnvText = $EnvText -replace '(?m)^TEST_REDIS_URL=redis://localhost:6379/15(?=\r?$)', "TEST_REDIS_URL=redis://localhost:6379/$(8 + $Hash % 8)"
 [IO.File]::WriteAllText($EnvPath, $EnvText, $Utf8)
+# Phiên bản kit đã dùng: `node <kit>/scripts/kit-sync.mjs <dự án>` dựa vào đây để nâng cấp dự án lên bản kit mới.
+$KitCommit = "unknown"
+try { $c = (git -C $PSScriptRoot rev-parse HEAD 2>$null); if ($LASTEXITCODE -eq 0 -and $c) { $KitCommit = $c.Trim() } } catch {}
+[IO.File]::WriteAllText((Join-Path $Dest ".kit.json"), "{`n  `"version`": `"$Version`",`n  `"commit`": `"$KitCommit`"`n}`n", $Utf8)
 
 # PowerShell 5.1 không ném lỗi khi lệnh native (git) thất bại: kiểm $LASTEXITCODE sau từng lệnh.
 function Invoke-Git {
