@@ -15,7 +15,7 @@ import { ExportsModule } from "./modules/exports/exports.module.js";
 import { ImportsModule } from "./modules/imports/imports.module.js";
 import { AccountModule } from "./modules/account/account.module.js";
 import { NotificationsModule } from "./modules/notifications/notifications.module.js";
-import { PurchaseRequestsModule } from "./modules/purchase-requests/purchase-requests.module.js";
+import { PurchaseRequestsModule } from "./modules/purchase-requests/purchase-requests.module.js"; // sample
 import { QueueModule } from "./queue/queue.module.js";
 
 @Module({})
@@ -41,7 +41,7 @@ export class AppModule {
         HealthModule,
         AuthModule,
         AdminModule,
-        PurchaseRequestsModule,
+        PurchaseRequestsModule, // sample
         ExportsModule,
         ImportsModule,
         NotificationsModule,

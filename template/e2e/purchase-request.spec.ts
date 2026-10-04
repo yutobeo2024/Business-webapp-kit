@@ -1,23 +1,16 @@
-import { expect, test } from "@playwright/test";
+/** E2E của module MẪU phiếu đề nghị (xóa cùng mẫu bởi `pnpm sample:remove`). Tài khoản từ `pnpm db:seed -- --demo`. */
+import { expect, test } from "./users.js";
 
-// Dữ liệu từ `pnpm db:seed -- --demo`. Mật khẩu demo = SEED_ADMIN_PASSWORD.
-const PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "";
-test.beforeAll(() => {
-  if (!PASSWORD)
-    throw new Error("Thiếu SEED_ADMIN_PASSWORD (đặt trong .env rồi chạy pnpm db:seed -- --demo)");
-});
-
-async function login(page: import("@playwright/test").Page, email: string) {
-  await page.goto("/");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Mật khẩu").fill(PASSWORD);
-  await page.getByRole("button", { name: "Đăng nhập" }).click();
+/** Mở danh sách phiếu bằng phiên đã lưu của người dùng. */
+async function openList(page: import("@playwright/test").Page) {
+  await page.goto("/purchase-requests");
   await expect(page.getByRole("heading", { name: "Phiếu đề nghị mua hàng" })).toBeVisible();
 }
 
-test("AC-01: nhân viên lập và gửi phiếu, trưởng phòng duyệt", async ({ page }) => {
+test("AC-01: nhân viên lập và gửi phiếu, trưởng phòng duyệt", async ({ pageAs }) => {
   const title = `Mua giấy in E2E ${Date.now()}`;
-  await login(page, "nhanvien@example.com");
+  const page = await pageAs("staff");
+  await openList(page);
   await page.getByRole("button", { name: "Lập phiếu" }).click();
   await page.getByLabel("Tiêu đề").fill(title);
   await page.getByPlaceholder("Tên hàng").fill("Giấy A4");
@@ -29,17 +22,18 @@ test("AC-01: nhân viên lập và gửi phiếu, trưởng phòng duyệt", asy
   await row.getByRole("button", { name: "Gửi duyệt" }).click();
   await expect(row).toContainText("Chờ trưởng phòng duyệt");
 
-  await page.getByRole("button", { name: "Đăng xuất" }).click();
-  await login(page, "truongphong@example.com");
-  const managerRow = page.getByRole("row", { name: new RegExp(title) });
+  const manager = await pageAs("manager");
+  await openList(manager);
+  const managerRow = manager.getByRole("row", { name: new RegExp(title) });
   await managerRow.getByRole("button", { name: "Trưởng phòng duyệt" }).click();
   // Hộp thoại xác nhận của ứng dụng (thẻ <dialog>), không phải window.confirm.
-  await page.getByRole("dialog").getByRole("button", { name: "Trưởng phòng duyệt" }).click();
+  await manager.getByRole("dialog").getByRole("button", { name: "Trưởng phòng duyệt" }).click();
   await expect(managerRow).toContainText("Đã duyệt");
 });
 
-test("danh sách: tìm theo mã giữ trên URL, tải lại trang vẫn còn bộ lọc", async ({ page }) => {
-  await login(page, "nhanvien@example.com");
+test("danh sách: tìm theo mã giữ trên URL, tải lại trang vẫn còn bộ lọc", async ({ pageAs }) => {
+  const page = await pageAs("staff");
+  await openList(page);
   await page.getByLabel("Tìm kiếm phiếu").fill("khong-co-phieu-nao-khop");
   await expect(page.getByText("Không có phiếu nào khớp bộ lọc.")).toBeVisible();
   await expect(page).toHaveURL(/q=khong-co-phieu-nao-khop/);
@@ -48,9 +42,10 @@ test("danh sách: tìm theo mã giữ trên URL, tải lại trang vẫn còn b�
   await expect(page.getByText("Không có phiếu nào khớp bộ lọc.")).toBeVisible();
 });
 
-test("BR-09: nhân viên đính kèm PDF vào phiếu nháp và tải lại được", async ({ page }) => {
+test("BR-09: nhân viên đính kèm PDF vào phiếu nháp và tải lại được", async ({ pageAs }) => {
   const title = `Phiếu có đính kèm E2E ${Date.now()}`;
-  await login(page, "nhanvien@example.com");
+  const page = await pageAs("staff");
+  await openList(page);
   await page.getByRole("button", { name: "Lập phiếu" }).click();
   await page.getByLabel("Tiêu đề").fill(title);
   await page.getByPlaceholder("Tên hàng").fill("Mực in");
@@ -83,8 +78,9 @@ test("BR-09: nhân viên đính kèm PDF vào phiếu nháp và tải lại đư
   await expect(dialog.getByRole("alert")).toContainText("Loại tệp không được phép");
 });
 
-test("xuất Excel danh sách phiếu chạy nền rồi tải về ở Tệp đã xuất", async ({ page }) => {
-  await login(page, "truongphong@example.com");
+test("xuất Excel danh sách phiếu chạy nền rồi tải về ở Tệp đã xuất", async ({ pageAs }) => {
+  const page = await pageAs("manager");
+  await openList(page);
   await page.getByRole("button", { name: "Xuất Excel" }).click();
   await page.getByRole("link", { name: "Xem ở Tệp đã xuất" }).click();
   await expect(page.getByRole("heading", { name: "Tệp đã xuất" })).toBeVisible();
@@ -101,9 +97,10 @@ test("xuất Excel danh sách phiếu chạy nền rồi tải về ở Tệp đ
   expect(download.suggestedFilename()).toMatch(/^phieu-de-nghi-\d{8}-\d{4}\.xlsx$/);
 });
 
-test("thông báo: gửi phiếu thì trưởng phòng thấy chuông, mở thông báo đi tới phiếu", async ({ page }) => {
+test("thông báo: gửi phiếu thì trưởng phòng thấy chuông, mở thông báo đi tới phiếu", async ({ pageAs }) => {
   const title = `Phiếu báo trưởng phòng E2E ${Date.now()}`;
-  await login(page, "nhanvien@example.com");
+  const page = await pageAs("staff");
+  await openList(page);
   await page.getByRole("button", { name: "Lập phiếu" }).click();
   await page.getByLabel("Tiêu đề").fill(title);
   await page.getByPlaceholder("Tên hàng").fill("Bút bi");
@@ -114,21 +111,17 @@ test("thông báo: gửi phiếu thì trưởng phòng thấy chuông, mở thô
   await expect(row).toContainText("Chờ trưởng phòng duyệt");
   const code = (await row.getByRole("cell").first().innerText()).trim();
 
-  await page.getByRole("button", { name: "Đăng xuất" }).click();
-  await login(page, "truongphong@example.com");
+  const manager = await pageAs("manager");
   // Worker tạo thông báo sau khi phiếu đổi trạng thái; chuông tải lại khi mở trang.
   await expect(async () => {
-    await page.reload();
-    await expect(page.getByRole("link", { name: /Thông báo \(\d+ chưa đọc\)/ })).toBeVisible({
+    await manager.goto("/");
+    await expect(manager.getByRole("link", { name: /Thông báo \(\d+ chưa đọc\)/ })).toBeVisible({
       timeout: 1000,
     });
   }).toPass({ timeout: 20_000 });
-  await page
-    .getByRole("link", { name: /Thông báo/ })
-    .first()
-    .click();
-  await page.getByRole("button", { name: new RegExp(`Phiếu ${code} chờ bạn duyệt`) }).click();
-  await expect(page.getByRole("heading", { name: "Phiếu đề nghị mua hàng" })).toBeVisible();
-  await expect(page.getByRole("row", { name: new RegExp(title) })).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`q=${code}`));
+  await manager.goto("/notifications");
+  await manager.getByRole("button", { name: new RegExp(`Phiếu ${code} chờ bạn duyệt`) }).click();
+  await expect(manager.getByRole("heading", { name: "Phiếu đề nghị mua hàng" })).toBeVisible();
+  await expect(manager.getByRole("row", { name: new RegExp(title) })).toBeVisible();
+  await expect(manager).toHaveURL(new RegExp(`q=${code}`));
 });

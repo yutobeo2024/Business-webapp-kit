@@ -42,18 +42,12 @@ beforeEach(async () => {
   await fetch(`${MAILPIT}/api/v1/messages`, { method: "DELETE" });
 });
 
-const data = {
-  prId: "8c5f0a52-6f1c-4b6e-9d0a-2f1f5a7f3c11",
-  code: "PR-2026-000007",
-  title: "Mua giấy",
-  totalAmount: 90_000,
-  requesterName: "Nhân viên A",
-};
+const data = { resetByName: "Quản trị" };
 const deps = (senders: DeliverDeps["senders"]): DeliverDeps => ({ db: handle.db, log, senders });
 const statusOf = async (id: string) =>
   (await handle.db.select().from(notificationDeliveries).where(eq(notificationDeliveries.id, id)))[0]!;
 const notifyOne = (userId: string, dedupeKey: string, channels: ("email" | "zalo")[]) =>
-  notify(handle.db, { type: "pr.pending_approval", userIds: [userId], data, dedupeKey }, { channels });
+  notify(handle.db, { type: "account.password_reset", userIds: [userId], data, dedupeKey }, { channels });
 
 describe("giao thông báo qua email và Zalo", () => {
   it("email tới hộp thư người nhận đúng tiêu đề; chạy lại không gửi lần hai", async () => {
@@ -65,7 +59,7 @@ describe("giao thông báo qua email và Zalo", () => {
     expect(await deliver(deps({ email }), id)).toBe("skipped");
     const mails = await inbox("tp@test.vn");
     expect(mails).toHaveLength(1);
-    expect(mails[0]!.Subject).toBe("Phiếu PR-2026-000007 chờ bạn duyệt");
+    expect(mails[0]!.Subject).toBe("Mật khẩu của bạn đã được đặt lại");
     expect((await statusOf(id)).status).toBe("SENT");
 
     // notify chạy lại cho cùng sự kiện: không tạo thông báo hay lần giao mới.

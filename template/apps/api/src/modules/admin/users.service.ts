@@ -1,9 +1,12 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { and, count, eq, gt, inArray, isNull, lte, or } from "drizzle-orm";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import type { Queue } from "bullmq";
+import { eq, inArray } from "drizzle-orm";
 import { departments, roles, sessions, userRoles, users, type Db, type DbOrTx } from "@app/db";
 import {
   type CurrentUser,
   holderOnlyBeyond,
+  JOBS,
+  type NotifyJob,
   type ListUsersQuery,
   type Paginated,
   type ResetPasswordInput,
@@ -18,8 +21,9 @@ import { hashPassword } from "../../auth/crypto.js";
 import { writeAudit } from "../../common/audit.js";
 import { BusinessError, Errors } from "../../common/business-error.js";
 import { isUniqueViolation } from "../../common/db-errors.js";
-import { orderBy, pageOffset, paginated, searchCondition } from "@app/server";
+import { listUsers, rolesByUser } from "@app/server";
 import { DB } from "../../db/db.module.js";
+import { enqueueAfterCommit, NOTIFICATIONS_QUEUE } from "../../queue/queue.module.js";
 import {
   assertAdminRemains,
   assertNoEscalation,
@@ -34,11 +38,6 @@ type UpdateUser = z.output<typeof updateUserSchema>;
 type UserRow = typeof users.$inferSelect;
 
 const ENTITY = "user";
-const SORTABLE = {
-  fullName: users.fullName,
-  email: users.email,
-  createdAt: users.createdAt,
-} satisfies Record<ListUsersQuery["sort"], unknown>;
 
 /** Trường an toàn để ghi audit: KHÔNG BAO GIỜ có passwordHash. */
 const auditView = (u: UserRow, roleIds?: string[]) => ({
@@ -53,45 +52,16 @@ const auditView = (u: UserRow, roleIds?: string[]) => ({
 
 @Injectable()
 export class UsersService {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(NOTIFICATIONS_QUEUE) private readonly notifications: Pick<Queue, "add">,
+  ) {}
 
   async list(q: ListUsersQuery): Promise<Paginated<UserDto>> {
-    const now = new Date();
-    const where = and(
-      searchCondition(q.q, [users.fullName, users.email]),
-      q.departmentId ? eq(users.departmentId, q.departmentId) : undefined,
-      q.roleId
-        ? inArray(
-            users.id,
-            this.db.select({ id: userRoles.userId }).from(userRoles).where(eq(userRoles.roleId, q.roleId)),
-          )
-        : undefined,
-      q.status === "inactive" ? eq(users.isActive, false) : undefined,
-      q.status === "locked" ? gt(users.lockedUntil, now) : undefined,
-      q.status === "active"
-        ? and(eq(users.isActive, true), or(isNull(users.lockedUntil), lte(users.lockedUntil, now)))
-        : undefined,
-    );
-    const [rows, totals] = await Promise.all([
-      this.db
-        .select({ user: users, departmentName: departments.name })
-        .from(users)
-        .leftJoin(departments, eq(departments.id, users.departmentId))
-        .where(where)
-        .orderBy(...orderBy(q.sort, q.order, SORTABLE, users.id))
-        .limit(q.pageSize)
-        .offset(pageOffset(q)),
-      this.db.select({ total: count() }).from(users).where(where),
-    ]);
-    const roleMap = await this.rolesByUser(
-      this.db,
-      rows.map((r) => r.user.id),
-    );
-    return paginated(
-      rows.map((r) => toDto(r.user, r.departmentName, roleMap.get(r.user.id) ?? [])),
-      totals[0]?.total ?? 0,
-      q,
-    );
+    const page = await listUsers(this.db, q);
+    return { ...page, items: page.items.map((r) => toDto(r.user, r.departmentName, r.roles)) };
   }
 
   async get(id: string, db: DbOrTx = this.db): Promise<UserDto> {
@@ -101,7 +71,7 @@ export class UsersService {
       .leftJoin(departments, eq(departments.id, users.departmentId))
       .where(eq(users.id, id));
     if (!row) throw Errors.notFound("USER");
-    return toDto(row.user, row.departmentName, (await this.rolesByUser(db, [id])).get(id) ?? []);
+    return toDto(row.user, row.departmentName, (await rolesByUser(db, [id])).get(id) ?? []);
   }
 
   /** Vai trò (kèm có được gán không, theo quy tắc chống leo thang) và phòng ban đang dùng, cho form người dùng. */
@@ -236,7 +206,7 @@ export class UsersService {
   ): Promise<UserDto> {
     assertNotSelf(actor, id, "đặt lại mật khẩu (hãy dùng Đổi mật khẩu)");
     const passwordHash = await hashPassword(input.temporaryPassword);
-    return this.db.transaction(async (tx) => {
+    const updated = await this.db.transaction(async (tx) => {
       const current = await this.lockTarget(tx, actor, id, input.version);
       await tx
         .update(users)
@@ -258,6 +228,19 @@ export class UsersService {
       });
       return this.get(id, tx);
     });
+    // Báo người dùng (cảnh báo an ninh, nhất là qua email) SAU commit; lỗi hàng đợi không làm hỏng thao tác đã xong.
+    const job: NotifyJob = {
+      type: "account.password_reset",
+      userIds: [id],
+      data: { resetByName: actor.fullName },
+      dedupeKey: `password-reset-${id}-v${updated.version}`,
+    };
+    await enqueueAfterCommit(this.notifications, JOBS.notify, job, {
+      jobId: `notify-${job.dedupeKey}`,
+    }).catch((err: unknown) =>
+      this.logger.error({ err, userId: id }, "Không đẩy được thông báo đặt lại mật khẩu"),
+    );
+    return updated;
   }
 
   /** Gỡ tạm khóa do đăng nhập sai nhiều lần (người dùng nhớ ra mật khẩu, không cần chờ hết thời gian khóa). */
@@ -313,19 +296,6 @@ export class UsersService {
   private async setRoles(tx: DbOrTx, userId: string, roleIds: string[]) {
     await tx.delete(userRoles).where(eq(userRoles.userId, userId));
     if (roleIds.length) await tx.insert(userRoles).values(roleIds.map((roleId) => ({ userId, roleId })));
-  }
-
-  private async rolesByUser(db: DbOrTx, userIds: string[]) {
-    const map = new Map<string, { id: string; name: string }[]>();
-    if (!userIds.length) return map;
-    const rows = await db
-      .select({ userId: userRoles.userId, id: roles.id, name: roles.name })
-      .from(userRoles)
-      .innerJoin(roles, eq(roles.id, userRoles.roleId))
-      .where(inArray(userRoles.userId, userIds))
-      .orderBy(roles.name);
-    for (const r of rows) map.set(r.userId, [...(map.get(r.userId) ?? []), { id: r.id, name: r.name }]);
-    return map;
   }
 }
 

@@ -33,10 +33,14 @@ if (isProd && demo) fail("Không được tạo tài khoản demo trên producti
 
 const { db, close } = createDb(url, { max: 1, appName: "seed" });
 
-async function upsertDepartment(code: string, name: string): Promise<string> {
+async function upsertDepartment(code: string, name: string): Promise<void> {
   await db.insert(departments).values({ code, name }).onConflictDoNothing({ target: departments.code });
+}
+
+async function departmentId(code: string | null): Promise<string | null> {
+  if (!code) return null;
   const [d] = await db.select({ id: departments.id }).from(departments).where(eq(departments.code, code));
-  if (!d) throw new Error(`Không tạo được phòng ban ${code}`);
+  if (!d) throw new Error(`Chưa có phòng ban ${code}`);
   return d.id;
 }
 
@@ -47,7 +51,7 @@ async function ensureUser(
   fullName: string,
   role: DefaultRoleKey,
   password: string,
-  departmentId: string | null,
+  departmentCode: string | null,
 ) {
   const [existing] = await db
     .select({ id: users.id })
@@ -56,7 +60,12 @@ async function ensureUser(
   if (existing) return;
   const [created] = await db
     .insert(users)
-    .values({ email, fullName, departmentId, passwordHash: await hashPassword(password) })
+    .values({
+      email,
+      fullName,
+      departmentId: await departmentId(departmentCode),
+      passwordHash: await hashPassword(password),
+    })
     .returning({ id: users.id });
   await db.insert(userRoles).values({ userId: created!.id, roleId: roleIds[role] });
   console.warn(`[seed] Tạo ${role} ${email}`);
@@ -69,15 +78,19 @@ try {
     for (const c of changes) console.warn(`[seed] Vai trò "${c.role}": thêm ${c.added.join(", ")}`);
     if (changes.length === 0) console.warn("[seed] Vai trò mặc định đã đủ quyền");
   }
-  const kd = await upsertDepartment("KD", "Phòng Kinh doanh");
-  const kt = await upsertDepartment("KT", "Phòng Kế toán");
+  await upsertDepartment("KD", "Phòng Kinh doanh");
+  await upsertDepartment("KT", "Phòng Kế toán");
   await ensureUser(adminEmail, "Quản trị hệ thống", "ADMIN", adminPassword, null);
   if (demo) {
-    await ensureUser("nhanvien@example.com", "Nguyễn Văn Nhân", "STAFF", adminPassword, kd);
-    await ensureUser("truongphong@example.com", "Trần Thị Trưởng", "MANAGER", adminPassword, kd);
+    // Tài khoản demo theo vai trò mặc định (mật khẩu = SEED_ADMIN_PASSWORD): module thêm tài khoản của mình ở đây,
+    // đồng bộ với e2e/users.ts.
+    // sample:begin
+    await ensureUser("nhanvien@example.com", "Nguyễn Văn Nhân", "STAFF", adminPassword, "KD");
+    await ensureUser("truongphong@example.com", "Trần Thị Trưởng", "MANAGER", adminPassword, "KD");
     await ensureUser("giamdoc@example.com", "Lê Văn Giám", "DIRECTOR", adminPassword, null);
-    await ensureUser("ketoan@example.com", "Phạm Thị Toán", "ACCOUNTANT", adminPassword, kt);
-    await ensureUser("truongphong.kt@example.com", "Hoàng Thị Kế", "MANAGER", adminPassword, kt);
+    await ensureUser("ketoan@example.com", "Phạm Thị Toán", "ACCOUNTANT", adminPassword, "KT");
+    await ensureUser("truongphong.kt@example.com", "Hoàng Thị Kế", "MANAGER", adminPassword, "KT");
+    // sample:end
   }
   console.warn("[seed] Xong");
 } finally {

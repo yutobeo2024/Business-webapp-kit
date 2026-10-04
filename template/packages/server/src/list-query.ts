@@ -1,6 +1,6 @@
 /**
  * Dựng truy vấn danh sách dùng chung (đi cùng `listQuerySchema` trong @app/shared): tìm kiếm, sắp xếp, phân trang.
- * Khuôn: xem `PurchaseRequestsService.list` và các service trong modules/admin.
+ * Khuôn: xem các service trong modules/admin (`listUsers` trong users/queries.ts).
  */
 import { asc, desc, ilike, or, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";

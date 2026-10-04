@@ -20,7 +20,12 @@ export default defineConfig({
     locale: "vi-VN",
     timezoneId: "Asia/Ho_Chi_Minh",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // Đăng nhập mỗi tài khoản một lần (auth.setup.ts) rồi dùng lại phiên: giới hạn 10 lần đăng nhập/phút mỗi IP là chốt
+  // bảo mật, không nới cho test.
+  projects: [
+    { name: "setup", testMatch: /auth\.setup\.ts$/ },
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, dependencies: ["setup"] },
+  ],
   // Chạy trên môi trường có sẵn (E2E_BASE_URL) thì không khởi động gì.
   webServer: process.env.E2E_BASE_URL
     ? undefined

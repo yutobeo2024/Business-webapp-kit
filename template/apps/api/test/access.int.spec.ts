@@ -45,25 +45,25 @@ async function login(email: string, password = TEST_PASSWORD) {
   expect(res.status).toBe(200);
   return a;
 }
-const newPr = { title: "Mua giấy in quý 4", items: [{ name: "Giấy", quantity: 1, unitPrice: 1000 }] };
 
 describe("đồng bộ quyền vai trò mặc định (--sync-default-roles)", () => {
-  it("thêm quyền mặc định còn thiếu, giữ quyền quản trị viên tự thêm, ghi audit, tăng version; chạy lại không đổi gì", async () => {
-    const managerRole = f.roleIds.MANAGER;
+  it("thêm quyền mặc định còn thiếu, ghi audit, tăng version; chạy lại không đổi gì", async () => {
+    const adminRole = f.roleIds.ADMIN;
     await handle.db
       .delete(rolePermissions)
-      .where(and(eq(rolePermissions.roleId, managerRole), eq(rolePermissions.permission, "pr.export")));
-    await handle.db.insert(rolePermissions).values({ roleId: managerRole, permission: "pr.view.all" });
-    const [before] = await handle.db.select().from(roles).where(eq(roles.id, managerRole));
+      .where(
+        and(eq(rolePermissions.roleId, adminRole), eq(rolePermissions.permission, "departments.manage")),
+      );
+    const [before] = await handle.db.select().from(roles).where(eq(roles.id, adminRole));
 
     expect(await syncDefaultRolePermissions(handle.db)).toEqual([
-      { role: "Trưởng phòng", added: ["pr.export"] },
+      { role: "Quản trị hệ thống", added: ["departments.manage"] },
     ]);
     const perms = (
-      await handle.db.select().from(rolePermissions).where(eq(rolePermissions.roleId, managerRole))
+      await handle.db.select().from(rolePermissions).where(eq(rolePermissions.roleId, adminRole))
     ).map((r) => r.permission);
-    expect(perms).toEqual(expect.arrayContaining(["pr.export", "pr.view.all"]));
-    const [after] = await handle.db.select().from(roles).where(eq(roles.id, managerRole));
+    expect(perms).toContain("departments.manage");
+    const [after] = await handle.db.select().from(roles).where(eq(roles.id, adminRole));
     expect(after!.version).toBe(before!.version + 1);
     expect(
       await handle.db.select().from(auditLogs).where(eq(auditLogs.action, "role.sync_defaults")),
@@ -75,38 +75,31 @@ describe("đồng bộ quyền vai trò mặc định (--sync-default-roles)", (
 
 describe("Phân quyền theo quyền, vai trò cấu hình trong DB", () => {
   it("me trả vai trò và quyền, không có tên vai trò cứng", async () => {
-    const me = (await (await login(f.manager.email)).get("/api/auth/me")).body;
-    expect(me.roles.map((r: { name: string }) => r.name)).toEqual(["Trưởng phòng"]);
-    expect(me.permissions).toEqual(["pr.approve.department", "pr.create", "pr.export", "pr.view.department"]);
+    const me = (await (await login(f.deptManager.email)).get("/api/auth/me")).body;
+    expect(me.roles.map((r: { name: string }) => r.name)).toEqual(["Phụ trách phòng ban"]);
+    expect(me.permissions).toEqual(["departments.manage"]);
     expect(me.role).toBeUndefined();
   });
 
   it("thiếu quyền endpoint (@RequirePermission): 403", async () => {
-    const res = await (
-      await login(f.director.email)
-    )
-      .post("/api/purchase-requests")
-      .set("Origin", TEST_ORIGIN)
-      .send(newPr);
+    const res = await (await login(f.staff.email)).get("/api/admin/departments");
     expect(res.status).toBe(403);
     expect(res.body.code).toBe("FORBIDDEN");
   });
 
   it("gỡ quyền khỏi vai trò có hiệu lực ngay ở request kế tiếp, không cần đăng nhập lại", async () => {
-    const a = await login(f.staff.email);
-    expect((await a.post("/api/purchase-requests").set("Origin", TEST_ORIGIN).send(newPr)).status).toBe(201);
-    await handle.db
-      .delete(rolePermissions)
-      .where(and(eq(rolePermissions.roleId, f.roleIds.STAFF), eq(rolePermissions.permission, "pr.create")));
-    expect((await a.post("/api/purchase-requests").set("Origin", TEST_ORIGIN).send(newPr)).status).toBe(403);
+    const a = await login(f.deptManager.email);
+    expect((await a.get("/api/admin/departments")).status).toBe(200);
+    await handle.db.delete(rolePermissions).where(eq(rolePermissions.roleId, f.deptManager.roleId));
+    expect((await a.get("/api/admin/departments")).status).toBe(403);
   });
 
   it("quyền trong DB không còn trong danh mục (module đã gỡ) bị bỏ qua", async () => {
     await handle.db
       .insert(rolePermissions)
-      .values({ roleId: f.roleIds.STAFF, permission: "module_da_go.lam_gi_do" });
-    const me = (await (await login(f.staff.email)).get("/api/auth/me")).body;
-    expect(me.permissions).toEqual(["pr.create"]);
+      .values({ roleId: f.deptManager.roleId, permission: "module_da_go.lam_gi_do" });
+    const me = (await (await login(f.deptManager.email)).get("/api/auth/me")).body;
+    expect(me.permissions).toEqual(["departments.manage"]);
   });
 });
 
@@ -124,7 +117,7 @@ describe("Mật khẩu tạm và đổi mật khẩu", () => {
 
   it("đang dùng mật khẩu tạm: API nghiệp vụ trả 403, me và đổi mật khẩu vẫn dùng được", async () => {
     const a = await withTempPassword();
-    const blocked = await a.get("/api/purchase-requests");
+    const blocked = await a.get("/api/notifications");
     expect(blocked.status).toBe(403);
     expect(blocked.body.code).toBe("AUTH_PASSWORD_CHANGE_REQUIRED");
     const me = await a.get("/api/auth/me");
@@ -140,7 +133,7 @@ describe("Mật khẩu tạm và đổi mật khẩu", () => {
       .set("X-Forwarded-For", nextIp())
       .send({ currentPassword: TEMP, newPassword: NEW });
     expect(res.status).toBe(204);
-    expect((await a.get("/api/purchase-requests")).status).toBe(200);
+    expect((await a.get("/api/notifications")).status).toBe(200);
     await login(f.staff.email, NEW);
   });
 

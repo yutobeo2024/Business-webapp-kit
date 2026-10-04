@@ -16,6 +16,7 @@ import {
   TEST_ORIGIN,
   TEST_PASSWORD,
   TEST_STORAGE_DIR,
+  makeUser,
   testEnv,
   type Fixture,
 } from "./helpers.js";
@@ -56,7 +57,7 @@ async function login(email: string): Promise<Agent> {
   expect(res.status).toBe(200);
   return a;
 }
-const XLSX = { type: "purchase-requests.xlsx", params: { status: "DRAFT" } };
+const XLSX = { type: "admin.users.xlsx", params: { status: "active" } };
 const requestExport = (a: Agent, body: object) =>
   a.post("/api/exports").set("Origin", TEST_ORIGIN).send(body);
 
@@ -66,7 +67,7 @@ async function completeWith(exportId: string, userId: string, expiresAt: Date) {
   const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
   const { row } = await storeFile(handle.db, storage, {
     buffer: pdf,
-    originalName: "PR-2026-000001.pdf",
+    originalName: "nguoi-dung.pdf",
     allowed: ["pdf"],
     maxBytes: 1024 * 1024,
     uploadedBy: userId,
@@ -80,45 +81,33 @@ async function completeWith(exportId: string, userId: string, expiresAt: Date) {
 }
 
 describe("xuất file (spec 002)", () => {
-  it("người có pr.export yêu cầu xuất Excel: tạo yêu cầu QUEUED, đẩy job theo id, có audit", async () => {
-    const manager = await login(f.manager.email);
+  it("người có quyền yêu cầu xuất Excel: tạo yêu cầu QUEUED, đẩy job theo id, có audit", async () => {
+    const manager = await login(f.admin.email);
     const res = await requestExport(manager, XLSX);
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ type: "purchase-requests.xlsx", status: "QUEUED", downloadable: false });
+    expect(res.body).toMatchObject({ type: "admin.users.xlsx", status: "QUEUED", downloadable: false });
     const job = await queue.getJob(`export-${res.body.id}`);
     expect(job?.data).toEqual({ exportId: res.body.id });
     const audits = await handle.db.select().from(auditLogs).where(eq(auditLogs.action, "export.request"));
     expect(audits).toHaveLength(1);
     // Tham số lưu là bản đã validate (có giá trị mặc định), worker chạy đúng như vậy.
     expect(audits[0]!.after).toEqual({
-      type: "purchase-requests.xlsx",
-      params: { status: "DRAFT", sort: "createdAt", order: "desc" },
+      type: "admin.users.xlsx",
+      params: { status: "active", sort: "fullName", order: "asc" },
     });
   });
 
-  it("thiếu pr.export: 403; loại xuất lạ hoặc tham số sai: 400", async () => {
+  it("thiếu quyền của loại xuất: 403; loại xuất lạ hoặc tham số sai: 400", async () => {
     const staff = await login(f.staff.email);
     expect((await requestExport(staff, XLSX)).status).toBe(403);
     expect((await requestExport(staff, { type: "users.xlsx", params: {} })).status).toBe(400);
-    const manager = await login(f.manager.email);
+    const manager = await login(f.admin.email);
     expect((await requestExport(manager, { ...XLSX, params: { sort: "password_hash" } })).status).toBe(400);
     expect(await handle.db.select().from(exportJobs)).toHaveLength(0);
   });
 
-  it("in PDF: phiếu xem được thì in được (không cần pr.export); ngoài phạm vi: 404", async () => {
-    const staff = await login(f.staff.email);
-    const created = await staff
-      .post("/api/purchase-requests")
-      .set("Origin", TEST_ORIGIN)
-      .send({ title: "Mua máy in", items: [{ name: "Máy in", quantity: 1, unitPrice: 5_000_000 }] });
-    const pdf = { type: "purchase-request.pdf", params: { id: created.body.id } };
-    expect((await requestExport(staff, pdf)).status).toBe(201);
-    const other = await login(f.staff2.email);
-    expect((await requestExport(other, pdf)).status).toBe(404);
-  });
-
   it(`tối đa 3 lần xuất chưa xong mỗi người: lần thứ 4 bị 429`, async () => {
-    const manager = await login(f.manager.email);
+    const manager = await login(f.admin.email);
     for (let i = 0; i < 3; i++) expect((await requestExport(manager, XLSX)).status).toBe(201);
     const fourth = await requestExport(manager, XLSX);
     expect(fourth.status).toBe(429);
@@ -126,17 +115,17 @@ describe("xuất file (spec 002)", () => {
   });
 
   it("chỉ người yêu cầu thấy và tải được; tải có audit; hết hạn: 410; chưa xong: 409", async () => {
-    const manager = await login(f.manager.email);
+    const manager = await login(f.admin.email);
     const done = (await requestExport(manager, XLSX)).body.id as string;
     const pending = (await requestExport(manager, XLSX)).body.id as string;
     const expired = (await requestExport(manager, XLSX)).body.id as string;
-    await completeWith(done, f.manager.id, new Date(Date.now() + 60_000));
-    await completeWith(expired, f.manager.id, new Date(Date.now() - 1000));
+    await completeWith(done, f.admin.id, new Date(Date.now() + 60_000));
+    await completeWith(expired, f.admin.id, new Date(Date.now() - 1000));
 
     const list = await manager.get("/api/exports");
     expect(list.body.map((e: { id: string }) => e.id).sort()).toEqual([done, pending, expired].sort());
     const doneDto = list.body.find((e: { id: string }) => e.id === done);
-    expect(doneDto).toMatchObject({ status: "DONE", downloadable: true, fileName: "PR-2026-000001.pdf" });
+    expect(doneDto).toMatchObject({ status: "DONE", downloadable: true, fileName: "nguoi-dung.pdf" });
     expect(list.body.find((e: { id: string }) => e.id === expired).downloadable).toBe(false);
 
     const dl = await manager.get(`/api/exports/${done}/download`);
@@ -152,7 +141,12 @@ describe("xuất file (spec 002)", () => {
     expect(gone.body.code).toBe("EXPORT_EXPIRED");
 
     // Người khác, kể cả người xem được mọi phiếu: không thấy, không tải được (404).
-    const director = await login(f.director.email);
+    const otherAdmin = await makeUser(handle, {
+      email: "admin2@test.vn",
+      fullName: "Quản trị 2",
+      permissions: ["users.manage"],
+    });
+    const director = await login(otherAdmin.email);
     expect((await director.get(`/api/exports/${done}`)).status).toBe(404);
     expect((await director.get(`/api/exports/${done}/download`)).status).toBe(404);
     expect((await director.get("/api/exports")).body).toEqual([]);

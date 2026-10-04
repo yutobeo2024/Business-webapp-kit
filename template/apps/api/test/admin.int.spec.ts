@@ -4,6 +4,9 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { auditLogs, rolePermissions, userRoles, users, type DbHandle } from "@app/db";
 import { grantAdmin } from "../src/auth/grant-admin.js";
+import { Queue } from "bullmq";
+import { Redis } from "ioredis";
+import { CORE_PERMISSIONS, type Permission, PERMISSIONS, QUEUES } from "@app/shared";
 import { createApp } from "../src/bootstrap.js";
 import { assertAdminRemains } from "../src/modules/admin/safeguards.js";
 import {
@@ -54,6 +57,11 @@ const del = (a: Agent, url: string) =>
   a.delete(url).set("Origin", TEST_ORIGIN).set("X-Forwarded-For", nextIp());
 
 const TEMP = "mat-khau-tam-2026";
+/**
+ * Một quyền NGHIỆP VỤ bất kỳ trong danh mục (của module đang có). Dự án vừa gỡ module mẫu, chưa có module nào: không có
+ * quyền nghiệp vụ, các ca cần nó không áp dụng.
+ */
+const BUSINESS = (Object.keys(PERMISSIONS) as Permission[]).find((p) => !Object.hasOwn(CORE_PERMISSIONS, p));
 const newUser = (over: object = {}) => ({
   email: "nguoi.moi@test.vn",
   fullName: "Người Mới",
@@ -69,13 +77,8 @@ async function versionOf(id: string) {
 
 describe("Quyền vào màn quản trị", () => {
   it("không có quyền quản trị: mọi endpoint admin trả 403", async () => {
-    const a = await login(f.manager.email);
-    for (const url of [
-      "/api/admin/users",
-      "/api/admin/roles",
-      "/api/admin/departments",
-      "/api/admin/permissions",
-    ]) {
+    const a = await login(f.deptManager.email);
+    for (const url of ["/api/admin/users", "/api/admin/roles", "/api/admin/permissions"]) {
       expect((await a.get(url)).status, url).toBe(403);
     }
     expect((await post(a, "/api/admin/users", newUser())).status).toBe(403);
@@ -88,7 +91,7 @@ describe("Người dùng", () => {
     const res = await post(admin, "/api/admin/users", newUser({ email: "Nguoi.Moi@Test.vn" }));
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ email: "nguoi.moi@test.vn", mustChangePassword: true, isActive: true });
-    expect(res.body.roles.map((r: { name: string }) => r.name)).toEqual(["Nhân viên"]);
+    expect(res.body.roles.map((r: { name: string }) => r.name)).toEqual(["Nhân viên (test)"]);
 
     const me = (await (await login("nguoi.moi@test.vn", TEMP)).get("/api/auth/me")).body;
     expect(me.mustChangePassword).toBe(true);
@@ -108,10 +111,10 @@ describe("Người dùng", () => {
   it("danh sách: tìm theo tên/email, lọc vai trò và trạng thái, cột sắp xếp lạ trả 400", async () => {
     const admin = await login(f.admin.email);
     const list = async (qs: string) => (await admin.get(`/api/admin/users?${qs}`)).body;
-    expect((await list("q=manager-kt")).items.map((u: { email: string }) => u.email)).toEqual([
-      f.managerKt.email,
+    expect((await list("q=phongban")).items.map((u: { email: string }) => u.email)).toEqual([
+      f.deptManager.email,
     ]);
-    expect((await list(`roleId=${f.roleIds.MANAGER}`)).total).toBe(2);
+    expect((await list(`roleId=${f.roleIds.STAFF}`)).total).toBe(2);
     await handle.db.update(users).set({ isActive: false }).where(eq(users.id, f.staff2.id));
     expect((await list("status=inactive")).items.map((u: { id: string }) => u.id)).toEqual([f.staff2.id]);
     expect((await admin.get("/api/admin/users?sort=passwordHash")).status).toBe(400);
@@ -156,6 +159,22 @@ describe("Người dùng", () => {
     expect(res.status).toBe(200);
     expect((await old.get("/api/auth/me")).status).toBe(401);
     expect((await (await login(f.staff.email, TEMP)).get("/api/auth/me")).body.mustChangePassword).toBe(true);
+
+    // Người bị đặt lại mật khẩu được báo (cảnh báo an ninh): job tạo thông báo đã vào hàng đợi sau commit.
+    const connection = new Redis(process.env.REDIS_URL!, { maxRetriesPerRequest: null });
+    const queue = new Queue(QUEUES.notifications, { connection });
+    try {
+      const job = await queue.getJob(`notify-password-reset-${f.staff.id}-v${res.body.version}`);
+      expect(job?.data).toEqual({
+        type: "account.password_reset",
+        userIds: [f.staff.id],
+        data: { resetByName: "Quản trị" },
+        dedupeKey: `password-reset-${f.staff.id}-v${res.body.version}`,
+      });
+    } finally {
+      await queue.close();
+      await connection.quit();
+    }
   });
 
   it("gỡ tạm khóa do đăng nhập sai", async () => {
@@ -216,9 +235,9 @@ describe("Chống leo thang quyền", () => {
     return { a, hrId: hr.body.id as string };
   }
 
-  it("gán được vai trò nghiệp vụ dù bản thân không có quyền nghiệp vụ", async () => {
+  it("gán được vai trò không chứa quyền quản trị (vai trò nghiệp vụ) dù bản thân không có quyền đó", async () => {
     const { a } = await hrAgent();
-    const res = await post(a, "/api/admin/users", newUser({ roleIds: [f.roleIds.MANAGER] }));
+    const res = await post(a, "/api/admin/users", newUser({ roleIds: [f.roleIds.STAFF] }));
     expect(res.status).toBe(201);
   });
 
@@ -256,7 +275,8 @@ describe("Chống leo thang quyền", () => {
     expect(res.status).toBe(403);
     expect(res.body.code).toBe("PERMISSION_ESCALATION");
     expect(
-      (await post(rm, "/api/admin/roles", { name: "Duyệt chi", permissions: ["pr.approve.final"] })).status,
+      (await post(rm, "/api/admin/roles", { name: "Duyệt chi", permissions: BUSINESS ? [BUSINESS] : [] }))
+        .status,
     ).toBe(201);
   });
 });
@@ -276,9 +296,9 @@ describe("Vai trò", () => {
 
   it("tên trùng: 409; quyền không có trong danh mục: 400; xóa vai trò còn người dùng: 409", async () => {
     const admin = await login(f.admin.email);
-    expect((await post(admin, "/api/admin/roles", { name: "nhân viên", permissions: [] })).body.code).toBe(
-      "ROLE_NAME_TAKEN",
-    );
+    expect(
+      (await post(admin, "/api/admin/roles", { name: "nhân viên (TEST)", permissions: [] })).body.code,
+    ).toBe("ROLE_NAME_TAKEN");
     expect(
       (await post(admin, "/api/admin/roles", { name: "X", permissions: ["khong.ton.tai"] })).status,
     ).toBe(400);
@@ -288,12 +308,12 @@ describe("Vai trò", () => {
   it("danh mục quyền theo nhóm và số người dùng mỗi vai trò", async () => {
     const admin = await login(f.admin.email);
     const groups = (await admin.get("/api/admin/permissions")).body;
+    expect(groups[0].group).toBe("Quản trị hệ thống");
     expect(groups.map((g: { group: string }) => g.group)).toEqual([
-      "Quản trị hệ thống",
-      "Phiếu đề nghị mua hàng",
+      ...new Set(Object.values(PERMISSIONS).map((p) => p.group)),
     ]);
     const roles = (await admin.get("/api/admin/roles")).body.items;
-    expect(roles.find((r: { id: string }) => r.id === f.roleIds.MANAGER).userCount).toBe(2);
+    expect(roles.find((r: { id: string }) => r.id === f.roleIds.STAFF).userCount).toBe(2);
   });
 
   /** C quản trị qua vai trò thường "Quản trị phụ" (đủ mọi quyền quản trị, không phải vai trò hệ thống). */
@@ -314,7 +334,7 @@ describe("Vai trò", () => {
     const strip = await patch(c, `/api/admin/roles/${role.id}`, {
       name: "Quản trị phụ",
       description: "",
-      permissions: ["users.manage", "roles.manage", "departments.manage", "pr.approve.final"],
+      permissions: ["users.manage", "roles.manage"],
       version: role.version,
     });
     expect(strip.status).toBe(403);
@@ -322,17 +342,17 @@ describe("Vai trò", () => {
     const sys = (await admin.get(`/api/admin/roles/${f.roleIds.ADMIN}`)).body;
     const self = await patch(admin, `/api/admin/roles/${sys.id}`, {
       ...sys,
-      permissions: [...sys.permissions, "pr.approve.final"],
+      permissions: sys.permissions.filter((p: string) => p !== "departments.manage"),
     });
     expect(self.body.code).toBe("ROLE_SELF_EDIT");
   });
 
-  it("vai trò hệ thống chỉ chứa quyền quản trị (tách biệt nhiệm vụ)", async () => {
+  it.runIf(BUSINESS)("vai trò hệ thống chỉ chứa quyền quản trị (tách biệt nhiệm vụ)", async () => {
     const { c } = await deputyAdmin();
     const sys = (await c.get(`/api/admin/roles/${f.roleIds.ADMIN}`)).body;
     const res = await patch(c, `/api/admin/roles/${sys.id}`, {
       ...sys,
-      permissions: [...sys.permissions, "pr.approve.final"],
+      permissions: [...sys.permissions, BUSINESS!],
     });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ROLE_SYSTEM");
@@ -388,7 +408,7 @@ describe("Phòng ban", () => {
       "DEPARTMENT_CODE_TAKEN",
     );
     const kd = (await admin.get("/api/admin/departments?q=KD")).body.items[0];
-    expect(kd.userCount).toBe(3);
+    expect(kd.userCount).toBe(2); // staff, staff2
     const off = await patch(admin, `/api/admin/departments/${res.body.id}`, {
       name: "Phòng Nhân sự",
       isActive: false,

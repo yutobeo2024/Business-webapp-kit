@@ -85,6 +85,15 @@ const importsWorker = new Worker(
     log,
     storage: createStorage(env, REPO_ROOT),
     maxRows: env.IMPORT_MAX_ROWS,
+    notify: async (job) => {
+      await scheduler.add(JOBS.notify, job, {
+        jobId: `notify-${job.dedupeKey}`,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 10_000 },
+        removeOnComplete: 1000,
+        removeOnFail: 5000,
+      });
+    },
   }),
   { connection, concurrency: 1 },
 );

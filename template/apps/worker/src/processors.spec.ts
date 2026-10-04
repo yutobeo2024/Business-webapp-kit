@@ -11,7 +11,7 @@ describe("createProcessor", () => {
   });
 
   it("job sai định dạng bị từ chối và không thử lại", async () => {
-    const p = process({ id: "x", name: "pr.status_changed", data: { code: 1 } } as never);
+    const p = process({ id: "x", name: "notification.create", data: { type: 1 } } as never);
     await expect(p).rejects.toBeInstanceOf(UnrecoverableError);
   });
 });

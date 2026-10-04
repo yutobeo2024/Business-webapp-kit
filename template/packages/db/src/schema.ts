@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  bigint,
+  bigint, // sample
   bigserial,
   boolean,
   index,
@@ -21,8 +21,8 @@ import {
   IMPORT_STATUSES,
   type ImportRowError,
   NOTIFICATION_CHANNELS,
-  PR_STATUSES,
-  type PrItem,
+  PR_STATUSES, // sample
+  type PrItem, // sample
 } from "@app/shared";
 
 // Quy ước: bảng snake_case số nhiều; mọi bảng nghiệp vụ có created_at, updated_at; xóa mềm bằng deleted_at.
@@ -34,7 +34,7 @@ const timestamps = {
     .$onUpdate(() => new Date()),
 };
 
-export const prStatusEnum = pgEnum("pr_status", PR_STATUSES);
+export const prStatusEnum = pgEnum("pr_status", PR_STATUSES); // sample
 export const exportStatusEnum = pgEnum("export_status", EXPORT_STATUSES);
 export const notificationChannelEnum = pgEnum("notification_channel", NOTIFICATION_CHANNELS);
 export const deliveryStatusEnum = pgEnum("delivery_status", DELIVERY_STATUSES);
@@ -147,6 +147,7 @@ export const documentCounters = pgTable(
   (t) => [primaryKey({ columns: [t.prefix, t.year] })],
 );
 
+// sample:begin (bảng của module mẫu; `pnpm sample:remove` xóa khối này và sinh migration drop)
 export const purchaseRequests = pgTable(
   "purchase_requests",
   {
@@ -177,6 +178,7 @@ export const purchaseRequests = pgTable(
     index("purchase_requests_created_idx").on(t.createdAt),
   ],
 );
+// sample:end
 
 /**
  * Tệp đính kèm và tệp xuất (spec 002). Nội dung nằm trong storage theo `storage_key` (do hệ thống sinh, không chứa tên gốc).

@@ -7,7 +7,8 @@ import type { Queue } from "bullmq";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 import type { Response } from "express";
 import { exportJobs, files, users, type Db } from "@app/db";
-import { type FileStorage, findViewablePurchaseRequest } from "@app/server";
+import type { FileStorage } from "@app/server";
+import { findViewablePurchaseRequest } from "@app/server"; // sample
 import {
   can,
   type CreateExportInput,
@@ -69,12 +70,16 @@ export class ExportsService {
       throw Errors.forbidden("Bạn không có quyền xuất dữ liệu này");
     }
     switch (input.type) {
+      case "admin.users.xlsx":
+        return; // quyền users.manage đã kiểm ở trên, không có phạm vi riêng
+      // sample:begin
       case "purchase-request.pdf":
         if (!(await findViewablePurchaseRequest(this.db, actor, input.params.id)))
           throw Errors.notFound("PR");
         return;
       case "purchase-requests.xlsx":
         return; // phạm vi xem áp ở truy vấn trong worker
+      // sample:end
     }
   }
 

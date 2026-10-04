@@ -25,7 +25,7 @@ import { usePurchaseRequests, useTransition } from "./api";
 import { AttachmentsButton } from "./attachments-dialog";
 import { CreatePurchaseRequestForm } from "./create-form";
 
-const route = getRouteApi("/");
+const route = getRouteApi("/purchase-requests");
 
 const STATUS_TONE: Record<PrStatus, Parameters<typeof Badge>[0]["tone"]> = {
   DRAFT: "neutral",

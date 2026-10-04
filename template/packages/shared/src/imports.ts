@@ -52,6 +52,7 @@ export const IMPORT_TYPES = {
   departments: {
     label: "Phòng ban",
     permission: "departments.manage",
+    returnPath: "/admin/departments",
     columns: [
       { key: "code", header: "Mã phòng ban", example: "KD", required: true },
       { key: "name", header: "Tên phòng ban", example: "Phòng Kinh doanh", required: true },
@@ -59,7 +60,13 @@ export const IMPORT_TYPES = {
   },
 } as const satisfies Record<
   ImportType,
-  { label: string; permission: Permission; columns: readonly ImportColumn[] }
+  {
+    label: string;
+    permission: Permission;
+    /** Trang của dữ liệu được nhập: thông báo kết quả dẫn về đây. */
+    returnPath: string;
+    columns: readonly ImportColumn[];
+  }
 >;
 
 /** Số dòng dữ liệu tối đa mỗi tệp (không tính dòng tiêu đề). */

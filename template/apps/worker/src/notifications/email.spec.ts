@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { absoluteLink, renderEmail } from "./email.js";
 
 const n = {
-  type: "pr.rejected" as const,
-  title: "Phiếu PR-2026-000001 bị từ chối",
+  type: "import.finished" as const,
+  title: "Kết quả kiểm tệp nhập phòng ban",
   body: `Mua <script>alert(1)</script>. Lý do: "thiếu" & sai`,
-  link: "/?q=PR-2026-000001",
+  link: "/admin/departments?q=KD",
   data: {} as never,
   trackingId: "t",
 };
@@ -16,7 +16,7 @@ describe("email thông báo", () => {
     expect(m.subject).toBe(n.title);
     expect(m.html).not.toContain("<script>");
     expect(m.html).toContain("&lt;script&gt;");
-    expect(m.html).toContain('href="https://app.congty.vn/?q=PR-2026-000001"');
+    expect(m.html).toContain('href="https://app.congty.vn/admin/departments?q=KD"');
     expect(m.text).toContain("Mua <script>alert(1)</script>");
     expect(m.text).toContain("https://app.congty.vn/account/notifications");
   });

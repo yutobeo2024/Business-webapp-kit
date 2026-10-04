@@ -4,22 +4,21 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { auditLogs, files, type DbHandle } from "@app/db";
 import { LocalFileStorage } from "@app/server";
-import { createApp } from "../src/bootstrap.js";
+import { createApp } from "../../src/bootstrap.js";
 import {
   nextIp,
   openDb,
   resetDb,
-  seedFixture,
   TEST_ORIGIN,
   TEST_PASSWORD,
   TEST_STORAGE_DIR,
   testEnv,
-  type Fixture,
-} from "./helpers.js";
+} from "../helpers.js";
+import { type SampleFixture, seedSampleFixture } from "./fixture.js";
 
 let app: INestApplication;
 let handle: DbHandle;
-let f: Fixture;
+let f: SampleFixture;
 
 beforeAll(async () => {
   handle = openDb();
@@ -32,7 +31,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await resetDb(handle);
-  f = await seedFixture(handle);
+  f = await seedSampleFixture(handle);
 });
 
 type Agent = ReturnType<typeof request.agent>;

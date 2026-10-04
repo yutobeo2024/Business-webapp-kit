@@ -38,7 +38,7 @@ const schema = z
       .transform((v) => v === "true"),
     ZALO_APP_ID: z.string().optional(),
     ZALO_SECRET_KEY: z.string().optional(),
-    /** JSON: mã mẫu ZNS theo loại thông báo, ví dụ {"pr.pending_approval":"312345"}. */
+    /** JSON: mã mẫu ZNS theo loại thông báo, ví dụ {"account.password_reset":"312345"}. */
     ZALO_TEMPLATES: z
       .string()
       .default("{}")

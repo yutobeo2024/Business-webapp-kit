@@ -54,6 +54,7 @@ export const updateNotificationSettingsSchema = z.object({
 }) satisfies z.ZodType<Record<NotificationChannel, boolean>>;
 export type UpdateNotificationSettingsInput = z.infer<typeof updateNotificationSettingsSchema>;
 
+// sample:begin (phiếu đề nghị mẫu)
 const prRef = {
   prId: z.uuid(),
   code: z.string().min(1),
@@ -62,19 +63,38 @@ const prRef = {
   requesterName: z.string(),
 };
 
+// sample:end
+
 /** Dữ liệu của từng loại: chỉ chứa thứ người nhận được xem (worker đã kiểm phạm vi xem trước khi gửi). */
 export const NOTIFICATION_DATA_SCHEMAS = {
+  // Lõi: báo người dùng khi quản trị viên đặt lại mật khẩu (cảnh báo an ninh, nhất là qua email).
+  "account.password_reset": z.object({ resetByName: z.string() }),
+  // Lõi: kết quả nhập Excel (người nhập có thể đã đóng hộp thoại).
+  "import.finished": z.object({
+    importId: z.uuid(),
+    label: z.string(),
+    status: z.enum(["READY", "DONE", "INVALID", "FAILED"]),
+    importedCount: z.number().int().nullable(),
+    errorCount: z.number().int(),
+    returnPath: z.string().nullable(),
+  }),
+  // sample:begin
   "pr.pending_approval": z.object(prRef),
   "pr.approved": z.object(prRef),
   "pr.rejected": z.object({ ...prRef, reason: z.string() }),
+  // sample:end
 };
 export type NotificationType = keyof typeof NOTIFICATION_DATA_SCHEMAS;
 export type NotificationData<T extends NotificationType> = z.infer<(typeof NOTIFICATION_DATA_SCHEMAS)[T]>;
 
 export const NOTIFICATION_TYPES = {
+  "account.password_reset": { label: "Mật khẩu của bạn được quản trị viên đặt lại" },
+  "import.finished": { label: "Kết quả nhập dữ liệu từ Excel" },
+  // sample:begin
   "pr.pending_approval": { label: "Phiếu đề nghị chờ bạn duyệt" },
   "pr.approved": { label: "Phiếu đề nghị của bạn đã được duyệt" },
   "pr.rejected": { label: "Phiếu đề nghị của bạn bị từ chối" },
+  // sample:end
 } as const satisfies Record<NotificationType, { label: string }>;
 
 export interface NotificationDto {

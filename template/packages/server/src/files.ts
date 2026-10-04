@@ -1,6 +1,6 @@
 /**
  * Tệp đính kèm: kiểm loại theo nội dung, lưu vào storage, ghi hàng `files`. Mẫu dùng: đính kèm phiếu đề nghị
- * (apps/api/src/modules/purchase-requests/attachments.service.ts). Spec 002.
+ * (mẫu: attachments.service.ts của module phiếu đề nghị). Spec 002.
  */
 import { createHash } from "node:crypto";
 import { fileTypeFromBuffer } from "file-type";

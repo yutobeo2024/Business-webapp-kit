@@ -8,24 +8,12 @@ IMAGE="${1:?Cách dùng: worker-pdf-smoke.sh <image>}"
 OUT="$(mktemp)"
 trap 'rm -f "$OUT"' EXIT
 
-# Mã chạy TRONG image, dùng đúng PdfRenderer và mẫu in của worker (dist đã build).
+# Mã chạy TRONG image, dùng đúng PdfRenderer và mẫu kiểm tra của lõi (dist đã build; không phụ thuộc module nghiệp vụ).
 read -r -d '' SCRIPT <<'JS' || true
 const { PdfRenderer } = await import("/app/dist/exports/pdf.js");
-const { purchaseRequestHtml } = await import("/app/dist/exports/templates/purchase-request.js");
+const { pdfCheckHtml } = await import("/app/dist/exports/templates/pdf-check.js");
 const r = new PdfRenderer(process.env.CHROMIUM_PATH);
-const now = new Date();
-const pdf = await r.render(
-  purchaseRequestHtml({
-    pr: {
-      id: "x", code: "PR-2026-000001", title: "Mua giấy in quý IV", departmentId: "d", requesterId: "u",
-      status: "DRAFT", totalAmount: 900000, items: [{ name: "Giấy A4 Đồng Nai", quantity: 10, unitPrice: 90000 }],
-      note: null, rejectReason: null, version: 1, deletedAt: null, createdAt: now, updatedAt: now,
-    },
-    requesterName: "Nguyễn Thị Hương",
-    departmentName: "Kế toán",
-    printedAt: now,
-  }),
-);
+const pdf = await r.render(pdfCheckHtml(new Date()));
 await r.close();
 process.stdout.write(pdf);
 JS

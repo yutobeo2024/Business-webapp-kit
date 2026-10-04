@@ -247,7 +247,11 @@ const realDir = (p) => {
     return p;
   }
 };
-const OUTSIDE_OK = [join(homedir(), ".claude", "plans"), join(homedir(), ".claude", "projects"), tmpdir()].map(realDir);
+const OUTSIDE_OK = [
+  join(homedir(), ".claude", "plans"),
+  join(homedir(), ".claude", "projects"),
+  tmpdir(),
+].map(realDir);
 const DEVICES = /^(\/dev\/(null|stdout|stderr|tty|fd\/\d+)|nul|con|\$null)$/i;
 function outsideAllowed(t, abs) {
   if (DEVICES.test(t) || /^\/tmp(\/|$)/.test(t) || /^\/dev\//.test(t)) return true;

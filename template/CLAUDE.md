@@ -27,26 +27,36 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
 
 - Phân quyền (ADR-0004): QUYỀN khai báo trong mã (`packages/shared/src/permissions.ts`), VAI TRÒ là tập quyền do quản trị
   viên cấu hình trên giao diện. Mã chỉ kiểm quyền bằng `can(user, "...")` / `@RequirePermission(...)`, KHÔNG BAO GIỜ kiểm
-  tên vai trò. Module mới khai báo quyền của mình như `PR_PERMISSIONS` rồi đăng ký vào `PERMISSIONS`.
+  tên vai trò. Module mới khai báo quyền của mình (dạng như `CORE_PERMISSIONS`) rồi đăng ký vào `PERMISSIONS`.
 - Quản trị người dùng, vai trò, phòng ban, đổi mật khẩu: `apps/api/src/modules/admin/`, `apps/web/src/features/admin/`
   (spec 000). Không sửa chốt chặn trong `safeguards.ts` khi chưa có spec duyệt.
 - Danh sách: `listQuerySchema` (shared) + `searchCondition`/`orderBy`/`paginated` (`@app/server`) +
   `DataTable`/`SortTh`/`Pagination`/`SearchInput` và bộ lọc trên URL (`searchValidator`, `nextSearch`) ở web.
 - Tệp đính kèm (spec 002, ADR-0005): lưu bằng `storeFile` trong `withStoredFile` + transaction có audit (kiểm loại theo
-  nội dung, giới hạn dung lượng), tải về chỉ qua `sendFile` sau khi kiểm quyền xem bản ghi chứa tệp. Mẫu:
-  `modules/purchase-requests/attachments.service.ts`, web `attachments-dialog.tsx`.
+  nội dung, giới hạn dung lượng), tải về chỉ qua `sendFile` sau khi kiểm quyền xem bản ghi chứa tệp.
+  Chính sách giữ tệp sau xóa mềm theo loại: `FILE_RETENTION` (`packages/server/src/files.ts`; chứng từ kế toán khai báo `"forever"`).
+
+<!-- sample:begin -->
+
+Mẫu: `modules/purchase-requests/attachments.service.ts`, web `attachments-dialog.tsx`.
+<!-- sample:end -->
+
 - Xuất Excel/PDF (spec 002): luôn chạy nền. Loại xuất mới = một mục trong `createExportSchema` + `EXPORT_TYPES`
   (`packages/shared/src/exports.ts`), nhánh kiểm trước trong `ExportsService.assertCanRequest`, runner trong
   `apps/worker/src/exports/runners.ts` lấy dữ liệu bằng truy vấn đọc của `@app/server`. Mẫu in PDF: tagged template
   `html` trong `apps/worker/src/exports/templates/`. Web: `ExportButton`, trang "Tệp đã xuất".
 - Thông báo (spec 003, ADR-0006): loại mới = mục trong `NOTIFICATION_TYPES` + schema dữ liệu
   (`packages/shared/src/notifications.ts`) + mẫu nội dung (`packages/server/src/notifications/templates.ts`) + tham số mẫu
-  Zalo (`ZALO_PARAMS`). Người nhận tính theo QUYỀN HIỆN TẠI trong `packages/server` (mẫu:
-  `purchase-requests/notifications.ts`), worker gọi `notify` rồi đẩy job giao. Không gửi email/Zalo trực tiếp.
+  Zalo (`ZALO_PARAMS`). Người nhận tính theo QUYỀN HIỆN TẠI trong `packages/server`, worker gọi `notify` rồi đẩy job giao.
+  Sự kiện đã biết người nhận: API đẩy job `JOBS.notify` sau commit (mẫu: đặt lại mật khẩu trong `users.service.ts`).
+  Không gửi email/Zalo trực tiếp.
 - Nhập Excel (spec 003): loại mới = mục trong `IMPORT_TYPES` + `IMPORT_ROW_SCHEMAS` (dùng lại schema form)
   (`packages/shared/src/imports.ts`) + kiểm/ghi trong `packages/server/src/imports/definitions.ts`; web gắn `ImportButton`.
   Mẫu: nhập phòng ban.
+- Mã chứng từ theo năm (`PR-2026-000001`): `nextDocumentCode(tx, "PREFIX")` (`@app/server`) trong transaction ghi.
 - Định dạng hiển thị (web và tệp xuất): `formatVnd`, `formatDateTime`, `formatDate`, `formatBytes` từ `@app/shared`.
+
+<!-- sample:begin -->
 
 ## Mẫu nghiệp vụ: copy theo module `apps/api/src/modules/purchase-requests/`
 
@@ -56,6 +66,17 @@ Monorepo pnpm + Turborepo, TypeScript strict, ESM, Node 24 LTS.
 - `*.service.ts`: ghi trong `db.transaction`, khóa dòng `.for("update")`, kiểm `version`, `writeAudit(tx, ...)` cùng transaction,
   đẩy job SAU commit.
 - `*.controller.ts`: mỏng, `@RequirePermission(...)`, input qua `new ZodPipe(schemaTừShared)`, user qua `@CurrentUser()`.
+
+Module mẫu chỉ để học: trước module thật đầu tiên, chạy `pnpm sample:remove` (commit riêng).
+<!-- sample:end -->
+<!-- sample:after-remove
+## Mẫu nghiệp vụ
+
+Module mẫu đã gỡ. Khuôn module: `state-machine.ts` (bảng chuyển trạng thái + `decide()` thuần, quyền theo khai báo),
+`packages/server/src/<module>/` (`policy.ts` phạm vi xem ở tầng query, `queries.ts` dùng chung màn hình và xuất file),
+`*.service.ts` (transaction, `.for("update")`, `version`, `writeAudit`, đẩy job sau commit), `*.controller.ts` mỏng.
+Xem module nghiệp vụ đã có của dự án, hoặc mẫu gốc trong lịch sử git trước commit gỡ mẫu.
+-->
 
 ## Quy ước bắt buộc
 

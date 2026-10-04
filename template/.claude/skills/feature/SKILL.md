@@ -14,7 +14,14 @@ Spec phải "Đã duyệt". Chưa thì dừng, đề nghị `/business-flow` ho�
 
 ## 1. Kế hoạch (chưa code)
 
-- Đọc spec, `CLAUDE.md`, module mẫu `apps/api/src/modules/purchase-requests/` và module liên quan.
+<!-- sample:begin -->
+
+- Module thật ĐẦU TIÊN của dự án: lát 0 là `pnpm sample:remove` (gỡ module mẫu, commit riêng) TRƯỚC khi viết code. Đọc
+  module mẫu `apps/api/src/modules/purchase-requests/` để học cách viết trước khi gỡ (sau đó vẫn xem được trong git).
+
+<!-- sample:end -->
+
+- Đọc spec, `CLAUDE.md`, module liên quan, và module nghiệp vụ đã có của dự án làm khuôn.
 - Chia lát cắt theo HÀNH VI người dùng thấy được end-to-end ("lập phiếu nháp", "gửi duyệt", "duyệt/từ chối"), không chia theo tầng.
 - Mỗi lát ghi: file tạo/sửa, migration (nếu có), test sẽ viết, BR/AC đáp ứng. Trình bày, chờ người dùng đồng ý.
 

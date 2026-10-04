@@ -1,15 +1,19 @@
 /**
- * Dữ liệu mẫu cho test tích hợp của worker (DB thật). Không build vào dist (tsconfig.build loại thư mục testing).
+ * Dữ liệu cho test tích hợp LÕI của worker (DB thật): chỉ dùng bảng và quyền lõi, chạy được sau `pnpm sample:remove`.
+ * Không build vào dist (tsconfig.build loại thư mục testing). Module nghiệp vụ có fixture riêng (mẫu: src/sample/fixture.ts).
  */
 import { sql } from "drizzle-orm";
-import { departments, purchaseRequests, rolePermissions, roles, userRoles, users, type Db } from "@app/db";
-import type { Permission, PrStatus } from "@app/shared";
+import { departments, rolePermissions, roles, userRoles, users, type Db } from "@app/db";
+import type { Permission } from "@app/shared";
 
-/** Xóa sạch dữ liệu giữa các test, tạo hai phòng ban KD, KT. */
+/** Xóa sạch MỌI bảng (cả bảng module thêm sau, giữ lịch sử migration), tạo hai phòng ban KD, KT. */
 export async function resetWorkerDb(db: Db): Promise<{ deptKd: string; deptKt: string }> {
-  await db.execute(
-    sql`truncate table audit_logs, document_counters, import_jobs, integration_tokens, notification_deliveries, user_notification_settings, notifications, export_jobs, files, sessions, purchase_requests, user_roles, role_permissions, roles, users, departments restart identity cascade`,
+  const res = await db.execute<{ tablename: string }>(
+    sql`select tablename from pg_tables where schemaname = 'public'`,
   );
+  const tables = res.rows.map((r) => sql.identifier(r.tablename));
+  if (tables.length)
+    await db.execute(sql`truncate table ${sql.join(tables, sql`, `)} restart identity cascade`);
   const [kd] = await db.insert(departments).values({ code: "KD", name: "Kinh doanh" }).returning();
   const [kt] = await db.insert(departments).values({ code: "KT", name: "Kế toán" }).returning();
   return { deptKd: kd!.id, deptKt: kt!.id };
@@ -35,27 +39,4 @@ export async function makeUser(
     .returning();
   await db.insert(userRoles).values({ userId: u!.id, roleId: role!.id });
   return { id: u!.id, roleId: role!.id };
-}
-
-let seq = 0;
-export async function makePr(
-  db: Db,
-  requesterId: string,
-  departmentId: string,
-  title: string,
-  status: PrStatus = "DRAFT",
-) {
-  const [pr] = await db
-    .insert(purchaseRequests)
-    .values({
-      code: `PR-2026-${String(++seq).padStart(6, "0")}`,
-      title,
-      items: [{ name: "Giấy A4 <loại 1>", quantity: 2, unitPrice: 90_000 }],
-      totalAmount: 180_000,
-      departmentId,
-      requesterId,
-      status,
-    })
-    .returning();
-  return pr!;
 }

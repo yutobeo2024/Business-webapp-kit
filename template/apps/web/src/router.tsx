@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import {
   can,
   listDepartmentsQuerySchema,
-  listPurchaseRequestsQuerySchema,
+  listPurchaseRequestsQuerySchema, // sample
   listRolesQuerySchema,
   listUsersQuerySchema,
   type Permission,
@@ -20,13 +20,15 @@ import { ExportsPage } from "@/features/exports/exports-page";
 import { NotificationBell } from "@/features/notifications/notification-bell";
 import { NotificationsPage } from "@/features/notifications/notifications-page";
 import { NotificationSettingsPage } from "@/features/notifications/settings-page";
-import { PurchaseRequestListPage } from "@/features/purchase-requests/list-page";
+import { HomePage } from "@/features/home/home-page";
+import { PurchaseRequestListPage } from "@/features/purchase-requests/list-page"; // sample
 import { api } from "@/lib/api";
 import { searchValidator } from "@/lib/list-search";
 
 /** Mục điều hướng: chỉ hiện khi người dùng có quyền. Quyền thật do backend kiểm ở từng endpoint. */
 const NAV: { to: string; label: string; permission?: Permission }[] = [
-  { to: "/", label: "Phiếu đề nghị" },
+  { to: "/", label: "Trang chủ" },
+  { to: "/purchase-requests", label: "Phiếu đề nghị" }, // sample
   { to: "/exports", label: "Tệp đã xuất" },
   { to: "/admin/users", label: "Người dùng", permission: "users.manage" },
   { to: "/admin/roles", label: "Vai trò", permission: "roles.manage" },
@@ -101,12 +103,20 @@ function AppShell() {
 }
 
 const rootRoute = createRootRoute({ component: AppShell });
+function Home() {
+  const me = useMe();
+  const links = NAV.filter((n) => n.to !== "/" && (!n.permission || can(me.data, n.permission)));
+  return <HomePage links={links} />;
+}
+const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: Home });
+// sample:begin
 const purchaseRequestsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/",
+  path: "/purchase-requests",
   validateSearch: searchValidator(listPurchaseRequestsQuerySchema),
   component: PurchaseRequestListPage,
 });
+// sample:end
 const notificationsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/notifications",
@@ -158,7 +168,8 @@ const adminDepartmentsRoute = createRoute({
 
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
-    purchaseRequestsRoute,
+    homeRoute,
+    purchaseRequestsRoute, // sample
     exportsRoute,
     notificationsRoute,
     accountPasswordRoute,

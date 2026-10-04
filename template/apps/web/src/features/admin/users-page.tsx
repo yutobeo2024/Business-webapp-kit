@@ -22,6 +22,7 @@ import { Field } from "@/components/ui/field";
 import { Badge, SearchInput, Select } from "@/components/ui/form-controls";
 import { Input } from "@/components/ui/input";
 import { useMe } from "@/features/auth/use-me";
+import { ExportButton } from "@/features/exports/export-button";
 import { apiErrorMessage } from "@/lib/api";
 import { nextSearch } from "@/lib/list-search";
 import { generateTemporaryPassword } from "@/lib/password";
@@ -61,7 +62,24 @@ export function UsersPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Người dùng</h1>
-        <Button onClick={() => setEditing("new")}>Thêm người dùng</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Xuất đúng bộ lọc và thứ tự đang xem (không phân trang). */}
+          <ExportButton
+            label="Xuất Excel"
+            input={{
+              type: "admin.users.xlsx",
+              params: {
+                q: search.q,
+                departmentId: search.departmentId,
+                roleId: search.roleId,
+                status: search.status,
+                sort: search.sort,
+                order: search.order,
+              },
+            }}
+          />
+          <Button onClick={() => setEditing("new")}>Thêm người dùng</Button>
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         <SearchInput

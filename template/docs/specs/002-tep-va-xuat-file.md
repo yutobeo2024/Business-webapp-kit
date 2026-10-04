@@ -18,8 +18,8 @@ nhập Excel (bước 2c).
 ## 2. Quyền
 
 Lõi không có quyền riêng. Quyền xem/tải tệp đính kèm = quyền xem bản ghi chứa tệp; quyền thêm/xóa do module quyết định.
-Mỗi loại xuất khai báo quyền cần có (`EXPORT_TYPES[type].permission`) hoặc `null` (chỉ cần xem được dữ liệu). Mẫu:
-`pr.export` cho Excel danh sách phiếu; in PDF một phiếu không cần quyền riêng.
+Mỗi loại xuất khai báo quyền cần có (`EXPORT_TYPES[type].permission`) hoặc `null` (chỉ cần xem được dữ liệu). Lõi:
+`users.manage` cho Excel danh sách người dùng (`admin.users.xlsx`); loại in một bản ghi thường để `null`.
 
 ## 3. Thực thể dữ liệu
 
@@ -67,4 +67,4 @@ Thư mục tệp trên host `FILES_DIR` (mặc định `/opt/app-data/files`) mo
 - **AC-E1**: Cho trưởng phòng KD, Khi xuất Excel danh sách phiếu, Thì tệp chỉ chứa phiếu phòng KD và phiếu của chính mình.
 - **AC-E2**: Cho người dùng bấm "Xuất Excel", Khi worker tạo xong, Thì trang "Tệp đã xuất" tự chuyển sang "Xong" và tải
   được tệp. (E2E)
-- **AC-E3**: Cho người yêu cầu bị thu quyền `pr.export` sau khi bấm xuất, Khi worker chạy, Thì yêu cầu "Lỗi", không có tệp.
+- **AC-E3**: Cho người yêu cầu bị thu quyền của loại xuất sau khi bấm xuất, Khi worker chạy, Thì yêu cầu "Lỗi", không có tệp.

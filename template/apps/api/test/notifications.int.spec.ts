@@ -45,35 +45,24 @@ async function login(email: string): Promise<Agent> {
   return a;
 }
 
-const data = (code: string) => ({
-  prId: "8c5f0a52-6f1c-4b6e-9d0a-2f1f5a7f3c11",
-  code,
-  title: "Mua giấy",
-  totalAmount: 90_000,
-  requesterName: "Nhân viên A",
-});
+const data = { resetByName: "Quản trị" };
 
 describe("thông báo trong app (spec 003)", () => {
   it("chỉ thấy của mình; đếm chưa đọc; đánh dấu đọc một và tất cả", async () => {
-    for (const code of ["PR-1", "PR-2"]) {
+    for (const key of ["lan-1", "lan-2"]) {
       await notify(handle.db, {
-        type: "pr.pending_approval",
-        userIds: [f.manager.id],
-        data: data(code),
-        dedupeKey: code,
+        type: "account.password_reset",
+        userIds: [f.staff2.id],
+        data,
+        dedupeKey: key,
       });
     }
-    await notify(handle.db, {
-      type: "pr.approved",
-      userIds: [f.staff.id],
-      data: data("PR-3"),
-      dedupeKey: "x",
-    });
+    await notify(handle.db, { type: "account.password_reset", userIds: [f.staff.id], data, dedupeKey: "x" });
 
-    const manager = await login(f.manager.email);
+    const manager = await login(f.staff2.email);
     const list = await manager.get("/api/notifications");
     expect(list.body.total).toBe(2);
-    expect(list.body.items[0]).toMatchObject({ title: "Phiếu PR-2 chờ bạn duyệt", readAt: null });
+    expect(list.body.items[0]).toMatchObject({ title: "Mật khẩu của bạn đã được đặt lại", readAt: null });
     expect((await manager.get("/api/notifications/unread-count")).body).toEqual({ count: 2 });
 
     const first = list.body.items[0].id as string;
@@ -86,7 +75,7 @@ describe("thông báo trong app (spec 003)", () => {
     });
     expect((await manager.get("/api/notifications/unread-count")).body).toEqual({ count: 0 });
 
-    // Người khác: không thấy, không đánh dấu được thông báo của trưởng phòng.
+    // Người khác: không thấy, không đánh dấu được thông báo của người kia.
     const staff = await login(f.staff.email);
     expect((await staff.get("/api/notifications")).body.total).toBe(1);
     expect((await staff.post(`/api/notifications/${first}/read`).set("Origin", TEST_ORIGIN)).status).toBe(
@@ -95,7 +84,7 @@ describe("thông báo trong app (spec 003)", () => {
   });
 
   it("đánh dấu đọc phải qua kiểm Origin (chống CSRF); tham số sai: 400", async () => {
-    const manager = await login(f.manager.email);
+    const manager = await login(f.staff2.email);
     expect((await manager.post("/api/notifications/read-all")).status).toBe(403);
     expect((await manager.get("/api/notifications?unread=yes")).status).toBe(400);
   });

@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { PR_PERMISSIONS } from "./purchase-request.js";
+import { PR_PERMISSIONS } from "./purchase-request.js"; // sample
 
 /**
  * Danh mục QUYỀN của hệ thống. Quyền khai báo trong mã (vì chỉ có nghĩa khi có mã thực thi nó); VAI TRÒ là tập quyền do
  * quản trị viên cấu hình trên giao diện và lưu trong DB (ADR-0004).
  *
  * Mã kiểm quyền bằng `can(user, "...")`, KHÔNG BAO GIỜ kiểm tên vai trò.
- * Module mới: khai báo `XXX_PERMISSIONS` trong file shared của module (xem `PR_PERMISSIONS`) rồi thêm vào `PERMISSIONS`
+ * Module mới: khai báo `XXX_PERMISSIONS` trong file shared của module (cùng dạng CORE_PERMISSIONS) rồi thêm vào `PERMISSIONS`
  * dưới đây; quyền tự xuất hiện trong màn chỉnh vai trò.
  */
 export interface PermissionDef {
@@ -34,7 +34,7 @@ export const CORE_PERMISSIONS = {
 
 export const PERMISSIONS = {
   ...CORE_PERMISSIONS,
-  ...PR_PERMISSIONS,
+  ...PR_PERMISSIONS, // sample
 } as const satisfies Record<string, PermissionDef>;
 
 export type Permission = keyof typeof PERMISSIONS;

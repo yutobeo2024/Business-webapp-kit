@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listPurchaseRequestsQuerySchema } from "@app/shared";
+import { listUsersQuerySchema } from "@app/shared";
 import { nextSearch, searchValidator } from "./list-search";
 
 const base = { page: 3, pageSize: 20, sort: "createdAt" as const, order: "desc" as const, q: "giấy" };
@@ -16,9 +16,9 @@ describe("nextSearch", () => {
 });
 
 describe("searchValidator", () => {
-  const validate = searchValidator(listPurchaseRequestsQuerySchema);
+  const validate = searchValidator(listUsersQuerySchema);
   it("đọc tham số hợp lệ từ URL", () =>
-    expect(validate({ page: 2, sort: "code", order: "asc" })).toMatchObject({ page: 2, sort: "code" }));
+    expect(validate({ page: 2, sort: "email", order: "asc" })).toMatchObject({ page: 2, sort: "email" }));
   it("URL sai (cột sắp xếp lạ) thì về mặc định, không làm hỏng trang", () =>
-    expect(validate({ sort: "password_hash" })).toEqual(listPurchaseRequestsQuerySchema.parse({})));
+    expect(validate({ sort: "password_hash" })).toEqual(listUsersQuerySchema.parse({})));
 });

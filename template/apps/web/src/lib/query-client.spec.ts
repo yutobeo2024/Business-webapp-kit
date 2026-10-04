@@ -29,14 +29,14 @@ describe("createQueryClient", () => {
   it("401 xóa luôn dữ liệu đã tải của người dùng cũ (người đăng nhập sau không thấy)", async () => {
     const qc = createQueryClient();
     qc.setQueryData(meQueryKey, user);
-    qc.setQueryData(["purchase-requests", { page: 1 }], { items: ["phiếu của người cũ"] });
+    qc.setQueryData(["admin", "users", { page: 1 }], { items: ["dữ liệu của người cũ"] });
     await qc
       .fetchQuery({
         queryKey: ["x"],
         queryFn: () => Promise.reject(new ApiError(401, "UNAUTHENTICATED", "hết phiên")),
       })
       .catch(() => undefined);
-    expect(qc.getQueryData(["purchase-requests", { page: 1 }])).toBeUndefined();
+    expect(qc.getQueryData(["admin", "users", { page: 1 }])).toBeUndefined();
   });
 
   it("mutation nhận 401 cũng xóa người dùng hiện tại", async () => {

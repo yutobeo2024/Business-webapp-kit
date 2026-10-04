@@ -2,13 +2,18 @@ import { type Job, UnrecoverableError } from "bullmq";
 import { lt } from "drizzle-orm";
 import type { Logger } from "pino";
 import { notifications, sessions, type Db } from "@app/db";
-import { notify, planPrStatusNotification } from "@app/server";
+import { notify } from "@app/server";
+import { planPrStatusNotification } from "@app/server"; // sample
 import {
   JOBS,
   type NotificationChannel,
   notificationDeliverJobSchema,
-  type PrStatusChangedJob,
-  prStatusChangedJobSchema,
+  NOTIFICATION_TYPES,
+  type NotificationType,
+  type NotifyJob,
+  notifyJobSchema,
+  type PrStatusChangedJob, // sample
+  prStatusChangedJobSchema, // sample
 } from "@app/shared";
 import type { NotificationSender } from "./notifications/channel.js";
 import { deliver, sweepDeliveries } from "./notifications/deliver.js";
@@ -31,6 +36,39 @@ export interface ProcessorDeps {
   zalo?: Pick<ZaloZnsSender, "accessToken"> | null;
 }
 
+const channelsOf = (deps: ProcessorDeps) => Object.keys(deps.senders ?? {}) as NotificationChannel[];
+
+/** Job tạo thông báo dùng chung (API đẩy sau commit). Loại lạ hoặc dữ liệu sai: lỗi vĩnh viễn, không thử lại. */
+async function onNotify(jobId: string | undefined, data: NotifyJob, deps: ProcessorDeps): Promise<number> {
+  if (!Object.hasOwn(NOTIFICATION_TYPES, data.type)) {
+    throw new UnrecoverableError(`Loại thông báo không có trong danh mục: ${data.type}`);
+  }
+  let result;
+  try {
+    result = await notify(
+      deps.db,
+      {
+        type: data.type as NotificationType,
+        userIds: data.userIds,
+        data: data.data as never,
+        dedupeKey: data.dedupeKey,
+      },
+      { channels: channelsOf(deps) },
+    );
+  } catch (err) {
+    if ((err as { name?: string }).name === "ZodError")
+      throw new UnrecoverableError(`Dữ liệu thông báo sai: ${data.type}`);
+    throw err;
+  }
+  if (result.pendingDeliveryIds.length) {
+    await deps
+      .enqueueDeliveries?.(result.pendingDeliveryIds)
+      .catch((err: unknown) => deps.log.error({ err, jobId }, "Không đẩy được job gửi thông báo"));
+  }
+  return result.notificationIds.length;
+}
+
+// sample:begin
 /**
  * Phiếu đổi trạng thái: báo cho người liên quan (spec 001 mục 7). Idempotent: dedupeKey theo phiên bản phiếu, job chạy
  * lại không tạo thông báo hay lần giao thứ hai.
@@ -45,7 +83,7 @@ async function onPrStatusChanged(
     ? await notify(
         deps.db,
         { ...plan, dedupeKey: `pr-${data.purchaseRequestId}-v${data.version}` },
-        { channels: Object.keys(deps.senders ?? {}) as NotificationChannel[] },
+        { channels: channelsOf(deps) },
       )
     : { notificationIds: [], pendingDeliveryIds: [] };
   // Đẩy job lỗi thì lần giao vẫn PENDING, lượt quét 10 phút sẽ đẩy lại.
@@ -60,6 +98,8 @@ async function onPrStatusChanged(
   );
   return result.notificationIds.length;
 }
+
+// sample:end
 
 /** Thông báo đã đọc giữ 90 ngày (spec 003); lần giao xóa theo (ON DELETE CASCADE). */
 export const READ_NOTIFICATION_KEEP_DAYS = 90;
@@ -94,8 +134,12 @@ function parseJob<T>(
 export function createProcessor(deps: ProcessorDeps) {
   return async (job: Job): Promise<unknown> => {
     switch (job.name) {
+      case JOBS.notify:
+        return onNotify(job.id, parseJob(job, notifyJobSchema), deps);
+      // sample:begin
       case JOBS.prStatusChanged:
         return onPrStatusChanged(job.id, parseJob(job, prStatusChangedJobSchema), deps);
+      // sample:end
       case JOBS.notificationDeliver: {
         const { deliveryId } = parseJob(job, notificationDeliverJobSchema);
         const finalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);

@@ -2,15 +2,16 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { auditLogs, purchaseRequests, type DbHandle } from "@app/db";
 import { DIRECTOR_APPROVAL_THRESHOLD_VND } from "@app/shared";
-import { openDb, resetDb, seedFixture, type Fixture } from "../../../test/helpers.js";
-import { BusinessError } from "../../common/business-error.js";
-import { PurchaseRequestsService } from "./purchase-requests.service.js";
+import { openDb, resetDb } from "../helpers.js";
+import { type SampleFixture, seedSampleFixture } from "./fixture.js";
+import { BusinessError } from "../../src/common/business-error.js";
+import { PurchaseRequestsService } from "../../src/modules/purchase-requests/purchase-requests.service.js";
 
 const handle: DbHandle = openDb();
 const jobs: unknown[] = [];
 const fakeQueue = { add: async (_n: string, data: unknown) => (jobs.push(data), {}) } as never;
 const service = new PurchaseRequestsService(handle.db, fakeQueue);
-let f: Fixture;
+let f: SampleFixture;
 
 const input = (amount = 1_000_000) => ({
   title: "Mua văn phòng phẩm quý 4",
@@ -20,7 +21,7 @@ const input = (amount = 1_000_000) => ({
 beforeEach(async () => {
   await resetDb(handle);
   jobs.length = 0;
-  f = await seedFixture(handle);
+  f = await seedSampleFixture(handle);
 });
 afterAll(() => handle.close());
 

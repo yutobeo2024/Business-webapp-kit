@@ -5,7 +5,8 @@
  */
 import { z } from "zod";
 import type { Permission } from "./permissions.js";
-import { listPurchaseRequestsQuerySchema } from "./purchase-request.js";
+import { listUsersQuerySchema } from "./admin.js";
+import { listPurchaseRequestsQuerySchema } from "./purchase-request.js"; // sample
 
 export const EXPORT_STATUSES = ["QUEUED", "RUNNING", "DONE", "FAILED"] as const;
 export type ExportStatus = (typeof EXPORT_STATUSES)[number];
@@ -18,6 +19,12 @@ export const EXPORT_STATUS_LABELS: Record<ExportStatus, string> = {
 
 /** Mỗi loại: tham số validate bằng Zod (input ở biên), dùng lại schema của màn hình gốc để xuất đúng thứ đang lọc. */
 export const createExportSchema = z.discriminatedUnion("type", [
+  // Lõi: danh sách người dùng (quản trị), đúng bộ lọc đang xem.
+  z.object({
+    type: z.literal("admin.users.xlsx"),
+    params: listUsersQuerySchema.omit({ page: true, pageSize: true }),
+  }),
+  // sample:begin
   z.object({
     type: z.literal("purchase-requests.xlsx"),
     params: listPurchaseRequestsQuerySchema.omit({ page: true, pageSize: true }),
@@ -26,6 +33,7 @@ export const createExportSchema = z.discriminatedUnion("type", [
     type: z.literal("purchase-request.pdf"),
     params: z.object({ id: z.uuid("Mã phiếu không hợp lệ") }),
   }),
+  // sample:end
 ]);
 export type CreateExportInput = z.infer<typeof createExportSchema>;
 export type ExportType = CreateExportInput["type"];
@@ -42,12 +50,15 @@ export interface ExportTypeDef {
 }
 
 export const EXPORT_TYPES = {
+  "admin.users.xlsx": { label: "Danh sách người dùng (Excel)", format: "xlsx", permission: "users.manage" },
+  // sample:begin
   "purchase-requests.xlsx": {
     label: "Danh sách phiếu đề nghị (Excel)",
     format: "xlsx",
     permission: "pr.export",
   },
   "purchase-request.pdf": { label: "Phiếu đề nghị (PDF)", format: "pdf", permission: null },
+  // sample:end
 } as const satisfies Record<ExportType, ExportTypeDef>;
 
 export interface ExportJobDto {

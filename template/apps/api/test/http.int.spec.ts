@@ -62,11 +62,10 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
   });
 
   it("endpoint mặc định yêu cầu đăng nhập", async () => {
-    const res = await agent().get("/api/purchase-requests");
+    const res = await agent().get("/api/notifications");
     expect(res.status).toBe(401);
     expect(res.body.code).toBe("UNAUTHENTICATED");
   });
-
   it("cookie phiên là httpOnly và SameSite=Lax", async () => {
     const res = await agent()
       .post("/api/auth/login")
@@ -167,24 +166,13 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
   });
 
   it("body quá 1MB trả 413, không phải lỗi 500", async () => {
-    const a = await login(f.staff.email);
+    const a = await login(f.admin.email);
     const res = await a
-      .post("/api/purchase-requests")
+      .post("/api/admin/departments")
       .set("Origin", TEST_ORIGIN)
-      .send({ title: "x".repeat(1_200_000), items: [] });
+      .send({ code: "X", name: "x".repeat(1_200_000) });
     expect(res.status).toBe(413);
   });
-
-  it("BR-08: giám đốc không lập phiếu (là người duyệt cuối)", async () => {
-    const a = await login(f.director.email);
-    const res = await a
-      .post("/api/purchase-requests")
-      .set("Origin", TEST_ORIGIN)
-      .send({ title: "Mua bàn ghế phòng họp", items: [{ name: "Bàn", quantity: 1, unitPrice: 1000 }] });
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe("FORBIDDEN");
-  });
-
   it("CSRF: Referer sai định dạng bị chặn 403, không phải lỗi 500", async () => {
     const res = await agent()
       .post("/api/auth/login")
@@ -195,76 +183,32 @@ describe("HTTP API (app thật, DB + Redis thật)", () => {
     expect(res.body.code).toBe("CSRF_REJECTED");
   });
 
-  it("tổng tiền vượt giới hạn bị từ chối 400, không lưu sai hoặc lỗi 500", async () => {
-    const a = await login(f.staff.email);
-    const res = await a
-      .post("/api/purchase-requests")
-      .set("Origin", TEST_ORIGIN)
-      .send({
-        title: "Phiếu tổng tiền khổng lồ",
-        items: [{ name: "Hàng", quantity: 1_000_000, unitPrice: 9_000_000_000_000_000 }],
-      });
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe("VALIDATION_FAILED");
-  });
-
   it("CSRF: request ghi không có Origin hợp lệ bị chặn", async () => {
     const a = await login(f.staff.email);
-    const res = await a.post("/api/purchase-requests").set("Origin", "https://evil.example").send({});
+    const res = await a.post("/api/notifications/read-all").set("Origin", "https://evil.example").send({});
     expect(res.status).toBe(403);
     expect(res.body.code).toBe("CSRF_REJECTED");
   });
-
   it("validate input trả 400 với chi tiết tiếng Việt", async () => {
-    const a = await login(f.staff.email);
+    const a = await login(f.admin.email);
     const res = await a
-      .post("/api/purchase-requests")
+      .post("/api/admin/departments")
       .set("Origin", TEST_ORIGIN)
-      .send({ title: "abc", items: [] });
+      .send({ code: "mã sai!", name: "" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("VALIDATION_FAILED");
-    expect(JSON.stringify(res.body.details)).toContain("Tiêu đề tối thiểu 5 ký tự");
+    expect(JSON.stringify(res.body.details)).toContain("Mã phòng ban gồm chữ không dấu");
   });
-
-  it("luồng tạo -> gửi -> duyệt qua HTTP", async () => {
-    const staff = await login(f.staff.email);
-    const created = await staff
-      .post("/api/purchase-requests")
-      .set("Origin", TEST_ORIGIN)
-      .send({
-        title: "Mua máy chiếu phòng họp",
-        items: [{ name: "Máy chiếu", quantity: 1, unitPrice: 15_000_000 }],
-      });
-    expect(created.status).toBe(201);
-    expect(created.body.allowedEvents).toEqual(["SUBMIT", "CANCEL"]);
-
-    const submitted = await staff
-      .post(`/api/purchase-requests/${created.body.id}/transitions`)
-      .set("Origin", TEST_ORIGIN)
-      .send({ event: "SUBMIT", version: 1 });
-    expect(submitted.status).toBe(201);
-
-    const manager = await login(f.manager.email);
-    const approved = await manager
-      .post(`/api/purchase-requests/${created.body.id}/transitions`)
-      .set("Origin", TEST_ORIGIN)
-      .send({ event: "MANAGER_APPROVE", version: 2 });
-    expect(approved.status).toBe(201);
-    expect(approved.body.status).toBe("APPROVED");
-  });
-
   it("danh sách: cột sắp xếp không cho phép trả 400", async () => {
-    const res = await (await login(f.staff.email)).get("/api/purchase-requests?sort=password_hash");
+    const res = await (await login(f.admin.email)).get("/api/admin/users?sort=password_hash");
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("VALIDATION_FAILED");
   });
-
   it("id sai định dạng trả 400, không phải 500", async () => {
-    const a = await login(f.staff.email);
-    const res = await a.get("/api/purchase-requests/khong-phai-uuid");
+    const a = await login(f.admin.email);
+    const res = await a.get("/api/admin/users/khong-phai-uuid");
     expect(res.status).toBe(400);
   });
-
   it("rate limit đăng nhập: quá 10 lần/phút từ cùng một IP bị chặn 429", async () => {
     const ip = nextIp();
     const statuses: number[] = [];

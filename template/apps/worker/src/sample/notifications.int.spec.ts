@@ -1,13 +1,13 @@
 /**
- * Tích hợp thông báo khi phiếu đổi trạng thái (spec 001 mục 7, spec 003): đúng người nhận theo quyền hiện tại, không trùng.
+ * Module MẪU (xóa cùng mẫu): tích hợp thông báo khi phiếu đổi trạng thái (spec 001 mục 7, spec 003): đúng người nhận theo quyền hiện tại, không trùng.
  */
 import { eq } from "drizzle-orm";
 import pino from "pino";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb, notifications, purchaseRequests, rolePermissions, users, type DbHandle } from "@app/db";
-import { notify } from "@app/server";
-import { createProcessor, purgeExpired } from "./processors.js";
-import { makePr, makeUser, resetWorkerDb } from "./testing/fixture.js";
+import { createProcessor } from "../processors.js";
+import { makeUser, resetWorkerDb } from "../testing/fixture.js";
+import { makePr } from "./fixture.js";
 
 let handle: DbHandle;
 let run: ReturnType<typeof createProcessor>;
@@ -49,7 +49,7 @@ describe("thông báo khi phiếu đổi trạng thái", () => {
     expect(n).toMatchObject({
       type: "pr.pending_approval",
       title: `Phiếu ${pr.code} chờ bạn duyệt`,
-      link: `/?q=${pr.code}`,
+      link: `/purchase-requests?q=${pr.code}`,
     });
     expect(n!.body).toContain("Mua giấy <A4>");
     expect(await inbox(managerKt.id)).toHaveLength(0);
@@ -113,35 +113,5 @@ describe("thông báo khi phiếu đổi trạng thái", () => {
     await handle.db.delete(rolePermissions).where(eq(rolePermissions.roleId, manager.roleId));
     await statusJob(pr, "PENDING_MANAGER");
     expect(await inbox(manager.id)).toHaveLength(0);
-  });
-});
-
-describe("dọn thông báo cũ", () => {
-  it("xóa thông báo đã đọc quá 90 ngày; giữ thông báo chưa đọc dù cũ", async () => {
-    const u = await makeUser(handle.db, "nv", deptKd, []);
-    const data = {
-      prId: "8c5f0a52-6f1c-4b6e-9d0a-2f1f5a7f3c11",
-      code: "PR-1",
-      title: "t",
-      totalAmount: 1,
-      requesterName: "a",
-    };
-    for (const k of ["doc-cu", "doc-moi", "chua-doc"]) {
-      await notify(handle.db, { type: "pr.approved", userIds: [u.id], data, dedupeKey: k });
-    }
-    const old = new Date(Date.now() - 91 * 86_400_000);
-    await handle.db.update(notifications).set({ readAt: old }).where(eq(notifications.dedupeKey, "doc-cu"));
-    await handle.db
-      .update(notifications)
-      .set({ readAt: new Date() })
-      .where(eq(notifications.dedupeKey, "doc-moi"));
-    await handle.db
-      .update(notifications)
-      .set({ createdAt: old })
-      .where(eq(notifications.dedupeKey, "chua-doc"));
-    expect(await purgeExpired({ db: handle.db, log: pino({ level: "silent" }) })).toMatchObject({
-      notifications: 1,
-    });
-    expect((await inbox(u.id)).map((n) => n.dedupeKey).sort()).toEqual(["chua-doc", "doc-moi"]);
   });
 });

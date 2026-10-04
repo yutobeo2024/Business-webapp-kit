@@ -94,6 +94,13 @@ describe("nhập Excel qua API (spec 003)", () => {
     expect((await upload(staff, await xlsx())).status).toBe(403);
   });
 
+  it("tệp vượt FILE_MAX_MB (môi trường test 1 MB): 413, không tạo yêu cầu nhập", async () => {
+    const admin = await login(f.admin.email);
+    const big = Buffer.concat([await xlsx(), Buffer.alloc(1024 * 1024 + 10)]);
+    expect((await upload(admin, big)).status).toBe(413);
+    expect(await handle.db.select().from(importJobs)).toHaveLength(0);
+  });
+
   it("xác nhận: chỉ khi READY (409 nếu chưa); bấm hai lần song song chỉ một lần được nhận; người khác: 404", async () => {
     const admin = await login(f.admin.email);
     const id = (await upload(admin, await xlsx())).body.id as string;
@@ -111,7 +118,7 @@ describe("nhập Excel qua API (spec 003)", () => {
     ).toHaveLength(1);
 
     // Người khác: không xem, không xác nhận, không hủy được lần nhập này.
-    const manager = await login(f.manager.email);
+    const manager = await login(f.staff2.email);
     expect((await manager.get(`/api/imports/${id}`)).status).toBe(404);
     expect((await manager.post(`/api/imports/${id}/cancel`).set("Origin", TEST_ORIGIN)).status).toBe(404);
   });

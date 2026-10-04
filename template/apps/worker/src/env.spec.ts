@@ -18,9 +18,9 @@ describe("cấu hình worker", () => {
   });
 
   it("ZALO_TEMPLATES phải là JSON hợp lệ", () => {
-    expect(loadEnv({ ...base, ZALO_TEMPLATES: '{"pr.approved":"1"}' }).ZALO_TEMPLATES).toEqual({
-      "pr.approved": "1",
+    expect(loadEnv({ ...base, ZALO_TEMPLATES: '{"import.finished":"1"}' }).ZALO_TEMPLATES).toEqual({
+      "import.finished": "1",
     });
-    expect(() => loadEnv({ ...base, ZALO_TEMPLATES: "pr.approved=1" })).toThrow(/ZALO_TEMPLATES/);
+    expect(() => loadEnv({ ...base, ZALO_TEMPLATES: "import.finished=1" })).toThrow(/ZALO_TEMPLATES/);
   });
 });

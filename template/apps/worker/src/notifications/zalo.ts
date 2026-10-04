@@ -6,7 +6,8 @@
 import { eq } from "drizzle-orm";
 import { integrationTokens, type Db } from "@app/db";
 import { decryptSecret, encryptSecret } from "@app/server";
-import { formatVnd, type NotificationData, type NotificationType } from "@app/shared";
+import { type NotificationData, type NotificationType } from "@app/shared";
+import { formatVnd } from "@app/shared"; // sample
 import {
   type NotificationSender,
   type OutgoingNotification,
@@ -21,6 +22,14 @@ export const ZALO_PROVIDER = "zalo_oa";
  * nếu mẫu của khách đặt khác. Thiếu loại nào thì typecheck báo lỗi.
  */
 export const ZALO_PARAMS: { [T in NotificationType]: (d: NotificationData<T>) => Record<string, string> } = {
+  "account.password_reset": (d) => ({ nguoi_dat_lai: d.resetByName }),
+  "import.finished": (d) => ({
+    loai_du_lieu: d.label,
+    ket_qua: d.status,
+    so_dong: String(d.importedCount ?? 0),
+    so_loi: String(d.errorCount),
+  }),
+  // sample:begin
   "pr.pending_approval": (d) => ({
     ma_phieu: d.code,
     noi_dung: d.title,
@@ -29,12 +38,13 @@ export const ZALO_PARAMS: { [T in NotificationType]: (d: NotificationData<T>) =>
   }),
   "pr.approved": (d) => ({ ma_phieu: d.code, noi_dung: d.title, so_tien: formatVnd(d.totalAmount) }),
   "pr.rejected": (d) => ({ ma_phieu: d.code, noi_dung: d.title, ly_do: d.reason }),
+  // sample:end
 };
 
 export interface ZaloConfig {
   appId: string;
   secretKey: string;
-  /** Mã mẫu ZNS theo loại thông báo, ví dụ {"pr.pending_approval": "312345"}. */
+  /** Mã mẫu ZNS theo loại thông báo, ví dụ {"account.password_reset": "312345"}. */
   templates: Partial<Record<NotificationType, string>>;
   oauthUrl: string;
   znsUrl: string;

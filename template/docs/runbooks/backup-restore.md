@@ -38,8 +38,9 @@ cho đúng tệp đó, phần còn lại vẫn chạy.
 
 - Mất cả thư mục (máy chủ mới): `rclone copy <remote>/files/current /opt/app-data/files`, rồi
   `chown -R 1000:deploy /opt/app-data/files && chmod -R g+rX /opt/app-data/files`.
-- Lấy lại tệp bị xóa nhầm: tìm `storageKey` trong audit `pr.attachment_remove` (cột `before`) của bản ghi đó. Trong 7
+- Lấy lại tệp bị xóa nhầm: tìm `storageKey` trong audit gỡ tệp của module (ví dụ `<module>.attachment_remove`, cột
+  `before`) của bản ghi đó. Trong 7
   ngày đầu tệp vẫn ở `FILES_DIR/<storageKey>` và hàng `files` còn (chỉ có `deleted_at`): đặt `deleted_at = NULL` là xong.
   Sau 7 ngày hàng và tệp đã bị dọn: lấy tệp từ `<remote>/files/deleted/<ngày>/<storageKey>`, chép về
-  `FILES_DIR/<storageKey>` rồi thêm lại hàng `files` theo thông tin trong audit `pr.attachment_add`. Ghi lý do vào
+  `FILES_DIR/<storageKey>` rồi thêm lại hàng `files` theo thông tin trong audit thêm tệp (`<module>.attachment_add`). Ghi lý do vào
   postmortem.

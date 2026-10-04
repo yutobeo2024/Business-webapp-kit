@@ -65,7 +65,7 @@ beforeEach(async () => {
 const cfg = (): ZaloConfig => ({
   appId: "app-1",
   secretKey: "secret-1",
-  templates: { "pr.pending_approval": "312345" },
+  templates: { "account.password_reset": "312345" },
   oauthUrl: `${base}/oauth`,
   znsUrl: `${base}/zns`,
   encryptionKey: key,
@@ -73,18 +73,12 @@ const cfg = (): ZaloConfig => ({
 const sender = () => new ZaloZnsSender(handle.db, cfg());
 const to = { fullName: "Trưởng phòng", email: "tp@test.vn", phone: "84912345678" };
 const msg = {
-  type: "pr.pending_approval" as const,
+  type: "account.password_reset" as const,
   title: "t",
   body: "b",
   link: null,
   trackingId: "delivery-1",
-  data: {
-    prId: "x",
-    code: "PR-2026-000001",
-    title: "Mua giấy",
-    totalAmount: 90_000,
-    requesterName: "Nhân viên A",
-  },
+  data: { resetByName: "Quản trị" },
 };
 const oauthCalls = () => calls.filter((c) => c.path === "/oauth");
 const znsCalls = () => calls.filter((c) => c.path === "/zns");
@@ -112,12 +106,7 @@ describe("Zalo ZNS", () => {
     expect(JSON.parse(zns!.body)).toEqual({
       phone: "84912345678",
       template_id: "312345",
-      template_data: {
-        ma_phieu: "PR-2026-000001",
-        noi_dung: "Mua giấy",
-        so_tien: expect.stringMatching(/90\.000/),
-        nguoi_lap: "Nhân viên A",
-      },
+      template_data: { nguoi_dat_lai: "Quản trị" },
       tracking_id: "delivery-1",
     });
 
@@ -162,7 +151,7 @@ describe("Zalo ZNS", () => {
       .catch((e: unknown) => e);
     expect(transient).toBeInstanceOf(Error);
     expect(transient).not.toBeInstanceOf(PermanentDeliveryError);
-    await expect(sender().send(to, { ...msg, type: "pr.approved" as never })).rejects.toThrow(
+    await expect(sender().send(to, { ...msg, type: "import.finished" as never })).rejects.toThrow(
       /Chưa cấu hình mẫu ZNS/,
     );
     await expect(sender().send({ ...to, phone: null }, msg)).rejects.toBeInstanceOf(PermanentDeliveryError);

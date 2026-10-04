@@ -23,8 +23,10 @@ import {
   importJobSchema,
   type ImportRowError,
   type ImportStatus,
+  type ImportType,
   importTypeSchema,
   JOBS,
+  type NotifyJob,
 } from "@app/shared";
 
 export interface ImportDeps {
@@ -32,6 +34,35 @@ export interface ImportDeps {
   log: Logger;
   storage: FileStorage;
   maxRows: number;
+  /** Đẩy job tạo thông báo (main.ts nối vào hàng đợi notifications). */
+  notify?: (job: NotifyJob) => Promise<void>;
+}
+
+/** Báo người nhập kết quả (họ có thể đã đóng hộp thoại). Lỗi gửi không làm hỏng việc nhập. */
+async function notifyOutcome(
+  deps: ImportDeps,
+  job: Pick<ImportRow, "id" | "type" | "requestedBy">,
+  status: "READY" | "DONE" | "INVALID" | "FAILED",
+  counts: { importedCount?: number | null; errorCount?: number } = {},
+): Promise<void> {
+  const def = Object.hasOwn(IMPORT_TYPES, job.type) ? IMPORT_TYPES[job.type as ImportType] : null;
+  await deps
+    .notify?.({
+      type: "import.finished",
+      userIds: [job.requestedBy],
+      data: {
+        importId: job.id,
+        label: def?.label ?? job.type,
+        status,
+        importedCount: counts.importedCount ?? null,
+        errorCount: counts.errorCount ?? 0,
+        returnPath: def?.returnPath ?? null,
+      },
+      dedupeKey: `import-${job.id}-${status}`,
+    })
+    .catch((err: unknown) =>
+      deps.log.error({ err, importId: job.id }, "Không đẩy được thông báo nhập Excel"),
+    );
 }
 
 type ImportRow = typeof importJobs.$inferSelect;
@@ -94,6 +125,9 @@ export async function validateImport(deps: ImportDeps, importId: string): Promis
       errorCount: rows.length === 0 ? 1 : result.errorCount,
       preview,
     });
+    await notifyOutcome(deps, job, status === "READY" ? "READY" : "INVALID", {
+      errorCount: rows.length === 0 ? 1 : result.errorCount,
+    });
     return status;
   } catch (err) {
     if (!(err instanceof ImportProblem)) throw err;
@@ -103,6 +137,7 @@ export async function validateImport(deps: ImportDeps, importId: string): Promis
       errorCount: err.errors.length,
       finishedAt: new Date(),
     });
+    await notifyOutcome(deps, job, "INVALID", { errorCount: err.errors.length });
     return "INVALID";
   }
 }
@@ -137,6 +172,7 @@ export async function commitImport(deps: ImportDeps, importId: string): Promise<
     });
     if (count === null) return "skipped";
     deps.log.info({ importId, type, rows: count }, "Đã nhập dữ liệu từ Excel");
+    await notifyOutcome(deps, job, "DONE", { importedCount: count });
     return "DONE";
   } catch (err) {
     const problem =
@@ -154,6 +190,7 @@ export async function commitImport(deps: ImportDeps, importId: string): Promise<
       errorCount: problem.errors.length,
       finishedAt: new Date(),
     });
+    await notifyOutcome(deps, job, "INVALID", { errorCount: problem.errors.length });
     return "INVALID";
   }
 }
@@ -230,6 +267,8 @@ export function createImportProcessor(deps: ImportDeps) {
             finishedAt: new Date(),
           })
           .where(eq(importJobs.id, importId));
+        const [failed] = await deps.db.select().from(importJobs).where(eq(importJobs.id, importId));
+        if (failed) await notifyOutcome(deps, failed, "FAILED", { errorCount: 1 });
       }
       throw err;
     }

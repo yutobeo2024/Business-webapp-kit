@@ -12,7 +12,7 @@ paths:
 - Hết phiên (401) đã xử lý chung trong `src/lib/query-client.ts`; không tự bắt 401 ở từng trang.
 - Hiển thị nút theo `allowedEvents` backend trả về, menu/nút khác theo `can(me, "...")`. Quyền thật do backend quyết định.
 - Danh sách: tham số trên URL (route `validateSearch: searchValidator(schemaTừShared)`, đổi bằng `nextSearch`), bảng dùng
-  `DataTable` + `SortTh` + `Pagination`, ô tìm `SearchInput`. Mẫu: `features/purchase-requests/list-page.tsx`.
+  `DataTable` + `SortTh` + `Pagination`, ô tìm `SearchInput`. Mẫu: `features/admin/users-page.tsx`.
 - Xác nhận dùng `ConfirmDialog` / form trong `Dialog` (`components/ui/dialog.tsx`), không dùng `window.confirm/prompt`.
 - Mọi danh sách có trạng thái đang tải, rỗng, lỗi (kèm nút thử lại). Mọi thao tác ghi khóa nút khi đang gửi.
 - Thao tác không hoàn tác được phải xác nhận, nêu rõ hậu quả. Sau lỗi 409 tải lại dữ liệu.

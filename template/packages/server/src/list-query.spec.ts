@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listPurchaseRequestsQuerySchema } from "@app/shared";
+import { listUsersQuerySchema } from "@app/shared";
 import { escapeLike } from "./list-query.js";
 
 describe("escapeLike", () => {
@@ -8,25 +8,23 @@ describe("escapeLike", () => {
   });
 });
 
-describe("listQuerySchema (qua danh sách phiếu)", () => {
-  it("mặc định: trang 1, 20 dòng, mới nhất trước, không tìm", () =>
-    expect(listPurchaseRequestsQuerySchema.parse({})).toEqual({
+describe("listQuerySchema (qua danh sách người dùng)", () => {
+  it("mặc định: trang 1, 20 dòng, sắp theo mặc định của màn hình, không tìm", () =>
+    expect(listUsersQuerySchema.parse({})).toEqual({
       page: 1,
       pageSize: 20,
-      sort: "createdAt",
-      order: "desc",
+      sort: "fullName",
+      order: "asc",
     }));
   it("tham số từ URL (chuỗi) được chuyển kiểu; từ khóa rỗng coi như không tìm", () =>
-    expect(listPurchaseRequestsQuerySchema.parse({ page: "2", q: "  ", sort: "code", order: "asc" })).toEqual(
-      {
-        page: 2,
-        pageSize: 20,
-        sort: "code",
-        order: "asc",
-      },
-    ));
+    expect(listUsersQuerySchema.parse({ page: "2", q: "  ", sort: "email", order: "desc" })).toEqual({
+      page: 2,
+      pageSize: 20,
+      sort: "email",
+      order: "desc",
+    }));
   it("cột sắp xếp ngoài danh sách cho phép bị từ chối (không bao giờ vào SQL)", () => {
-    const r = listPurchaseRequestsQuerySchema.safeParse({ sort: "password_hash" });
+    const r = listUsersQuerySchema.safeParse({ sort: "password_hash" });
     expect(r.success).toBe(false);
   });
 });

@@ -15,6 +15,7 @@ export const DEFAULT_ROLES = {
     isSystem: true,
     permissions: [...SYSTEM_ROLE_REQUIRED_PERMISSIONS, "departments.manage"],
   },
+  // sample:begin (vai trò nghiệp vụ của module mẫu; module thật thêm vai trò của mình ở đây)
   STAFF: { name: "Nhân viên", description: "Lập phiếu, xem phiếu của mình.", permissions: ["pr.create"] },
   MANAGER: {
     name: "Trưởng phòng",
@@ -31,6 +32,7 @@ export const DEFAULT_ROLES = {
     description: "Xem và xuất Excel mọi phiếu, duyệt cấp cuối.",
     permissions: ["pr.view.all", "pr.approve.final", "pr.export"],
   },
+  // sample:end
 } as const satisfies Record<
   string,
   { name: string; description: string; isSystem?: boolean; permissions: readonly Permission[] }

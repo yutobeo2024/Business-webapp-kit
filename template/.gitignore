@@ -22,3 +22,6 @@ CLAUDE.local.md
 
 # Tệp tải lên khi chạy dev (STORAGE_DIR)
 .data/
+
+# Phiên đăng nhập E2E (auth.setup.ts)
+e2e/.auth/

@@ -22,12 +22,12 @@ docker exec "$NAME" createdb -U postgres drill
 docker exec -i "$NAME" pg_restore -U postgres -d drill --no-owner --exit-on-error < "$LATEST"
 
 q() { docker exec "$NAME" psql -U postgres -d drill -At -c "$1"; }
+# Chỉ kiểm bảng LÕI (có ở mọi dự án). Muốn kiểm thêm bảng nghiệp vụ thì thêm truy vấn ở đây.
 USERS=$(q "select count(*) from users")
-PRS=$(q "select count(*) from purchase_requests")
 LAST_AUDIT=$(q "select coalesce(max(created_at)::text, 'chưa có') from audit_logs")
 [[ "$USERS" -gt 0 ]] || { false; }
 
 ELAPSED=$(( $(date +%s) - START ))
 date +%s > "$DIR/.last-drill"
-log "Diễn tập OK: $(basename "$LATEST"), ${ELAPSED}s, users=$USERS, purchase_requests=$PRS, audit mới nhất=$LAST_AUDIT"
-alert "Diễn tập khôi phục OK trong ${ELAPSED}s (users=$USERS, phiếu=$PRS)"
+log "Diễn tập OK: $(basename "$LATEST"), ${ELAPSED}s, users=$USERS, audit mới nhất=$LAST_AUDIT"
+alert "Diễn tập khôi phục OK trong ${ELAPSED}s (users=$USERS)"
