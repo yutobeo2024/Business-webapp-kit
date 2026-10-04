@@ -1,5 +1,23 @@
 # Báo cáo kiểm chứng kit
 
+## 1.4.0: sửa theo dogfood, CI thật trên GitHub (04/10/2026)
+
+Lần đầu kit được kiểm bằng CI thật trên GitHub, không chỉ trên máy.
+
+| Hạng mục | Kiểm bằng | Kết quả |
+|---|---|---|
+| CI của repo kit, biến thể còn mẫu và sau `pnpm sample:remove`: chất lượng, tích hợp, E2E | `kit-ci.yml`, run 37192021427 (nhánh `kit-1.4.0`) | 6/6 xanh |
+| Cài dự án bằng `install.sh` (nhánh `main`, bit +x, verify), chặn Node lệch | `kit-ci.yml` job install | xanh |
+| 3 image: build, không chạy root, trivy image không còn HIGH/CRITICAL đã có bản vá, worker in PDF tiếng Việt | `kit-ci.yml` job images | 3/3 xanh |
+| gitleaks lịch sử kit, actionlint, `pnpm audit`, trivy fs | `kit-ci.yml` job security | xanh |
+| Dự án mới từ 1.4.0 trên repo riêng tư: PR chạy `ci.yml` của dự án | `yutobeo2024/kit140-check` PR #1, run 37192025673 | quality, tích hợp, E2E, bảo mật xanh |
+| Cục bộ, còn mẫu | tích hợp 89 api + 42 worker, E2E 11/11 (đăng nhập một lần mỗi tài khoản), selftest 261, tests/infra 25 | xanh |
+| Cục bộ, bản sao đã gỡ mẫu | tích hợp 67 api (1 bỏ qua có chủ đích) + 28 worker, E2E 4/4, check-migrations, chạy lại không làm gì | xanh |
+| Agent độc lập rà diff | 1 chặn (đồng bộ vai trò cấp lại quyền đã gỡ), 5 nên sửa: đã sửa, có test | xong |
+
+CI thật bắt thêm một lỗi không thấy được ở máy: job quét bảo mật đỏ ở bước dọn dẹp của `setup-node` (cache pnpm khi
+không cài gì). Đã sửa ở cả kit lẫn template. Chưa kiểm: deploy staging/production (chưa có máy chủ).
+
 ## 1.3.0: thông báo (trong app, email, Zalo) và nhập Excel (03/10/2026)
 
 Spec `template/docs/specs/003-thong-bao-va-nhap-excel.md`, ADR-0006. Test viết cùng từng bước.
