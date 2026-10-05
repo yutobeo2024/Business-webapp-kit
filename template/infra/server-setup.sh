@@ -2,6 +2,7 @@
 # Chuẩn bị VPS Ubuntu 22.04/24.04 cho production. Chạy MỘT lần bằng root:
 #   bash server-setup.sh "<SSH public key của CI (GitHub Actions)>"            máy RIÊNG cho app
 #   bash server-setup.sh --shared "<SSH public key của CI>"                    máy DÙNG CHUNG (đã có dịch vụ khác)
+#   thêm --instance <tên> để tạo môi trường thứ hai trên cùng máy (ví dụ staging: /opt/app-staging, cron, log riêng);
 #   thêm --dry-run để chỉ in các bước sẽ làm, không đổi gì.
 # Máy dùng chung: chỉ tạo phần của app (user deploy, thư mục, cron, logrotate, rclone/jq). KHÔNG apt upgrade, không đổi
 # múi giờ, không ghi daemon.json hay khởi động lại Docker (dừng mọi container khác), không siết sshd, không đổi ufw,
@@ -11,16 +12,32 @@ set -Eeuo pipefail
 
 SHARED=0
 DRY=0
+INSTANCE=app
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --shared) SHARED=1 ;;
     --dry-run) DRY=1 ;;
+    --instance)
+      [[ "${2:-}" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "Tên instance: chữ thường, số, gạch ngang"; exit 1; }
+      INSTANCE="app-$2"
+      shift
+      ;;
     *) echo "Tùy chọn lạ: $1"; exit 1 ;;
   esac
   shift
 done
+# Đường dẫn theo instance, khớp infra/lib.sh (instance mặc định "app" giữ đường dẫn cũ).
+APP_DIR="/opt/$INSTANCE"
+LOG_DIR="/var/log/$INSTANCE"
+if [[ "$INSTANCE" == app ]]; then
+  BACKUP_DIR=/opt/backups/postgres DATA_DIR=/opt/app-data CRON_DB="0 2 * * *" CRON_FILES="30 2 * * *" CRON_DRILL="0 3 1 * *"
+else
+  # Lệch giờ với instance chính để hai lần sao lưu/diễn tập không chạy cùng lúc.
+  BACKUP_DIR="/opt/backups/$INSTANCE" DATA_DIR="/opt/$INSTANCE-data"
+  CRON_DB="0 1 * * *" CRON_FILES="30 1 * * *" CRON_DRILL="0 4 15 * *"
+fi
 CI_KEY="${1:-}"
-[[ "$CI_KEY" == ssh-* ]] || { echo "Dùng: server-setup.sh [--shared] [--dry-run] \"ssh-ed25519 AAAA... ci@github\""; exit 1; }
+[[ "$CI_KEY" == ssh-* ]] || { echo "Dùng: server-setup.sh [--shared] [--instance <tên>] [--dry-run] \"ssh-ed25519 AAAA... ci@github\""; exit 1; }
 [[ $DRY -eq 1 || "$(id -u)" -eq 0 ]] || { echo "Cần chạy bằng root (sudo)"; exit 1; }
 
 log() { printf '[setup] %s\n' "$*"; }
@@ -125,22 +142,22 @@ swap_file() {
 }
 
 app_dirs_cron() {
-  install -d -m 750 -o deploy -g deploy /opt/app /opt/app/infra /opt/backups /opt/backups/postgres
+  install -d -m 750 -o deploy -g deploy "$APP_DIR" "$APP_DIR/infra" /opt/backups "$BACKUP_DIR"
   # Thư mục tệp (FILES_DIR), mount vào api và worker. Chủ là uid 1000 (user node trong image); setgid nhóm deploy để
   # tệp mới thuộc nhóm deploy và backup-files.sh (chạy bằng deploy) đọc được.
-  install -d -m 750 -o deploy -g deploy /opt/app-data
-  install -d -m 2750 -o 1000 -g deploy /opt/app-data/files
-  cat > /etc/cron.d/app <<'CRON'
+  install -d -m 750 -o deploy -g deploy "$DATA_DIR"
+  install -d -m 2750 -o 1000 -g deploy "$DATA_DIR/files"
+  cat > "/etc/cron.d/$INSTANCE" <<CRON
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-0 2 * * *   deploy bash /opt/app/infra/backup-db.sh daily     >> /var/log/app/backup.log 2>&1
-30 2 * * *  deploy bash /opt/app/infra/backup-files.sh        >> /var/log/app/backup.log 2>&1
-0 3 1 * *   deploy bash /opt/app/infra/restore-drill.sh       >> /var/log/app/restore-drill.log 2>&1
-*/10 * * * * deploy bash /opt/app/infra/alert-check.sh        >> /var/log/app/alert-check.log 2>&1
+$CRON_DB   deploy bash $APP_DIR/infra/backup-db.sh daily     >> $LOG_DIR/backup.log 2>&1
+$CRON_FILES  deploy bash $APP_DIR/infra/backup-files.sh        >> $LOG_DIR/backup.log 2>&1
+$CRON_DRILL   deploy bash $APP_DIR/infra/restore-drill.sh       >> $LOG_DIR/restore-drill.log 2>&1
+*/10 * * * * deploy bash $APP_DIR/infra/alert-check.sh        >> $LOG_DIR/alert-check.log 2>&1
 CRON
-  install -d -m 750 -o deploy -g deploy /var/log/app
-  cat > /etc/logrotate.d/app <<'ROT'
-/var/log/app/*.log {
+  install -d -m 750 -o deploy -g deploy "$LOG_DIR"
+  cat > "/etc/logrotate.d/$INSTANCE" <<ROT
+$LOG_DIR/*.log {
   weekly
   rotate 8
   compress
@@ -155,7 +172,7 @@ if [[ $SHARED -eq 1 ]]; then
   log "Chế độ máy DÙNG CHUNG: chỉ thêm phần của app, không đụng dịch vụ khác"
   step "Gói app cần (rclone, jq, curl) nếu thiếu; kiểm Docker có sẵn" shared_packages
   step "User deploy (chỉ đăng nhập bằng SSH key, thuộc nhóm docker)" deploy_user
-  step "Thư mục ứng dụng, sao lưu, cron, logrotate" app_dirs_cron
+  step "Thư mục ứng dụng, sao lưu, cron, logrotate cho instance $INSTANCE ($APP_DIR)" app_dirs_cron
 else
   step "Cập nhật hệ thống, múi giờ, gói cơ bản" base_packages
   step "Cài Docker Engine, cấu hình log, khởi động lại Docker" docker_engine
@@ -163,12 +180,13 @@ else
   step "Siết SSH (chỉ khi root đã có SSH key, tránh tự khóa mình ngoài)" harden_ssh
   step "Tường lửa: chỉ mở SSH, 80, 443" firewall
   step "Swap 2G nếu chưa có và RAM dưới 8 GB" swap_file
-  step "Thư mục ứng dụng, sao lưu, cron, logrotate" app_dirs_cron
+  step "Thư mục ứng dụng, sao lưu, cron, logrotate cho instance $INSTANCE ($APP_DIR)" app_dirs_cron
 fi
 
 [[ $DRY -eq 1 ]] && exit 0
 log "XONG. Việc còn lại (xem docs/runbooks/server-setup.md):"
-log "  1. Tạo /opt/app/infra/.env từ .env.example, chmod 600, chown deploy"
+log "  1. Tạo $APP_DIR/infra/.env từ .env.example, chmod 600, chown deploy (instance khác: DOMAIN, APP_LOCAL_PORT,"
+log "     FILES_DIR=$DATA_DIR/files, BACKUP_REMOTE riêng; GitHub environment đặt biến DEPLOY_PATH=$APP_DIR)"
 log "  2. su - deploy -c 'rclone config' tạo remote cho BACKUP_REMOTE"
 log "  3. docker login ghcr.io bằng tài khoản deploy (token chỉ quyền read:packages)"
 if [[ $SHARED -eq 1 ]]; then

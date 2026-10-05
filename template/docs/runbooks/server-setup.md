@@ -47,5 +47,20 @@ trỏ vào THƯ MỤC GỐC của nhà cung cấp (`gdrive:`), và `BACKUP_REMOT
 Máy chủ không có trình duyệt: `rclone config` chọn "Use web browser" = n, chạy lệnh `rclone authorize ...` nó in ra trên
 máy có trình duyệt, dán kết quả lại; chỉ dán vào máy chủ, không gửi qua kênh chat.
 
+## Staging và production trên cùng một máy
+
+Mỗi môi trường là một instance: thư mục `/opt/app` (mặc định) hoặc `/opt/app-<tên>`, có dự án compose, DB, Redis, thư
+mục tệp, sao lưu, log, cron riêng (`infra/lib.sh` suy instance từ thư mục). Cần trống thêm khoảng 2,5 GB RAM mỗi instance
+khi in PDF (lúc rảnh ~0,4 GB).
+
+1. Production giữ `/opt/app`. Staging: `bash server-setup.sh --shared --instance staging "$(cat deploy_key.pub)"` tạo
+   `/opt/app-staging`, `/opt/app-staging-data/files`, `/opt/backups/app-staging`, cron lệch giờ với production.
+2. `/opt/app-staging/infra/.env`: secret RIÊNG (không chép của production), `DOMAIN=staging.<domain>`, `APP_ORIGIN` theo
+   đó, `APP_LOCAL_PORT` khác production (ví dụ 8096), `FILES_DIR=/opt/app-staging-data/files`, `BACKUP_REMOTE` khác (hoặc
+   để trống nếu không cần sao lưu staging ra ngoài).
+3. Proxy của máy: thêm site `staging.<domain>` tới `127.0.0.1:<APP_LOCAL_PORT của staging>`.
+4. GitHub: environment `staging` thêm biến (Variables, không phải Secrets) `DEPLOY_PATH=/opt/app-staging`; production
+   để trống (mặc định `/opt/app`).
+
 `deploy.sh` chỉ dọn image của chính app (theo `IMAGE_PREFIX`), không `docker image prune -a` (lệnh đó xóa image của mọi dự
 án trên máy).

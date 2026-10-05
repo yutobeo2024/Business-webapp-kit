@@ -1,6 +1,8 @@
 # Production trên một VPS. Chạy từ /opt/app: docker compose -f infra/compose.prod.yml ...
 # Secret nằm trong infra/.env (chmod 600, không commit). APP_TAG do infra/deploy.sh đặt.
-name: app
+# Tên dự án compose = instance (lib.sh suy từ thư mục /opt/<instance>): staging và production trên cùng máy có container,
+# mạng, volume (DB, Redis) riêng.
+name: ${APP_INSTANCE:-app}
 
 x-logging: &logging
   driver: json-file

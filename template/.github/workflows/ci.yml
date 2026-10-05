@@ -1,7 +1,8 @@
 name: CI/CD
 
-# PR: kiểm tra chất lượng. Push main: kiểm tra + build image + deploy STAGING.
-# Push tag vX.Y.Z: kiểm tra + build image + deploy PRODUCTION (cần người duyệt trong environment "production").
+# PR: kiểm tra chất lượng. Push main: kiểm tra + build image sha-<commit> + deploy STAGING.
+# Push tag vX.Y.Z: KHÔNG build lại. Đưa đúng image đã chạy staging lên (gắn thêm tên vX.Y.Z, cùng digest) rồi deploy
+# PRODUCTION. Chỉ commit đã deploy staging thành công mới được gắn tag lên production ("build một lần").
 on:
   pull_request:
   push:
@@ -22,6 +23,7 @@ env:
 jobs:
   quality:
     name: Lint, typecheck, unit test
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -63,6 +65,7 @@ jobs:
 
   integration:
     name: Test tích hợp (PostgreSQL + Redis thật)
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -103,6 +106,7 @@ jobs:
 
   e2e:
     name: E2E (Playwright)
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -156,6 +160,7 @@ jobs:
 
   security:
     name: Quét bảo mật
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -176,7 +181,7 @@ jobs:
 
   images:
     name: Build image ${{ matrix.app }}
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [quality, integration, e2e, security]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -190,20 +195,9 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { fetch-depth: 0 }
-      - name: Tag phát hành phải trỏ vào commit đã có trên main
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          git fetch --no-tags origin main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "::error::Tag $GITHUB_REF_NAME trỏ vào commit chưa được merge vào main (chưa qua review). Không build, không deploy."
-            exit 1
-          fi
       - id: tag
-        name: Xác định tag image
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          else echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"; fi
+        name: Tag image theo commit
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - id: image
         name: Tên image (chữ thường)
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.app }}" >> "$GITHUB_OUTPUT"
@@ -225,15 +219,14 @@ jobs:
       - name: Chromium và font tiếng Việt trong image worker in được PDF
         if: matrix.app == 'worker'
         run: bash tests/infra/worker-pdf-smoke.sh worker-smoke:local
+      # Chỉ một tag bất biến theo commit; không tag trôi (main/latest): deploy luôn chỉ đích danh một bản.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: infra/docker/${{ matrix.app }}.Dockerfile
           push: true
           provenance: true
-          tags: |
-            ${{ steps.image.outputs.name }}:${{ steps.tag.outputs.tag }}
-            ${{ steps.image.outputs.name }}:${{ startsWith(github.ref, 'refs/tags/') && 'release' || 'main' }}
+          tags: ${{ steps.image.outputs.name }}:${{ steps.tag.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
 
@@ -246,11 +239,63 @@ jobs:
       tag: ${{ needs.images.outputs.tag }}
     secrets: inherit
 
+  promote:
+    name: Đưa image đã chạy staging lên bản phát hành (không build lại)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      deployments: read
+    outputs:
+      tag: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+      - name: Tag phải trỏ vào commit đã có trên main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME trỏ vào commit chưa được merge vào main (chưa qua review). Không deploy."
+            exit 1
+          fi
+      - name: Commit này phải đã deploy staging thành công
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ok=""
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=staging&sha=$GITHUB_SHA" --jq '.[].id'); do
+            state="$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" --jq '.[0].state')"
+            [[ "$state" == success ]] && ok=1 && break
+          done
+          if [[ -z "$ok" ]]; then
+            echo "::error::Commit ${GITHUB_SHA::7} chưa deploy staging thành công. Merge vào main, chờ staging xanh và kiểm tra, rồi mới gắn tag."
+            exit 1
+          fi
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Gắn tên bản phát hành cho đúng image của staging, so digest
+        run: |
+          src="sha-${GITHUB_SHA::7}"
+          for app in api worker web; do
+            name="ghcr.io/${GITHUB_REPOSITORY,,}/$app"
+            docker buildx imagetools create -t "$name:$GITHUB_REF_NAME" "$name:$src"
+            a="$(docker buildx imagetools inspect "$name:$src" --format '{{json .Manifest.Digest}}')"
+            b="$(docker buildx imagetools inspect "$name:$GITHUB_REF_NAME" --format '{{json .Manifest.Digest}}')"
+            [[ "$a" == "$b" ]] || { echo "::error::$app: digest khác nhau ($a / $b)"; exit 1; }
+            echo "$app: $GITHUB_REF_NAME = $src = $a"
+          done
+
   deploy-production:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: images
+    needs: promote
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production
-      tag: ${{ needs.images.outputs.tag }}
+      tag: ${{ needs.promote.outputs.tag }}
     secrets: inherit

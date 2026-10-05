@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Khôi phục DB production từ một file sao lưu. GHI ĐÈ dữ liệu hiện tại.
-#   infra/restore-db.sh /opt/backups/postgres/<file>.dump
+#   infra/restore-db.sh <thư mục sao lưu của instance>/<file>.dump   (mặc định /opt/backups/postgres)
 # Luôn sao lưu trạng thái hiện tại trước, nên có thể quay lại nếu khôi phục nhầm.
 set -Eeuo pipefail
 # shellcheck source=SCRIPTDIR/lib.sh

@@ -1,5 +1,22 @@
 # Nhật ký thay đổi của kit
 
+## 1.7.0 (05/10/2026)
+
+Build một lần, kiểm trên staging, đưa đúng image đó lên production; staging và production chạy song song trên một máy.
+
+- CI: image chỉ build khi merge `main` (tag bất biến `sha-<commit>`, bỏ tag trôi `main`/`release`). Gắn tag `vX.Y.Z`
+  KHÔNG build lại và không chạy lại test: job `promote` kiểm tag nằm trên `main` và commit đó đã deploy staging thành
+  công (chưa thì dừng), gắn thêm tên `vX.Y.Z` cho đúng image `sha-<commit>` (so digest) rồi deploy production. Trước đây
+  gắn tag là build lại từ đầu, có thể ra image khác bản đã kiểm (Dockerfile có nâng gói hệ thống).
+- `deploy.sh` ghi digest từng image vào `deploy-history.log` để đối chiếu staging với production.
+- Nhiều môi trường trên một máy (instance): thư mục `/opt/app` (mặc định, giữ nguyên đường dẫn cũ) hoặc `/opt/app-<tên>`,
+  mỗi instance có dự án compose, DB, Redis, thư mục tệp, sao lưu, log, cron riêng. `server-setup.sh --instance <tên>`,
+  biến GitHub `DEPLOY_PATH` theo environment.
+- Runbook deploy, server-setup (mục staging và production cùng máy), skill `/release` theo quy trình mới.
+
+Nâng cấp dự án tạo từ 1.6.x: `kit-sync`. Máy đang chạy giữ instance `app` (không đổi gì). Từ bản này, gắn tag cho commit
+CHƯA chạy staging sẽ bị CI từ chối: merge vào `main`, chờ staging xanh, rồi mới gắn tag đúng commit đó.
+
 ## 1.6.1 (05/10/2026)
 
 Sửa theo lần deploy thật đầu tiên (VPS dùng chung đang chạy 6 dự án, staging rồi production, rollback, sao lưu lên

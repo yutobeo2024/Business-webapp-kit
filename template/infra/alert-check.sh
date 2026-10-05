@@ -5,7 +5,7 @@ set -Euo pipefail
 source "$(dirname "$0")/lib.sh"
 load_env
 
-DIR="${BACKUP_DIR:-/opt/backups/postgres}"
+DIR="${BACKUP_DIR:-$DEFAULT_BACKUP_DIR}"
 STATE="$INFRA_DIR/.alert-state"
 touch "$STATE"
 problems=()
@@ -24,7 +24,7 @@ else
 fi
 
 # Tệp đính kèm/tệp xuất (backup-files.sh): chỉ kiểm khi máy có thư mục tệp và đã cấu hình sao lưu ra ngoài.
-if [[ -d "${FILES_DIR:-/opt/app-data/files}" && -n "${BACKUP_REMOTE:-}" ]]; then
+if [[ -d "${FILES_DIR:-$DEFAULT_FILES_DIR}" && -n "${BACKUP_REMOTE:-}" ]]; then
   if [[ -f "$DIR/.last-success-files" ]]; then
     age_h=$(( ( $(date +%s) - $(cat "$DIR/.last-success-files") ) / 3600 ))
     (( age_h > 26 )) && problems+=("Bản sao lưu tệp gần nhất đã ${age_h} giờ")

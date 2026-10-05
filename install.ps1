@@ -2,7 +2,7 @@
 # File lưu UTF-8 CÓ BOM: thiếu BOM thì PowerShell 5.1 đọc theo bảng mã ANSI, tiếng Việt bị lỗi font cả trong commit.
 param([Parameter(Mandatory = $true)][string]$Dest, [switch]$Force)
 $ErrorActionPreference = "Stop"
-$Version = "1.6.1"
+$Version = "1.7.0"
 $Src = Join-Path $PSScriptRoot "template"
 
 # Dự án khóa Node 22/24 LTS (engine-strict): Node khác thì mọi lệnh pnpm lồng nhau, kể cả hook Stop của Claude Code, đều lỗi.
