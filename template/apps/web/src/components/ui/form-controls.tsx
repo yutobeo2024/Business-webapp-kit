@@ -5,7 +5,7 @@ import { controlClass, Input } from "./input";
 
 /** Ô chọn (thẻ select gốc: bàn phím, trình đọc màn hình, điện thoại đều dùng được, không cần thư viện). */
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(controlClass, "h-10 w-auto pr-8 pl-2.5", className)} {...props} />;
+  return <select className={cn(controlClass, "h-10 w-auto max-w-full pr-8 pl-2.5", className)} {...props} />;
 }
 
 export function Checkbox({

@@ -112,3 +112,49 @@ test("thu gọn menu: chỉ còn icon, mục vẫn bấm được, mở lại th
   await page.getByRole("button", { name: "Mở rộng menu" }).click();
   await expect(nav.getByText("Người dùng")).toBeVisible();
 });
+
+test("bảng: ô ngắn không ngắt dòng, cột chữ dài (đánh dấu whitespace-normal) vẫn ngắt được", async ({
+  pageAs,
+}) => {
+  const page = await pageAs("admin");
+  await page.goto("/admin/users");
+  await expect(page.getByRole("table")).toBeVisible();
+  const styles = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll("tbody td")];
+    const ws = (el: Element | undefined) => (el ? getComputedStyle(el).whiteSpace : "không có ô");
+    return {
+      short: ws(cells.find((c) => !c.classList.contains("whitespace-normal"))),
+      long: ws(cells.find((c) => c.classList.contains("whitespace-normal"))),
+    };
+  });
+  expect(styles).toEqual({ short: "nowrap", long: "normal" });
+});
+
+test("ngăn kéo đang mở mà màn hình nới rộng (xoay máy tính bảng): ngăn kéo đóng, trang vẫn bấm được", async ({
+  pageAs,
+}) => {
+  const page = await pageAs("admin");
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await expect(page.getByRole("navigation", { name: "Menu chính" })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page
+    .getByRole("navigation", { name: "Menu chính" })
+    .getByRole("link", { name: "Người dùng" })
+    .click();
+  await expect(page.getByRole("heading", { name: "Người dùng" })).toBeVisible();
+});
+
+test("hộp thoại: mở ra thì con trỏ nằm ở ô nhập đầu tiên; Ctrl+K không chen vào khi đang nhập form", async ({
+  pageAs,
+}) => {
+  const page = await pageAs("admin");
+  await page.goto("/admin/departments");
+  await page.getByRole("button", { name: "Thêm phòng ban" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Mã phòng ban")).toBeFocused();
+  await page.keyboard.press("Control+k");
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(dialog.getByLabel("Mã phòng ban")).toBeVisible();
+});

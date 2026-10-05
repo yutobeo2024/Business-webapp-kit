@@ -18,7 +18,7 @@ Bộ giao diện mới ("phương án B": bảng điều khiển vận hành), �
   ngắt dòng trong ô (tên, mã, tiền, nút), cuộn ngang trong khung. Hộp thoại dùng Radix, trên điện thoại hiện sát đáy.
 - Làm lại trang đăng nhập (hai cột), trang chủ, và mọi trang có sẵn theo component mới.
 - Luật cho agent: `.claude/rules/frontend.md`, `docs/ui.md`, `scripts/check-ui.mjs` (báo màu viết cứng và
-  `window.confirm`; cảnh báo trong `verify:quick`, lỗi trong CI với `--strict`).
+  `window.confirm`; cảnh báo trong `verify:quick`; `--strict` để chặn hẳn, dự án tự bật trong CI khi trang đã sạch).
 - E2E giao diện `e2e/ui.spec.ts`: khung trang ở 375/768/1280px, không cuộn ngang, ngăn kéo, sáng/tối, màu nút theo
   thương hiệu, thu gọn menu.
 - `kit-sync`: `brand.json`, `brand.css`, `favicon.svg` là tệp của dự án, chỉ thêm khi chưa có, không ghi đè.

@@ -13,7 +13,7 @@ export const buttonVariants = cva(
         soft: "bg-primary-soft text-primary-text hover:bg-primary-soft/70",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         ghost: "text-foreground hover:bg-muted",
-        link: "h-auto px-0 font-medium text-primary-text underline-offset-4 hover:underline",
+        link: "px-0 font-medium text-primary-text underline-offset-4 hover:underline",
       },
       // Mặc định cao 40px: đủ lớn để chạm bằng ngón tay. `sm` chỉ dùng trong hàng của bảng và thanh công cụ dày.
       size: { default: "h-10 px-4", sm: "h-9 px-3 text-[13px]", lg: "h-11 px-6", icon: "size-10" },

@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { Dialog as RadixDialog } from "radix-ui";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Button } from "./button";
 import { Field } from "./field";
@@ -26,6 +26,7 @@ export function Dialog({
   size?: "md" | "lg";
   children: ReactNode;
 }) {
+  const body = useRef<HTMLDivElement>(null);
   return (
     <RadixDialog.Root open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
       <RadixDialog.Portal>
@@ -33,6 +34,16 @@ export function Dialog({
         <RadixDialog.Content
           aria-describedby={undefined}
           onInteractOutside={(e) => e.preventDefault()}
+          onOpenAutoFocus={(e) => {
+            // Vào thẳng ô nhập hoặc nút đầu tiên của nội dung (như <dialog> gốc), không dừng ở nút X.
+            const first = body.current?.querySelector<HTMLElement>(
+              "input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href]",
+            );
+            if (first) {
+              e.preventDefault();
+              first.focus();
+            }
+          }}
           className={cn(
             "fixed z-50 flex max-h-[92dvh] w-full flex-col bg-popover text-popover-foreground shadow-pop outline-none",
             "inset-x-0 bottom-0 rounded-t-2xl sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl",
@@ -51,7 +62,9 @@ export function Dialog({
               <X aria-hidden className="size-4" />
             </RadixDialog.Close>
           </div>
-          <div className="space-y-4 overflow-y-auto px-5 py-4">{children}</div>
+          <div ref={body} className="space-y-4 overflow-y-auto px-5 py-4">
+            {children}
+          </div>
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>

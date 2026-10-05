@@ -22,7 +22,7 @@
   --popover-foreground: #1c2836;
   --muted: #f1f5f6;
   --muted-foreground: #5f6d7a;
-  --faint: #8794a0;
+  --faint: #627080;
   --border: #e2e9ec;
   --input: #cdd8dc;
   --overlay: rgb(12 22 34 / 0.45);
@@ -32,16 +32,17 @@
   --primary-text: var(--brand-text);
   --primary-soft: color-mix(in oklab, var(--brand) 13%, var(--card));
   --primary-hover: color-mix(in oklab, var(--brand-primary) 86%, #0f1d33);
-  --ring: color-mix(in oklab, var(--brand) 55%, transparent);
+  /* Vòng tiêu điểm: màu chữ thương hiệu (đạt tương phản trên nền sáng và tối), không pha trong suốt. */
+  --ring: var(--brand-text);
   /* Tiêu đề: màu mực pha một chút màu thương hiệu, mỗi khách có tông riêng mà vẫn đọc rõ. */
   --heading: color-mix(in oklab, #0f1d33 86%, var(--brand));
   --accent: var(--muted);
   --accent-foreground: var(--heading);
 
-  --destructive: #c92f3a;
+  --destructive: #c02a35;
   --destructive-foreground: #ffffff;
   --success: #0f7a45;
-  --warning: #a15f00;
+  --warning: #955800;
   --info: #2563c9;
   --neutral: #5f6d7a;
 
@@ -70,7 +71,7 @@
   --popover-foreground: #dde5ec;
   --muted: #18222c;
   --muted-foreground: #93a2b0;
-  --faint: #6f8193;
+  --faint: #7b8d9e;
   --border: #233140;
   --input: #2f3f4f;
   --overlay: rgb(0 0 0 / 0.6);

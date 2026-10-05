@@ -1,6 +1,6 @@
 // Giữ giao diện đi theo token (đổi thương hiệu và sáng/tối ở một chỗ):
 //   node scripts/check-ui.mjs            liệt kê chỗ vi phạm trong apps/web/src, KHÔNG làm hỏng lệnh (cảnh báo)
-//   node scripts/check-ui.mjs --strict   có vi phạm thì thoát mã 1 (CI của dự án mới bật sẵn)
+//   node scripts/check-ui.mjs --strict   có vi phạm thì thoát mã 1 (bật trong CI của dự án khi các trang đã sạch)
 // Báo: màu bảng Tailwind viết cứng (text-neutral-500, bg-red-600, bg-white), mã màu viết thẳng trong class
 // (bg-[#fff]), và hộp thoại của trình duyệt (window.confirm/alert/prompt). Dùng tên token trong styles.css thay thế:
 // bg-card, text-muted-foreground, border-border, text-destructive, text-success, bg-primary...
@@ -16,7 +16,7 @@ const HARD_COLOR = new RegExp(
   `(?<![\\w-])(?:${PROPS})-(?:(?:${PALETTE})-\\d{2,3}|white|black|\\[(?:#|rgb|hsl|oklch)[^\\]]*\\])`,
   "g",
 );
-const BROWSER_DIALOG = /(?<![\w.])(?:window\.)?(?:confirm|alert|prompt)\(/g;
+const BROWSER_DIALOG = /(?<![\w.])(?:(?:window|globalThis|self)\.)?(?:confirm|alert|prompt)\(/g;
 
 /** Các chỗ vi phạm trong một tệp: `{ line, kind: "color" | "dialog", match }`. */
 export function findIssues(source) {

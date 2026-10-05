@@ -101,6 +101,13 @@ function foregroundOn(bg) {
   return contrast(bg, INK) >= AA ? INK : "#000000";
 }
 
+/** Nền nhuộm nhẹ màu thương hiệu (khớp `--primary-soft` trong styles.css: 13% màu trên nền thẻ), tính xấp xỉ theo sRGB. */
+export function softTint(brand, surface) {
+  const [a, b] = [channels(normalizeHex(brand)), channels(normalizeHex(surface))];
+  const mixed = a.map((v, i) => Math.round((v * 0.13 + b[i] * 0.87) * 255));
+  return `#${mixed.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
 /** Từ màu thương hiệu, tính bộ màu dùng trong giao diện cho chế độ sáng và tối. */
 export function buildTheme({ primary, primaryDark }) {
   const brand = normalizeHex(primary);
@@ -119,16 +126,21 @@ export function buildTheme({ primary, primaryDark }) {
     brand,
     primary: button,
     primaryForeground: foregroundOn(button),
-    // Chữ liên kết và mục đang chọn nằm trên nền trắng hoặc nền nhuộm nhẹ màu thương hiệu: lấy dư một chút.
-    primaryText: shiftUntil(brand, -1, WHITE, AA + 0.6),
+    // Chữ liên kết và mục đang chọn nằm trên nền trắng hoặc nền nhuộm nhẹ màu thương hiệu: tính trên nền nhuộm (tối hơn).
+    primaryText: shiftUntil(brand, -1, softTint(brand, WHITE), AA + 0.2),
   };
   // Tối: màu phải sáng lên mới nổi trên nền tối; khách có sẵn màu cho nền tối thì khai báo primaryDark.
   const brandDark = primaryDark ? normalizeHex(primaryDark) : shiftUntil(brand, 1, DARK_SURFACE, AA + 0.6);
+  if (primaryDark && contrast(brandDark, DARK_SURFACE) < 3) {
+    throw new Error(
+      `primaryDark ${brandDark} quá tối: nút sẽ chìm vào nền tối. Chọn tông sáng hơn, hoặc bỏ trường này để script tự tính.`,
+    );
+  }
   const dark = {
     brand: brandDark,
     primary: brandDark,
     primaryForeground: foregroundOn(brandDark),
-    primaryText: shiftUntil(brandDark, 1, DARK_SURFACE, AA),
+    primaryText: shiftUntil(brandDark, 1, softTint(brandDark, DARK_SURFACE), AA + 0.2),
   };
   return { light, dark };
 }
@@ -186,7 +198,14 @@ export function renderFavicon(brand) {
   );
 }
 
-function parseArgs(argv) {
+/** Gộp thay đổi từ dòng lệnh vào brand.json. Đổi màu chủ đạo mà không nêu màu nền tối thì bỏ màu nền tối cũ. */
+export function mergeBrand(current, changes) {
+  const next = { ...current, ...changes };
+  if (changes.primary && !changes.primaryDark) delete next.primaryDark;
+  return next;
+}
+
+export function parseArgs(argv) {
   const map = {
     "--primary": "primary",
     "--primary-dark": "primaryDark",
@@ -197,9 +216,12 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--check") out.check = true;
-    else if (a === "--radius") out.changes.radius = Number(argv[++i]);
-    else if (map[a]) out.changes[map[a]] = argv[++i];
-    else throw new Error(`Tham số lạ: ${a}. Xem cách dùng ở đầu scripts/brand.mjs.`);
+    else if (a === "--radius" || map[a]) {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("--")) throw new Error(`Thiếu giá trị cho ${a}.`);
+      if (a === "--radius") out.changes.radius = Number(value);
+      else out.changes[map[a]] = value;
+    } else throw new Error(`Tham số lạ: ${a}. Xem cách dùng ở đầu scripts/brand.mjs.`);
   }
   return out;
 }
@@ -210,7 +232,15 @@ function main() {
   const cssFile = join(web, "src", "brand.css");
   const iconFile = join(web, "public", "favicon.svg");
   const { changes, check } = parseArgs(process.argv.slice(2));
-  const brand = validateBrand({ ...JSON.parse(readFileSync(jsonFile, "utf8")), ...changes });
+  let current;
+  try {
+    current = JSON.parse(readFileSync(jsonFile, "utf8"));
+  } catch {
+    throw new Error(
+      "apps/web/brand.json không đọc được: thiếu tệp hoặc sai cú pháp JSON (dấu phẩy, ngoặc kép).",
+    );
+  }
+  const brand = validateBrand(mergeBrand(current, changes));
   const css = renderCss(brand);
   if (check) {
     if (existsSync(cssFile) && readFileSync(cssFile, "utf8").replace(/\r\n/g, "\n") === css) return;

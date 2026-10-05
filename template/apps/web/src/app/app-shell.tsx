@@ -17,6 +17,7 @@ import { Dialog as RadixDialog } from "radix-ui";
 import { useEffect, useMemo, useState } from "react";
 import type { CurrentUser } from "@app/shared";
 import { Skeleton } from "@/components/ui/empty-state";
+import { Logo } from "@/components/ui/logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,20 +46,6 @@ const initials = (name: string) =>
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
 
-export function Logo({ className }: { className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary text-[13px] font-bold tracking-wide text-primary-foreground",
-        className,
-      )}
-    >
-      {BRAND.shortName}
-    </span>
-  );
-}
-
 /** Menu chính. Cả trang chỉ có MỘT vùng `navigation` hiển thị: ở thanh bên (màn rộng) hoặc trong ngăn kéo (điện thoại). */
 function MainNav({
   groups,
@@ -71,10 +58,12 @@ function MainNav({
 }) {
   return (
     <nav aria-label="Menu chính" className="flex flex-col gap-0.5">
-      {groups.map((g) => (
+      {groups.map((g, index) => (
         <div key={g.label} className="flex flex-col gap-0.5">
           {collapsed ? (
-            <div className="mx-2 my-2 h-px bg-sidebar-border first:hidden" />
+            index > 0 ? (
+              <div className="mx-2 my-2 h-px bg-sidebar-border" />
+            ) : null
           ) : (
             <p className="px-3 pt-4 pb-1.5 text-[11.5px] font-semibold tracking-wide text-faint">{g.label}</p>
           )}
@@ -130,6 +119,8 @@ function QuickSearch({ groups }: { groups: NavGroup[] }) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        // Đang mở hộp thoại khác (form đang nhập): không chen vào, tránh rời trang làm mất dữ liệu.
+        if (document.querySelector('[role="dialog"]')) return;
         setOpen(true);
       }
     };
@@ -147,7 +138,13 @@ function QuickSearch({ groups }: { groups: NavGroup[] }) {
     void navigate({ to });
   };
   return (
-    <RadixDialog.Root open={open} onOpenChange={setOpen}>
+    <RadixDialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setText("");
+      }}
+    >
       <RadixDialog.Trigger className="flex h-10 w-full max-w-sm items-center gap-2 rounded-lg bg-muted px-3 text-faint hover:text-muted-foreground max-sm:size-10 max-sm:justify-center max-sm:px-0">
         <Search aria-hidden className="size-4 shrink-0" />
         <span className="truncate max-sm:sr-only">Tìm trang...</span>
@@ -168,7 +165,7 @@ function QuickSearch({ groups }: { groups: NavGroup[] }) {
               if (results[0]) go(results[0].to);
             }}
           >
-            <label className="flex items-center gap-2.5 border-b border-border px-4">
+            <label className="flex items-center gap-2.5 border-b border-border px-4 focus-within:border-primary-text">
               <Search aria-hidden className="size-4 text-faint" />
               <span className="sr-only">Tên trang</span>
               <input
@@ -273,6 +270,15 @@ export function AppShell() {
   const me = useMe();
   const [collapsed, setCollapsed] = useState(() => readPref("sidebar") === "collapsed");
   const [drawer, setDrawer] = useState(false);
+  // Nới màn hình (xoay máy tính bảng) khi ngăn kéo đang mở: đóng nó, nếu không lớp khóa nền vẫn chặn cả trang.
+  useEffect(() => {
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const close = () => {
+      if (wide.matches) setDrawer(false);
+    };
+    wide.addEventListener("change", close);
+    return () => wide.removeEventListener("change", close);
+  }, []);
 
   if (me.isPending) {
     return (

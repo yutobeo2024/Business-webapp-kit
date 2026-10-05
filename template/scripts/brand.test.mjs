@@ -5,9 +5,12 @@ import {
   buildTheme,
   contrast,
   DARK_SURFACE,
+  mergeBrand,
   normalizeHex,
+  parseArgs,
   renderCss,
   renderFavicon,
+  softTint,
   toOklch,
   validateBrand,
 } from "./brand.mjs";
@@ -115,4 +118,32 @@ test("favicon mặc định: ô bo góc màu thương hiệu, chữ viết tắt
   assert.match(svg, /^<svg /);
   assert.match(svg, /fill="#0b5fff"/);
   assert.match(svg, />A&amp;</);
+});
+
+test("chữ liên kết đọc được cả trên nền nhuộm màu thương hiệu (mục menu đang chọn, huy hiệu)", () => {
+  for (const primary of ["#0B5FFF", "#e60000", "#1aa5a2", "#ffd400", "#7a1f2b", "#16a34a", "#f97316"]) {
+    const t = buildTheme({ primary });
+    assert.ok(contrast(t.light.primaryText, softTint(t.light.brand, "#ffffff")) >= AA, `${primary} sáng`);
+    assert.ok(contrast(t.dark.primaryText, softTint(t.dark.brand, DARK_SURFACE)) >= AA, `${primary} tối`);
+  }
+});
+
+test("primaryDark quá tối (nút chìm vào nền tối) bị từ chối", () => {
+  assert.throws(() => buildTheme({ primary: "#1aa5a2", primaryDark: "#101820" }), /primaryDark/);
+});
+
+test("đổi màu chủ đạo mà không nêu màu cho nền tối: bỏ primaryDark cũ để script tự tính theo màu mới", () => {
+  const current = { name: "A", shortName: "A", primary: "#1aa5a2", primaryDark: "#4fd1cd", radius: 10 };
+  assert.equal(mergeBrand(current, { primary: "#0B5FFF" }).primaryDark, undefined);
+  assert.equal(mergeBrand(current, { name: "B" }).primaryDark, "#4fd1cd");
+  assert.equal(mergeBrand(current, { primary: "#0B5FFF", primaryDark: "#7aa7ff" }).primaryDark, "#7aa7ff");
+});
+
+test("tham số dòng lệnh thiếu giá trị thì báo lỗi, không âm thầm xóa trường", () => {
+  assert.throws(() => parseArgs(["--primary-dark"]), /--primary-dark/);
+  assert.throws(() => parseArgs(["--name", "--short", "A"]), /--name/);
+  assert.deepEqual(parseArgs(["--primary", "#0bf", "--check"]), {
+    changes: { primary: "#0bf" },
+    check: true,
+  });
 });

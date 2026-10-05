@@ -53,7 +53,7 @@ jobs:
       - name: Kiểm hành vi script vận hành (docker giả, không đụng máy chủ)
         run: bash tests/infra/run.sh
       - name: Migration không phá tương thích với bản đang chạy (rollback chỉ quay image)
-        run: node --test scripts/check-migrations.test.mjs scripts/remove-sample.test.mjs scripts/project-setup.test.mjs scripts/brand.test.mjs scripts/check-ui.test.mjs && node scripts/check-migrations.mjs && node scripts/brand.mjs --check && node scripts/check-ui.mjs --strict
+        run: node --test scripts/check-migrations.test.mjs scripts/remove-sample.test.mjs scripts/project-setup.test.mjs scripts/brand.test.mjs scripts/check-ui.test.mjs && node scripts/check-migrations.mjs && node scripts/brand.mjs --check
       - name: Migration khớp schema (phát hiện quên pnpm db:generate)
         run: |
           pnpm --filter @app/db exec drizzle-kit generate --name ci_drift_check

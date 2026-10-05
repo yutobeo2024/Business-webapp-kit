@@ -53,7 +53,7 @@ export function DataTable({
             "[&_tbody_tr:hover]:bg-muted/50",
             // Ô không tự ngắt dòng (tên, mã, tiền, ngày, nút): bảng rộng thì cuộn trong khung. Cột chữ dài tự thêm
             // `whitespace-normal min-w-56` ở trang.
-            "[&_td]:whitespace-nowrap",
+            "[&_td:not(.whitespace-normal)]:whitespace-nowrap",
           )}
         >
           {children}
@@ -91,7 +91,10 @@ export function SortTh<S extends string>({
       aria-sort={active ? (order === "asc" ? "ascending" : "descending") : "none"}
     >
       <button
-        className={cn("inline-flex items-center gap-1 hover:text-heading", active && "text-heading")}
+        className={cn(
+          "-my-2.5 inline-flex min-h-10 items-center gap-1 hover:text-heading",
+          active && "text-heading",
+        )}
         onClick={() => onSort(field, active && order === "desc" ? "asc" : "desc")}
       >
         {label}

@@ -50,7 +50,7 @@ Trang chỉ dùng tên ngữ nghĩa, không dùng màu bảng Tailwind (`text-ne
 | Chữ số thẳng cột                   | `num`                                                                                       |
 
 `node scripts/check-ui.mjs` liệt kê chỗ còn dùng màu viết cứng hoặc `window.confirm`; chạy trong `pnpm verify:quick`
-(cảnh báo) và trong CI với `--strict` (lỗi).
+(cảnh báo, không làm hỏng lệnh). Khi các trang của dự án đã sạch, thêm `node scripts/check-ui.mjs --strict` vào CI để chặn hẳn.
 
 ## Component (apps/web/src/components/ui)
 

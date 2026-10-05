@@ -1,4 +1,5 @@
 import { EXPORT_STATUS_LABELS, type ExportStatus, formatDateTime } from "@app/shared";
+import { buttonVariants } from "@/components/ui/button";
 import { DataTable, Th } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/form-controls";
 import { PageHeader } from "@/components/ui/page";
@@ -53,11 +54,7 @@ export function ExportsPage() {
               <td className="p-3 whitespace-nowrap">{e.expiresAt ? formatDateTime(e.expiresAt) : ""}</td>
               <td className="p-3">
                 {e.downloadable ? (
-                  <a
-                    className="font-medium text-primary-text underline-offset-4 hover:underline"
-                    href={exportDownloadUrl(e.id)}
-                    download
-                  >
+                  <a className={buttonVariants({ variant: "link" })} href={exportDownloadUrl(e.id)} download>
                     Tải {e.fileName}
                   </a>
                 ) : e.status === "DONE" ? (
