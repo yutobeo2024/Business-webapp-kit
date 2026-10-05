@@ -24,7 +24,7 @@ thương hiệu).
 - Đổi màu theo khách hàng ở một chỗ (`brand.json` -> token CSS), chữ trên nút tự chọn trắng/đen đủ tương phản; màu
   trạng thái cố định; sáng/tối.
 - Phong cách: tạm chốt "phương án B" (bảng điều khiển vận hành sinh động: ô số liệu có biểu đồ nhỏ, chip icon pastel,
-  biểu đồ, bảng/Kanban, trang chi tiết có bước duyệt và tab). Bản mẫu HTML: artifact riêng tư của người dùng.
+  biểu đồ, bảng/Kanban, trang chi tiết có bước duyệt và tab). Bản mẫu HTML: `docs/ui-mau/phuong-an-b.html` (A: `phuong-an-a.html`), mở bằng trình duyệt.
 
 Việc tiếp theo:
 1. Thử Google Stitch (MCP chính thức `https://stitch.googleapis.com/mcp`, khóa API trong cấu hình user của Claude Code):
