@@ -1,5 +1,35 @@
 # Nhật ký thay đổi của kit
 
+## 1.6.1 (05/10/2026)
+
+Sửa theo lần deploy thật đầu tiên (VPS dùng chung đang chạy 6 dự án, staging rồi production, rollback, sao lưu lên
+Google Drive mã hóa, diễn tập khôi phục): mọi bước của kit chạy được ngay lần đầu, các chỗ dưới đây là chỗ vướng.
+
+- Tin thành công (deploy xong, khôi phục xong, diễn tập OK) dùng `notify` (nhãn "THÔNG BÁO"), không còn gắn nhãn
+  "CẢNH BÁO" như sự cố.
+- `infra/proxy-examples/caddy-add-site.sh`: thêm site vào Caddy sẵn có an toàn (sao lưu, một dòng import, validate với
+  đúng EnvironmentFile, reload nóng; Caddy chạy `admin off` thì restart, kiểm site khác trước/sau, lỗi thì khôi phục).
+- Runbook `server-setup.md`: repo riêng tư gói GitHub Free không có Required reviewers (gắn tag là bước duyệt); lấy cấu
+  hình proxy đang chạy từ `systemctl cat` (ExecReload có thể trỏ tệp khác); đặt remote crypt và `BACKUP_REMOTE` để không
+  lồng thư mục; cấu hình rclone trên máy không có trình duyệt.
+
+## 1.6.0 (05/10/2026)
+
+Deploy lên máy chủ DÙNG CHUNG (đã có dịch vụ khác và proxy giữ 80/443), trường hợp thường gặp với khách nhỏ. Phát hiện
+khi chuẩn bị deploy thật lên một VPS đang chạy 6 dự án.
+
+- `PROXY_MODE=shared` trong `infra/.env`: Caddy của app chỉ nghe `127.0.0.1:APP_LOCAL_PORT` (`compose.shared.yml`,
+  `Caddyfile.shared`), proxy của máy lo HTTPS; header bảo mật, giới hạn body, định tuyến `/api` dùng chung một tệp
+  `caddy-app.caddy` cho cả hai chế độ. `TRUST_PROXY_HOPS=2` để giới hạn đăng nhập theo IP vẫn thấy IP thật.
+- `server-setup.sh --shared`: chỉ tạo user `deploy`, thư mục, cron, logrotate, cài `rclone`/`jq` nếu thiếu; không
+  `apt upgrade`, không khởi động lại Docker, không đụng sshd/ufw/swap. `--dry-run` in các bước trước khi làm.
+- Mẫu site cho proxy của máy: `infra/proxy-examples/` (Caddy, nginx). Runbook `server-setup.md` mục "Máy chủ dùng chung".
+- Sửa: `deploy.sh` từng chạy `docker image prune -af`, xóa image không dùng của MỌI dự án trên máy (dự án khác mất bản để
+  quay lại). Nay chỉ xóa image cũ của chính app theo `IMAGE_PREFIX`, giữ tag mới và tag trước.
+
+Nâng cấp dự án tạo từ 1.5.x: `kit-sync` (infra là tệp bảo vệ: dự án chưa sửa thì lấy bản kit). Máy chủ đang chạy chế độ
+riêng không cần đổi gì; `Caddyfile` nay import `caddy-app.caddy`, deploy kế tiếp tự đồng bộ cả hai tệp.
+
 ## 1.5.0 (04/10/2026)
 
 Bước 4 của lộ trình: nâng dự án đã tạo lên bản kit mới.
