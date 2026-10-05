@@ -37,6 +37,7 @@ const V1 = {
   "template/infra/deploy.sh": "echo 1\n",
   "template/apps/api/src/modules/purchase-requests/pr.ts": "mau\n",
   "template/registry.ts": "export const R = [\n  'core',\n];\n",
+  "template/apps/web/brand.json": '{ "primary": "#111111" }\n',
   "CHANGELOG.md": "# Nhật ký\n\n## 1.0.0\n\nĐầu tiên.\n",
 };
 const V2 = {
@@ -46,6 +47,7 @@ const V2 = {
   "template/project-edited-old.ts": null, // kit xóa, dự án đã sửa
   "template/conflict.ts": "giá trị = 2\n", // cả hai đổi cùng dòng
   "template/new.ts": "moi\n", // kit thêm
+  "template/apps/web/brand.json": '{ "primary": "#222222" }\n', // kit đổi mặc định, dự án đã đặt màu của khách
   "template/same-idea.ts": "kit làm\n", // dự án đã tự có tệp cùng tên
   "template/pnpm-lock.yaml": "lock: 2\n",
   "template/.env.example":
@@ -101,6 +103,7 @@ function makeProject(kit, { removeSample = false } = {}) {
     "same-idea.ts": "du an tu lam\n",
     "packages/db/migrations/0001_du_an.sql": "CREATE TABLE c (id int);\n",
     "module.ts": "nghiep vu\n",
+    "apps/web/brand.json": '{ "primary": "#0b5fff" }\n',
   });
   if (removeSample) {
     rmSync(join(proj, "apps/api/src/modules/purchase-requests"), { recursive: true, force: true });
@@ -128,6 +131,7 @@ test("phân loại và áp dụng: kit đổi, thêm, xóa, trộn, xung đột,
   assert.match(read(proj, "conflict.ts"), /<<<<<<< du-an[\s\S]*giá trị = 99[\s\S]*>>>>>>> kit-1\.1\.0/);
   assert.match(read(proj, "same-idea.ts"), /<<<<<<</);
   assert.equal(read(proj, "module.ts"), "nghiep vu\n");
+  assert.equal(read(proj, "apps/web/brand.json"), '{ "primary": "#0b5fff" }\n'); // thương hiệu là của dự án
   assert.equal(read(proj, "pnpm-lock.yaml"), "lock: 1\n");
   assert.equal(existsSync(join(proj, "packages/db/migrations/0001_add.sql")), false);
   // .env: chỉ thêm khóa thiếu (DB test suy từ DB dev của dự án), không sửa khóa đã có

@@ -24,7 +24,8 @@
     "claude:selftest": "node .claude/hooks/selftest.mjs",
     "sample:remove": "node scripts/remove-sample.mjs",
     "db:reset-local": "node scripts/db-reset-local.mjs",
-    "project:setup": "node scripts/project-setup.mjs"
+    "project:setup": "node scripts/project-setup.mjs",
+    "brand": "node scripts/brand.mjs"
   },
   "devDependencies": {
     "@app/tsconfig": "workspace:*",
