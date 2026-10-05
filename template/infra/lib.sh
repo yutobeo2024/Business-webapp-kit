@@ -17,6 +17,10 @@ load_env() {
   # shellcheck disable=SC1091
   source "$INFRA_DIR/.env"
   set +a
+  # Máy chủ dùng chung (đã có proxy giữ 80/443): Caddy của app chỉ nghe loopback (compose.shared.yml).
+  if [[ "${PROXY_MODE:-}" == shared && " ${COMPOSE[*]} " != *" $INFRA_DIR/compose.shared.yml "* ]]; then
+    COMPOSE+=(-f "$INFRA_DIR/compose.shared.yml")
+  fi
 }
 
 # Gửi cảnh báo tới ALERT_WEBHOOK_URL (JSON {"text": ...}). Không bao giờ làm script chính thất bại.

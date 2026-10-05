@@ -17,3 +17,24 @@
    (lệnh dùng image api; xóa `SEED_ADMIN_PASSWORD` khỏi `.env` và đổi mật khẩu sau khi đăng nhập lần đầu).
 8. Chạy tay `infra/backup-db.sh` một lần và `infra/restore-drill.sh` một lần để xác nhận sao lưu hoạt động.
 9. Dựng giám sát ngoài theo [monitoring.md](monitoring.md).
+
+## Máy chủ dùng chung (đã có dịch vụ khác, proxy giữ 80/443)
+
+Không chạy bước 4 như trên: chế độ máy riêng nâng cấp toàn bộ gói, khởi động lại Docker (dừng mọi container khác), siết
+sshd và đặt lại ufw. Thay bằng:
+
+1. Kiểm trước (chỉ đọc): `ss -tlnp` (ai giữ 80/443), `docker compose ls`, `systemctl cat caddy` hoặc `nginx -T` (cấu hình
+   proxy ĐANG chạy), `free -h`, `df -h /`. Cần trống tối thiểu khoảng 2,5 GB RAM (api 768 MB, worker 1 GB khi in PDF,
+   Postgres, Redis) và 5 GB đĩa. Chọn `APP_LOCAL_PORT` chưa ai dùng.
+2. `bash server-setup.sh --shared --dry-run "$(cat deploy_key.pub)"` xem trước, rồi chạy thật không có `--dry-run`:
+   chỉ tạo user `deploy`, thư mục, cron, logrotate, cài `rclone`/`jq` nếu thiếu; yêu cầu Docker có sẵn.
+3. `infra/.env`: như bước 5 ở trên, thêm `PROXY_MODE=shared`, `TRUST_PROXY_HOPS=2`, `APP_LOCAL_PORT`. Caddy của app chỉ
+   nghe `127.0.0.1:APP_LOCAL_PORT`, không xin chứng chỉ; proxy của máy lo HTTPS.
+4. Proxy của máy: thêm site theo `infra/proxy-examples/` (Caddy hoặc nginx), chuyển `DOMAIN` tới
+   `127.0.0.1:APP_LOCAL_PORT`. Validate trước, reload (không restart) bằng đúng tệp cấu hình đang chạy và đúng biến môi
+   trường của dịch vụ proxy. Kiểm các site khác còn trả lời trước và sau.
+5. Bước 6-9 như trên. Health check của deploy đi qua HTTPS của proxy máy (`https://DOMAIN`), nên proxy phải xong trước
+   lần deploy đầu.
+
+`deploy.sh` chỉ dọn image của chính app (theo `IMAGE_PREFIX`), không `docker image prune -a` (lệnh đó xóa image của mọi dự
+án trên máy).

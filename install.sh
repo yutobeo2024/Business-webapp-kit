@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tạo dự án mới từ kit. Dùng: ./install.sh <thư-mục-dự-án-mới>
 set -Eeuo pipefail
-VERSION="1.5.0"
+VERSION="1.6.0"
 SRC="$(cd "$(dirname "$0")/template" && pwd)"
 FORCE=0
 [[ "${1:-}" == "--force" ]] && { FORCE=1; shift; }
