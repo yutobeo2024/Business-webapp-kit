@@ -25,15 +25,15 @@ export function ExportButton({
         {request.isPending ? "Đang gửi..." : label}
       </Button>
       {request.isSuccess ? (
-        <span role="status" className="text-sm text-neutral-600">
+        <span role="status" className="text-sm text-muted-foreground">
           Đang tạo tệp.{" "}
-          <Link to="/exports" className="text-blue-700 underline">
+          <Link to="/exports" className="text-primary-text underline">
             Xem ở Tệp đã xuất
           </Link>
         </span>
       ) : null}
       {error ? (
-        <span role="alert" className="text-sm text-red-600">
+        <span role="alert" className="text-sm text-destructive">
           {error}
         </span>
       ) : null}

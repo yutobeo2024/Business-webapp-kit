@@ -33,11 +33,11 @@ export function ChangePasswordPage({ forced = false }: { forced?: boolean }) {
   const errors = form.formState.errors;
 
   return (
-    <div className={forced ? "flex min-h-screen items-center justify-center p-4" : ""}>
+    <div className={forced ? "flex min-h-dvh items-center justify-center p-4" : ""}>
       <Card className="w-full max-w-md space-y-4">
-        <h1 className="text-xl font-semibold">{forced ? "Đặt mật khẩu mới" : "Đổi mật khẩu"}</h1>
+        <h1 className="text-xl font-bold tracking-tight">{forced ? "Đặt mật khẩu mới" : "Đổi mật khẩu"}</h1>
         {forced ? (
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-muted-foreground">
             Tài khoản của bạn đang dùng mật khẩu tạm do quản trị viên cấp. Hãy đặt mật khẩu mới để tiếp tục.
           </p>
         ) : null}
@@ -51,17 +51,17 @@ export function ChangePasswordPage({ forced = false }: { forced?: boolean }) {
           <Field label="Mật khẩu mới" error={errors.newPassword?.message}>
             <Input type="password" autoComplete="new-password" {...form.register("newPassword")} />
           </Field>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-muted-foreground">
             Tối thiểu {PASSWORD_MIN} ký tự, không chứa tên đăng nhập. Đổi xong, các phiên đăng nhập khác của
             bạn bị đăng xuất.
           </p>
           {change.error ? (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-destructive">
               {change.error instanceof ApiError ? change.error.message : "Không kết nối được máy chủ"}
             </p>
           ) : null}
           {done && !forced ? (
-            <p role="status" className="text-sm text-green-700">
+            <p role="status" className="text-sm text-success">
               Đã đổi mật khẩu.
             </p>
           ) : null}

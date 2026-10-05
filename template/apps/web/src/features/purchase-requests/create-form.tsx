@@ -89,7 +89,7 @@ export function CreatePurchaseRequestForm({ onDone }: { onDone: () => void }) {
                   </Button>
                 </div>
                 {rowMessage ? (
-                  <p role="alert" className="text-sm text-red-600">
+                  <p role="alert" className="text-sm text-destructive">
                     {rowMessage}
                   </p>
                 ) : null}
@@ -98,7 +98,7 @@ export function CreatePurchaseRequestForm({ onDone }: { onDone: () => void }) {
           })}
           {/* Lỗi cấp danh sách (tổng tiền vượt giới hạn, thiếu dòng): react-hook-form đặt ở items.root. */}
           {(errors.items?.root?.message ?? errors.items?.message) ? (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-destructive">
               {errors.items?.root?.message ?? errors.items?.message}
             </p>
           ) : null}
@@ -114,7 +114,7 @@ export function CreatePurchaseRequestForm({ onDone }: { onDone: () => void }) {
           Tổng tiền: <strong>{formatVnd(total)}</strong>
         </p>
         {create.error ? (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-destructive">
             {create.error instanceof ApiError ? create.error.message : "Không kết nối được máy chủ"}
           </p>
         ) : null}

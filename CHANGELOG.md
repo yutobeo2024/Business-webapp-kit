@@ -1,5 +1,34 @@
 # Nhật ký thay đổi của kit
 
+## 1.8.0 (chưa phát hành)
+
+Bộ giao diện mới ("phương án B": bảng điều khiển vận hành), đổi màu theo khách hàng ở một chỗ, sáng/tối, dùng được từ
+điện thoại 360px.
+
+- Thương hiệu: `apps/web/brand.json` (tên, chữ viết tắt, màu chủ đạo, bo góc) + `pnpm brand` sinh `src/brand.css` và
+  favicon mặc định. Script tự tính màu nút, chữ trên nút, chữ liên kết đạt tương phản WCAG AA ở cả sáng và tối; từ chối
+  màu gần trắng. Màu trạng thái và màu biểu đồ cố định, không đổi theo khách.
+- Token ngữ nghĩa trong `styles.css` (`bg-card`, `text-muted-foreground`, `text-destructive`, `bg-primary`...), font
+  Be Vietnam Pro tự host, chế độ tối theo hệ điều hành hoặc lựa chọn của người dùng (không nháy khi tải trang).
+- Khung trang: thanh bên có nhóm, thu gọn được, thành ngăn kéo dưới 1024px (`src/app/nav.ts`, `src/app/app-shell.tsx`);
+  thanh trên có tìm trang Ctrl+K, chuông, menu tài khoản (đổi mật khẩu, cài đặt thông báo, sáng/tối, đăng xuất).
+- Component: viết lại `Button`, `Input`, `Field`, `Select`, `Checkbox`, `Badge`, `DataTable`, `Dialog` theo token (giữ
+  nguyên API); thêm `PageHeader`, `FilterBar`, `DescriptionList`, `FormSection`, `MoneyText`, `SectionCard`, `StatCard`,
+  `Sparkline`, `EmptyState`, `Skeleton`, `Textarea`, `DialogActions`, `DropdownMenu`, `Tooltip`, `toast`. Bảng không
+  ngắt dòng trong ô (tên, mã, tiền, nút), cuộn ngang trong khung. Hộp thoại dùng Radix, trên điện thoại hiện sát đáy.
+- Làm lại trang đăng nhập (hai cột), trang chủ, và mọi trang có sẵn theo component mới.
+- Luật cho agent: `.claude/rules/frontend.md`, `docs/ui.md`, `scripts/check-ui.mjs` (báo màu viết cứng và
+  `window.confirm`; cảnh báo trong `verify:quick`, lỗi trong CI với `--strict`).
+- E2E giao diện `e2e/ui.spec.ts`: khung trang ở 375/768/1280px, không cuộn ngang, ngăn kéo, sáng/tối, màu nút theo
+  thương hiệu, thu gọn menu.
+- `kit-sync`: `brand.json`, `brand.css`, `favicon.svg` là tệp của dự án, chỉ thêm khi chưa có, không ghi đè.
+- Thư viện thêm vào `apps/web`: `radix-ui`, `lucide-react`, `sonner`, `@fontsource/be-vietnam-pro`.
+
+Nâng cấp dự án tạo từ 1.7.x: `kit-sync`, `pnpm install`, sửa `apps/web/brand.json` theo khách rồi `pnpm brand`. Menu
+chuyển từ `router.tsx` sang `src/app/nav.ts`: mục menu của module riêng phải thêm lại ở đó (kèm icon). Trang tự viết còn
+màu cứng vẫn chạy nhưng lệch ở chế độ tối: `node scripts/check-ui.mjs` liệt kê chỗ cần đổi sang token. Nút X của hộp
+thoại mang nhãn "Tắt hộp thoại"; bấm ra ngoài hộp thoại không còn đóng nó.
+
 ## 1.7.0 (05/10/2026)
 
 Build một lần, kiểm trên staging, đưa đúng image đó lên production; staging và production chạy song song trên một máy.

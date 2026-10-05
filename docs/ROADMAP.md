@@ -26,14 +26,21 @@ thương hiệu).
 - Phong cách: tạm chốt "phương án B" (bảng điều khiển vận hành sinh động: ô số liệu có biểu đồ nhỏ, chip icon pastel,
   biểu đồ, bảng/Kanban, trang chi tiết có bước duyệt và tab). Bản mẫu HTML: `docs/ui-mau/phuong-an-b.html` (A: `phuong-an-a.html`), mở bằng trình duyệt.
 
+Đã xong trên nhánh `kit-1.8.0` (05/10/2026, chưa đẩy):
+- Thử Google Stitch: sinh 9 màn app tạm ứng (theo B và bản tự do), so sánh, chốt GIỮ phương án B; Stitch chỉ dùng để
+  phác màn (ghi trong `template/docs/ui.md`).
+- Nền tảng: token, `brand.json` + `scripts/brand.mjs`, font, sáng/tối.
+- Component, khung trang (thanh bên, thanh trên, tìm trang, menu tài khoản), làm lại các trang có sẵn.
+- Luật cho agent: `.claude/rules/frontend.md`, `docs/ui.md`, `scripts/check-ui.mjs`.
+- Kiểm: verify:quick, 31 test script, 17 e2e (11 cũ + 6 giao diện ở 375/768/1280px) xanh trên máy.
+
 Việc tiếp theo:
-1. Thử Google Stitch (MCP chính thức `https://stitch.googleapis.com/mcp`, khóa API trong cấu hình user của Claude Code):
-   sinh màn app tạm ứng theo phương án B và một bản tự do, so với B, chốt hướng; lấy DESIGN.md làm nguồn token.
-2. Nền tảng: token, `brand.json` + `scripts/brand.mjs`, font, sáng/tối.
-3. Component (giữ API cũ để trang cũ và e2e chạy), khung trang, làm lại các trang có sẵn.
-4. Luật cho agent (`.claude/rules/frontend.md`, `scripts/check-ui.mjs`, `docs/ui.md`, skill tùy chọn `/ui-design`
-   dùng Stitch nếu có).
-5. Kiểm: e2e cũ + e2e giao diện ở 375/768/1280px; dogfood tam-ung lên 1.8.0, xem trên staging rồi đưa lên production.
+1. Người dùng xem giao diện mới (chạy `pnpm dev` trong `template/`), góp ý.
+2. Đẩy nhánh, kit-ci (with-sample, sample-removed, install) xanh.
+3. Dogfood: kit-sync tam-ung 1.7.0 -> 1.8.0, sửa trang expenses sang component mới, xem trên staging rồi đưa lên
+   production.
+4. Chưa làm trong bản này: menu con trong thanh bên, trang `/ui` trưng bày component, skill `/ui-design`,
+   `project:setup` hỏi màu thương hiệu.
 
 ## Việc treo
 

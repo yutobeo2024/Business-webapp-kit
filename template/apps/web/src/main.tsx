@@ -4,6 +4,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createQueryClient } from "@/lib/query-client";
 import { router } from "./router";
+import { AppToaster } from "@/components/ui/toast";
 import "./styles.css";
 
 const queryClient = createQueryClient();
@@ -12,6 +13,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      <AppToaster />
     </QueryClientProvider>
   </StrictMode>,
 );

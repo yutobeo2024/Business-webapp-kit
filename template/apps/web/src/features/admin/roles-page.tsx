@@ -15,10 +15,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { CheckboxGroup } from "@/components/ui/checkbox-group";
 import { DataTable, Pagination, SortTh, Th } from "@/components/ui/data-table";
-import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog, Dialog, DialogActions } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Badge, SearchInput } from "@/components/ui/form-controls";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page";
 import { useMe } from "@/features/auth/use-me";
 import { apiErrorMessage } from "@/lib/api";
 import { nextSearch } from "@/lib/list-search";
@@ -42,11 +43,15 @@ export function RolesPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Vai trò và quyền</h1>
-        <Button onClick={() => setEditing("new")}>Thêm vai trò</Button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Vai trò và quyền"
+        actions={
+          <>
+            <Button onClick={() => setEditing("new")}>Thêm vai trò</Button>
+          </>
+        }
+      />
       <SearchInput
         className="max-w-xs"
         placeholder="Tìm theo tên hoặc mô tả"
@@ -60,7 +65,7 @@ export function RolesPage() {
         onRetry={() => void q.refetch()}
         isEmpty={q.data?.items.length === 0}
       >
-        <thead className="border-b bg-neutral-50">
+        <thead>
           <tr>
             <SortTh field="name" label="Vai trò" {...sortProps} />
             <Th>Mô tả</Th>
@@ -71,13 +76,13 @@ export function RolesPage() {
         </thead>
         <tbody>
           {q.data?.items.map((r) => (
-            <tr key={r.id} className="border-b align-top last:border-0">
+            <tr key={r.id} className="align-top">
               <td className="p-3">
                 {r.name} {r.isSystem ? <Badge tone="muted">Hệ thống</Badge> : null}
               </td>
-              <td className="p-3 text-neutral-600">{r.description || "—"}</td>
-              <td className="p-3 text-right tabular-nums">{r.permissions.length}</td>
-              <td className="p-3 text-right tabular-nums">{r.userCount}</td>
+              <td className="min-w-56 p-3 whitespace-normal text-muted-foreground">{r.description || "—"}</td>
+              <td className="p-3 text-right num">{r.permissions.length}</td>
+              <td className="p-3 text-right num">{r.userCount}</td>
               <td className="p-3">
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(r)}>
@@ -95,7 +100,7 @@ export function RolesPage() {
         </tbody>
       </DataTable>
       {remove.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {apiErrorMessage(remove.error)}
         </p>
       ) : null}
@@ -182,10 +187,12 @@ function RoleForm({ role, onClose }: { role: RoleDto | null; onClose: () => void
         <Input {...form.register("description")} />
       </Field>
       {ownRole ? (
-        <p className="text-xs text-neutral-500">Bạn đang giữ vai trò này nên không sửa được quyền của nó.</p>
+        <p className="text-xs text-muted-foreground">
+          Bạn đang giữ vai trò này nên không sửa được quyền của nó.
+        </p>
       ) : null}
       {role?.isSystem ? (
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-muted-foreground">
           Vai trò hệ thống: không đổi tên, không xóa, luôn giữ quyền quản lý người dùng và vai trò, chỉ chứa
           quyền quản trị.
         </p>
@@ -196,7 +203,7 @@ function RoleForm({ role, onClose }: { role: RoleDto | null; onClose: () => void
         render={({ field }) => (
           <div className="max-h-80 space-y-4 overflow-y-auto">
             {catalog.isPending ? (
-              <p className="text-sm text-neutral-500">Đang tải danh mục quyền...</p>
+              <p className="text-sm text-muted-foreground">Đang tải danh mục quyền...</p>
             ) : null}
             {catalog.data?.map((g) => (
               <fieldset key={g.group} className="space-y-2">
@@ -219,18 +226,18 @@ function RoleForm({ role, onClose }: { role: RoleDto | null; onClose: () => void
         )}
       />
       {mutation.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {apiErrorMessage(mutation.error)}
         </p>
       ) : null}
-      <div className="flex justify-end gap-2">
+      <DialogActions>
         <Button variant="ghost" onClick={onClose}>
           Hủy bỏ
         </Button>
         <Button type="submit" disabled={mutation.isPending}>
           {mutation.isPending ? "Đang lưu..." : "Lưu"}
         </Button>
-      </div>
+      </DialogActions>
     </form>
   );
 }

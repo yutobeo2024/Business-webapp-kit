@@ -22,4 +22,13 @@ paths:
   `ExportButton` (`features/exports`), kết quả ở trang "Tệp đã xuất". Mẫu: `attachments-dialog.tsx`, nút ở `list-page.tsx`.
 - Nhập Excel: `ImportButton` (`features/imports`) với loại nhập và khóa query cần tải lại; mẫu ở trang Phòng ban.
   Thông báo trong app có sẵn (chuông, trang Thông báo, Cài đặt thông báo): module mới không tự làm chuông riêng.
-- Component cơ bản trong `src/components/ui`. Thêm component shadcn: `pnpm dlx shadcn@latest add <ten>` (hỏi trước khi thêm thư viện).
+- Giao diện (chi tiết và bảng component: `docs/ui.md`): mọi trang mở đầu bằng `PageHeader`; chỉ dùng token màu
+  (`bg-card`, `text-muted-foreground`, `text-destructive`, `bg-primary`...), KHÔNG dùng màu bảng Tailwind hay mã màu
+  viết cứng (`text-neutral-500`, `bg-white`, `bg-[#fff]`): `node scripts/check-ui.mjs` sẽ báo. Màu chủ đạo của khách
+  nằm ở `apps/web/brand.json` (`pnpm brand`), không sửa tay `brand.css`.
+- Trang phải dùng được ở 360px và ở cả sáng lẫn tối: bảng cuộn ngang trong `DataTable`, nút/ô chạm cao tối thiểu 40px,
+  số tiền dùng `MoneyText`, trạng thái dùng `Badge` (tone theo nghĩa, cố định). Mã chứng từ, tiền, ngày không ngắt dòng.
+- Thao tác ghi thành công: `toast.success(...)` (`components/ui/toast`). Lỗi vẫn hiện tại chỗ với `role="alert"`.
+- Mục menu mới thêm vào `src/app/nav.ts`. Icon dùng `lucide-react` kèm `aria-hidden`; nút chỉ có icon phải có
+  `aria-label`. Cả trang chỉ có một vùng `<nav>` là menu chính (đường dẫn trong `PageHeader` không phải `<nav>`).
+- Component cơ bản trong `src/components/ui`; thiếu thì viết thêm ở đó theo cùng token (hỏi trước khi thêm thư viện).

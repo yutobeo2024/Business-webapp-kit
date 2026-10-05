@@ -14,7 +14,7 @@
     "test": "turbo run test",
     "test:integration": "turbo run test:integration --concurrency=1",
     "test:e2e": "playwright test",
-    "verify:quick": "pnpm lint && pnpm typecheck && turbo run test",
+    "verify:quick": "pnpm lint && pnpm typecheck && turbo run test && node scripts/check-ui.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @app/shared build && pnpm --filter @app/db run generate",

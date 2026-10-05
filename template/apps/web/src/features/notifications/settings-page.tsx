@@ -4,7 +4,9 @@ import {
   type NotificationChannel,
   type UpdateNotificationSettingsInput,
 } from "@app/shared";
+import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/form-controls";
+import { PageHeader } from "@/components/ui/page";
 import { apiErrorMessage } from "@/lib/api";
 import { useNotificationSettings, useUpdateNotificationSettings } from "./api";
 
@@ -23,19 +25,20 @@ export function NotificationSettingsPage() {
   };
 
   return (
-    <div className="max-w-xl space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Cài đặt thông báo</h1>
-        <p className="text-sm text-neutral-600">
-          Thông báo luôn hiện ở{" "}
-          <Link to="/notifications" className="underline">
-            chuông trên thanh menu
-          </Link>
-          . Chọn thêm kênh muốn nhận:
-        </p>
-      </div>
-      {q.isPending ? <p className="text-sm text-neutral-500">Đang tải...</p> : null}
-      <div className="space-y-3 rounded border bg-white p-4">
+    <div className="max-w-xl space-y-5">
+      <PageHeader title="Cài đặt thông báo" />
+      <p className="text-muted-foreground">
+        Thông báo luôn hiện ở{" "}
+        <Link
+          to="/notifications"
+          className="font-medium text-primary-text underline-offset-4 hover:underline"
+        >
+          chuông trên thanh trên
+        </Link>
+        . Chọn thêm kênh muốn nhận:
+      </p>
+      {q.isPending ? <p className="text-sm text-muted-foreground">Đang tải...</p> : null}
+      <Card className="space-y-3">
         {q.data?.map((s) => (
           <div key={s.channel}>
             <Checkbox
@@ -45,18 +48,18 @@ export function NotificationSettingsPage() {
               onChange={(e) => toggle(s.channel, e.target.checked)}
             />
             {s.unavailableReason ? (
-              <p className="ml-6 text-xs text-neutral-500">{s.unavailableReason}</p>
+              <p className="ml-6 text-xs text-muted-foreground">{s.unavailableReason}</p>
             ) : null}
           </div>
         ))}
-      </div>
+      </Card>
       {update.isSuccess ? (
-        <p role="status" className="text-sm text-green-700">
+        <p role="status" className="text-sm text-success">
           Đã lưu.
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       ) : null}

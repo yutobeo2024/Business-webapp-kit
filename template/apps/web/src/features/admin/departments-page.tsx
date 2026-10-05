@@ -12,10 +12,11 @@ import {
 } from "@app/shared";
 import { Button } from "@/components/ui/button";
 import { DataTable, Pagination, SortTh, Th } from "@/components/ui/data-table";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogActions } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Badge, Checkbox, SearchInput, Select } from "@/components/ui/form-controls";
 import { Input } from "@/components/ui/input";
+import { FilterBar, PageHeader } from "@/components/ui/page";
 import { ImportButton } from "@/features/imports/import-dialog";
 import { apiErrorMessage } from "@/lib/api";
 import { nextSearch } from "@/lib/list-search";
@@ -37,15 +38,17 @@ export function DepartmentsPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Phòng ban</h1>
-        <div className="flex gap-2">
-          <ImportButton type="departments" invalidate={["admin", "departments"]} />
-          <Button onClick={() => setEditing("new")}>Thêm phòng ban</Button>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-5">
+      <PageHeader
+        title="Phòng ban"
+        actions={
+          <>
+            <ImportButton type="departments" invalidate={["admin", "departments"]} />
+            <Button onClick={() => setEditing("new")}>Thêm phòng ban</Button>
+          </>
+        }
+      />
+      <FilterBar>
         <SearchInput
           className="max-w-xs"
           placeholder="Tìm theo mã hoặc tên"
@@ -64,14 +67,14 @@ export function DepartmentsPage() {
           <option value="active">Đang dùng</option>
           <option value="inactive">Ngừng dùng</option>
         </Select>
-      </div>
+      </FilterBar>
       <DataTable
         isPending={q.isPending}
         error={q.error}
         onRetry={() => void q.refetch()}
         isEmpty={q.data?.items.length === 0}
       >
-        <thead className="border-b bg-neutral-50">
+        <thead>
           <tr>
             <SortTh field="code" label="Mã" {...sortProps} />
             <SortTh field="name" label="Tên phòng ban" {...sortProps} />
@@ -82,10 +85,10 @@ export function DepartmentsPage() {
         </thead>
         <tbody>
           {q.data?.items.map((d) => (
-            <tr key={d.id} className="border-b last:border-0">
+            <tr key={d.id}>
               <td className="p-3 font-mono">{d.code}</td>
               <td className="p-3">{d.name}</td>
-              <td className="p-3 text-right tabular-nums">{d.userCount}</td>
+              <td className="p-3 text-right num">{d.userCount}</td>
               <td className="p-3">
                 <Badge tone={d.isActive ? "green" : "muted"}>{d.isActive ? "Đang dùng" : "Ngừng dùng"}</Badge>
               </td>
@@ -172,18 +175,18 @@ function FormFooter({ error, pending, onClose }: { error: unknown; pending: bool
   return (
     <>
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {apiErrorMessage(error)}
         </p>
       ) : null}
-      <div className="flex justify-end gap-2">
+      <DialogActions>
         <Button variant="ghost" onClick={onClose}>
           Hủy bỏ
         </Button>
         <Button type="submit" disabled={pending}>
           {pending ? "Đang lưu..." : "Lưu"}
         </Button>
-      </div>
+      </DialogActions>
     </>
   );
 }
