@@ -133,6 +133,8 @@ up_line=$(line_of "up -d --wait .*postgres redis")
 dump_line=$(line_of "pg_dump")
 check "deploy lần đầu: up postgres redis trước pg_dump" '[[ -n "$up_line" && -n "$dump_line" && $up_line -lt $dump_line ]]'
 check "deploy lần đầu: ghi .deployed-tag" '[[ "$(cat "$CASE/infra/.deployed-tag" 2>/dev/null)" == v1.0.0 ]]'
+check "deploy thành công: báo THÔNG BÁO, không gắn nhãn CẢNH BÁO" \
+  'grep -q "THÔNG BÁO: .*Đã deploy v1.0.0" "$CASE/out.log" && ! grep -q "CẢNH BÁO: .*Đã deploy" "$CASE/out.log"'
 
 # 3. Tag độc hại bị từ chối trước mọi lệnh docker.
 fresh evil

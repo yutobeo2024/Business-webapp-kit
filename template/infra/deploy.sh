@@ -63,4 +63,4 @@ docker images --filter "reference=${IMAGE_PREFIX}/*" --format '{{.Repository}}:{
   awk -F: -v keep1="$NEW_TAG" -v keep2="${PREV_TAG:-}" '$NF != keep1 && $NF != keep2 && $NF != "<none>"' |
   xargs -r docker rmi >/dev/null 2>&1 || true
 log "Deploy $NEW_TAG thành công"
-alert "Đã deploy $NEW_TAG thành công"
+notify "Đã deploy $NEW_TAG thành công"

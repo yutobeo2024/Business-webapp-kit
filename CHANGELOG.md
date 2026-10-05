@@ -1,5 +1,18 @@
 # Nhật ký thay đổi của kit
 
+## 1.6.1 (05/10/2026)
+
+Sửa theo lần deploy thật đầu tiên (VPS dùng chung đang chạy 6 dự án, staging rồi production, rollback, sao lưu lên
+Google Drive mã hóa, diễn tập khôi phục): mọi bước của kit chạy được ngay lần đầu, các chỗ dưới đây là chỗ vướng.
+
+- Tin thành công (deploy xong, khôi phục xong, diễn tập OK) dùng `notify` (nhãn "THÔNG BÁO"), không còn gắn nhãn
+  "CẢNH BÁO" như sự cố.
+- `infra/proxy-examples/caddy-add-site.sh`: thêm site vào Caddy sẵn có an toàn (sao lưu, một dòng import, validate với
+  đúng EnvironmentFile, reload nóng; Caddy chạy `admin off` thì restart, kiểm site khác trước/sau, lỗi thì khôi phục).
+- Runbook `server-setup.md`: repo riêng tư gói GitHub Free không có Required reviewers (gắn tag là bước duyệt); lấy cấu
+  hình proxy đang chạy từ `systemctl cat` (ExecReload có thể trỏ tệp khác); đặt remote crypt và `BACKUP_REMOTE` để không
+  lồng thư mục; cấu hình rclone trên máy không có trình duyệt.
+
 ## 1.6.0 (05/10/2026)
 
 Deploy lên máy chủ DÙNG CHUNG (đã có dịch vụ khác và proxy giữ 80/443), trường hợp thường gặp với khách nhỏ. Phát hiện

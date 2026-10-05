@@ -1,5 +1,23 @@
 # Báo cáo kiểm chứng kit
 
+## 1.6.x: deploy thật lên máy chủ dùng chung (05/10/2026)
+
+VPS Ubuntu 24.04 đang chạy 6 dự án Docker Compose sau Caddy của máy; app dogfood tam-ung (kit 1.6.0) tại
+`webappkit.ydsg.website`.
+
+| Hạng mục | Kết quả |
+|---|---|
+| `server-setup.sh --shared` | Chỉ tạo user deploy, thư mục, cron, cài rclone; không đụng Docker, ufw, sshd, dự án khác |
+| Thêm site vào Caddy máy (`admin off`) | Validate rồi restart; site khác trả lời giống hệt trước/sau |
+| Deploy staging qua CI (merge main) | Xanh lần đầu: sao lưu trước deploy, migrate, health qua HTTPS |
+| Deploy production qua tag `v0.1.0` | Xanh (gói Free: không người duyệt, gắn tag là bước duyệt) |
+| Rollback 2 chiều (`rollback.yml`) | v0.1.0 -> sha-27654e3 -> v0.1.0, mỗi lần ~1-2 phút, app khỏe |
+| Bảo mật đường đi | Chỉ mở 127.0.0.1:8095; HSTS/CSP/X-Frame; CSRF chặn Origin lạ; API ghi đúng IP thật qua 2 lớp proxy |
+| Sao lưu | DB (kèm sha256) và tệp lên Google Drive qua rclone crypt (tên tệp mã hóa); diễn tập khôi phục 8 giây |
+| Tài nguyên | App ~360 MB RAM; dọn image chỉ của app (giữ bản đang chạy + bản trước) |
+
+Chưa kiểm: gửi email (SMTP để trống), Zalo, cảnh báo qua webhook (chưa đặt ALERT_WEBHOOK_URL), cron chạy theo lịch.
+
 ## 1.5.0: nâng dự án đã tạo lên bản kit mới (04/10/2026)
 
 | Hạng mục | Kiểm bằng | Kết quả |
