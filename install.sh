@@ -27,19 +27,13 @@ mkdir -p "$DEST"
 tar -C "$SRC" --exclude=node_modules --exclude=dist --exclude=.turbo --exclude=.git --exclude=.env \
   --exclude=test-results --exclude=playwright-report --exclude=coverage --exclude=.data -cf - . | tar -C "$DEST" -xf -
 chmod +x "$DEST"/infra/*.sh
-cp "$DEST/.env.example" "$DEST/.env"
-# DB và Redis riêng cho dự án này (nhiều dự án dùng chung dịch vụ dev): tên DB theo tên thư mục, chỉ số Redis theo băm.
-# Bỏ dấu tiếng Việt (Quản Lý Kho -> quan_ly_kho); không có Node (cài bằng --force) thì chỉ giữ chữ không dấu.
-SLUG="$(node -e 'console.log(process.argv[1].normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D"))' \
-  "$(basename "$DEST")" 2>/dev/null || basename "$DEST")"
-SLUG="$(printf '%s' "$SLUG" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-40)"
-[[ "$SLUG" =~ ^[a-z] ]] || SLUG="app_${SLUG}"
-HASH="$(printf '%s' "$SLUG" | cksum | cut -d' ' -f1)"
-REDIS_DEV=$(( 1 + HASH % 7 )); REDIS_TEST=$(( 8 + HASH % 8 ))
-sed -i.bak -e "s#/app_dev\$#/${SLUG}_dev#" -e "s#/app_test\$#/${SLUG}_test#" \
-  -e "s#^REDIS_URL=redis://localhost:6379/1\$#REDIS_URL=redis://localhost:6379/${REDIS_DEV}#" \
-  -e "s#^TEST_REDIS_URL=redis://localhost:6379/15\$#TEST_REDIS_URL=redis://localhost:6379/${REDIS_TEST}#" "$DEST/.env"
-rm -f "$DEST/.env.bak"
+# .env với DB/Redis riêng theo tên thư mục: cùng script với cách "Use this template" (pnpm project:setup).
+if command -v node >/dev/null 2>&1; then
+  ( cd "$DEST" && node scripts/project-setup.mjs --force >/dev/null )
+else
+  cp "$DEST/.env.example" "$DEST/.env"
+  echo "Chưa có Node: .env chép nguyên từ .env.example, cài Node 24 rồi đặt tên DB riêng theo .env.example."
+fi
 # Phiên bản kit đã dùng: `node <kit>/scripts/kit-sync.mjs <dự án>` dựa vào đây để nâng cấp dự án lên bản kit mới.
 KIT_COMMIT="$(git -C "$(dirname "$0")" rev-parse HEAD 2>/dev/null || echo unknown)"
 printf '{\n  "version": "%s",\n  "commit": "%s"\n}\n' "$VERSION" "$KIT_COMMIT" > "$DEST/.kit.json"
@@ -47,13 +41,5 @@ printf '{\n  "version": "%s",\n  "commit": "%s"\n}\n' "$VERSION" "$KIT_COMMIT" >
 ( cd "$DEST" && git init -q -b main && git add -A && git update-index --chmod=+x infra/*.sh \
   && git -c commit.gpgsign=false commit -qm "chore: khởi tạo từ business-webapp-kit $VERSION" ) \
   || echo "Không tạo được commit đầu (thiếu git hoặc chưa cấu hình user.name/email). Tự commit sau, trước đó chạy: git update-index --chmod=+x infra/*.sh"
-cat <<MSG
-Đã tạo dự án tại $DEST
-Tiếp theo:
-  cd "$DEST"
-  # sửa SEED_ADMIN_PASSWORD trong .env và phần <...> trong CLAUDE.md
-  pnpm install && pnpm dev:services && pnpm build
-  pnpm db:reset-local dev && pnpm db:reset-local   # tạo DB dev (kèm dữ liệu demo) và DB test riêng của dự án
-  pnpm verify:quick && pnpm claude:selftest
-Nhánh chính là main (CI/CD chạy khi push main và tag vX.Y.Z).
-MSG
+echo "Đã tạo dự án tại $DEST. Tiếp theo: cd \"$DEST\", rồi làm theo phần 'Tạo dự án' trong README.md"
+( cd "$DEST" && node scripts/project-setup.mjs --force 2>/dev/null | sed -n '/^Tiếp theo/,$p' ) || true

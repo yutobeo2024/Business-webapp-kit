@@ -70,7 +70,7 @@ jobs:
       - name: Kiểm hành vi script vận hành (docker giả)
         run: bash tests/infra/run.sh
       - name: Migration không phá tương thích, script gỡ mẫu
-        run: node --test scripts/check-migrations.test.mjs scripts/remove-sample.test.mjs && node scripts/check-migrations.mjs
+        run: node --test scripts/check-migrations.test.mjs scripts/remove-sample.test.mjs scripts/project-setup.test.mjs && node scripts/check-migrations.mjs
       - name: Migration khớp schema
         run: |
           pnpm --filter @app/db exec drizzle-kit generate --name ci_drift_check
@@ -234,6 +234,15 @@ jobs:
           test ! -e "$RUNNER_TEMP/du-an-2"
       - name: Ghi phiên bản kit vào dự án
         run: grep -q '"version"' "$RUNNER_TEMP/du-an-moi/.kit.json"
+      - name: Cách Use this template - chép template, pnpm project:setup, .env riêng, chạy lại không ghi đè
+        run: |
+          D="$RUNNER_TEMP/Dự Án Thử"
+          cp -r template "$D" && cd "$D"
+          node scripts/project-setup.mjs
+          grep -qx 'DATABASE_URL=postgresql://app:app@localhost:5432/du_an_thu_dev' .env
+          echo 'GIU=1' >> .env
+          node scripts/project-setup.mjs | grep -q 'giữ nguyên'
+          grep -qx 'GIU=1' .env
 
   kit-sync:
     name: Nâng cấp dự án bằng kit-sync
@@ -250,10 +259,10 @@ jobs:
           node-version-file: template/.nvmrc
           cache: pnpm
           cache-dependency-path: template/pnpm-lock.yaml
-      - name: Test công cụ (repo kit và dự án giả)
+      - name: Test công cụ (repo kit và dự án giả, phát hành repo template giả)
         run: |
           git config --global user.name ci && git config --global user.email ci@localhost
-          node --test scripts/kit-sync.test.mjs
+          node --test scripts/kit-sync.test.mjs scripts/publish-template.test.mjs
       - name: Dự án cài từ bản kit trước, có sửa của dự án, nâng lên bản mới nhất, build và kiểm nhanh
         run: |
           mapfile -t TAGS < <(git tag -l 'kit-v*' --sort=v:refname | tail -2)

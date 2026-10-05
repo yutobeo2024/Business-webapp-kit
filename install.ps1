@@ -20,22 +20,12 @@ if ((Test-Path $Dest) -and (Get-ChildItem -Force $Dest | Select-Object -First 1)
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 robocopy $Src $Dest /E /NFL /NDL /NJH /NJS /NP /XD node_modules dist .turbo .git test-results playwright-report coverage .data /XF .env | Out-Null
 if ($LASTEXITCODE -ge 8) { Write-Error "Sao chép thất bại (robocopy $LASTEXITCODE)" }
-Copy-Item (Join-Path $Dest ".env.example") (Join-Path $Dest ".env")
-# DB và Redis riêng cho dự án này (nhiều dự án dùng chung dịch vụ dev): tên DB theo tên thư mục, chỉ số Redis theo băm.
-# Bỏ dấu tiếng Việt (Quản Lý Kho -> quan_ly_kho).
-$Leaf = (Split-Path $Dest -Leaf).Replace([string][char]0x0111, "d").Replace([string][char]0x0110, "D").Normalize([Text.NormalizationForm]::FormD)
-$Leaf = -join ($Leaf.ToCharArray() | Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne [Globalization.UnicodeCategory]::NonSpacingMark })
-$Slug = ($Leaf.ToLower() -replace '[^a-z0-9]+', '_').Trim('_')
-if ($Slug.Length -gt 40) { $Slug = $Slug.Substring(0, 40) }
-if ($Slug -notmatch '^[a-z]') { $Slug = "app_$Slug" }
-$Hash = 0; foreach ($c in $Slug.ToCharArray()) { $Hash = ($Hash * 31 + [int]$c) % 1000003 }
-$EnvPath = Join-Path $Dest ".env"
+# .env với DB/Redis riêng theo tên thư mục: cùng script với cách "Use this template" (pnpm project:setup).
 $Utf8 = New-Object System.Text.UTF8Encoding($false)
-$EnvText = [IO.File]::ReadAllText($EnvPath, $Utf8)
-$EnvText = $EnvText -replace '(?m)/app_dev(?=\r?$)', "/$($Slug)_dev" -replace '(?m)/app_test(?=\r?$)', "/$($Slug)_test"
-$EnvText = $EnvText -replace '(?m)^REDIS_URL=redis://localhost:6379/1(?=\r?$)', "REDIS_URL=redis://localhost:6379/$(1 + $Hash % 7)"
-$EnvText = $EnvText -replace '(?m)^TEST_REDIS_URL=redis://localhost:6379/15(?=\r?$)', "TEST_REDIS_URL=redis://localhost:6379/$(8 + $Hash % 8)"
-[IO.File]::WriteAllText($EnvPath, $EnvText, $Utf8)
+Push-Location $Dest
+try { node scripts/project-setup.mjs --force | Out-Null } catch {}
+Pop-Location
+if (-not (Test-Path (Join-Path $Dest ".env"))) { Copy-Item (Join-Path $Dest ".env.example") (Join-Path $Dest ".env") }
 # Phiên bản kit đã dùng: `node <kit>/scripts/kit-sync.mjs <dự án>` dựa vào đây để nâng cấp dự án lên bản kit mới.
 $KitCommit = "unknown"
 try { $c = (git -C $PSScriptRoot rev-parse HEAD 2>$null); if ($LASTEXITCODE -eq 0 -and $c) { $KitCommit = $c.Trim() } } catch {}
@@ -59,5 +49,5 @@ try {
   Write-Warning "Thường do chưa cấu hình git user.name/user.email. Tự commit sau, trước đó chạy: git update-index --chmod=+x infra/*.sh"
 } finally { Pop-Location }
 Write-Host "Đã tạo dự án tại $Dest"
-Write-Host "Tiếp theo: cd $Dest; sửa .env và CLAUDE.md; pnpm install; pnpm dev:services; pnpm build; pnpm db:reset-local dev (tạo DB dev + dữ liệu demo); pnpm db:reset-local (tạo DB test); pnpm verify:quick"
+Write-Host "Tiếp theo: cd $Dest; sửa SEED_ADMIN_PASSWORD trong .env và phần <...> trong CLAUDE.md; pnpm install; pnpm dev:services; pnpm build; pnpm db:reset-local dev; pnpm db:reset-local; pnpm verify:quick"
 Write-Host "Nhánh chính là main (CI/CD chạy khi push main và tag vX.Y.Z). Claude Code trên Windows: nên cài Git Bash để hook và skill chạy giống CI."

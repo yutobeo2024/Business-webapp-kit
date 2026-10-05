@@ -23,10 +23,21 @@ Trước khi giao khách: [template/docs/PRODUCTION-CHECKLIST.md](template/docs/
 
 ## Bắt đầu dự án mới
 
+Cách 1, trên GitHub: mở repo [Business-webapp-template](https://github.com/yutobeo2024/Business-webapp-template),
+bấm "Use this template" (chọn Private cho dự án khách), clone về rồi chạy một lần:
+
+```bash
+pnpm project:setup     # kiểm Node 22/24, tạo .env với DB và Redis riêng theo tên thư mục dự án
+```
+
+Cách 2, dòng lệnh từ bản clone repo kit này:
+
 ```bash
 ./install.sh ~/projects/ten-du-an          # macOS, Linux, Git Bash
 .\install.ps1 C:\projects\ten-du-an         # Windows PowerShell
 ```
+
+Hai cách cho cùng một dự án (repo template là nội dung `template/` của bản kit đã phát hành, kèm `.kit.json`).
 
 Sau đó trong thư mục dự án: làm theo `README.md` của dự án (cài, chạy dev), sửa phần `<...>` trong `CLAUDE.md`,
 rồi kiểm `pnpm verify:quick` và `pnpm claude:selftest` đều xanh. Mở Claude Code, gõ `/hooks` để thấy 4 hook đã được nạp.
@@ -75,7 +86,8 @@ Công cụ không chép migration của kit (sinh lại trong dự án), không 
 - Phải nhắc AI cùng một điều lần thứ hai: thêm vào rule đúng đường dẫn, không nhồi vào CLAUDE.md.
 - AI làm hỏng thứ không được hỏng: biến thành hook, thêm tình huống vào `.claude/hooks/selftest.mjs`.
 - Phát hành bản kit: cập nhật CHANGELOG (có mục "Nâng cấp dự án tạo từ ..."), `VERSION` trong hai installer, gắn tag
-  `kit-vX.Y.Z` (không dùng `vX.Y.Z`: `sample:remove` coi đó là dự án đã phát hành).
+  `kit-vX.Y.Z` (không dùng `vX.Y.Z`: `sample:remove` coi đó là dự án đã phát hành), đẩy nhánh và tag, rồi
+  `node scripts/publish-template.mjs X.Y.Z` để đưa bản đó sang repo template (script in lệnh đẩy; mỗi bản một commit).
 - CI của kit (`.github/workflows/kit-ci.yml`) chạy bộ kiểm của template trên hai biến thể: còn module mẫu và sau
   `pnpm sample:remove`; thêm cài dự án bằng `install.sh`, build 3 image + trivy image + in PDF thử. Phải xanh trước khi
   phát hành bản kit.

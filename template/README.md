@@ -2,12 +2,23 @@
 
 Web app quản lý quy trình nghiệp vụ cho <khách hàng>.
 
+## Tạo dự án
+
+Dự án tạo từ [business-webapp-kit](https://github.com/yutobeo2024/Business-webapp-kit) theo một trong hai cách:
+
+- Trên GitHub: "Use this template" ở repo `Business-webapp-template` (nên chọn Private), clone về, rồi
+  `pnpm project:setup` một lần: kiểm Node 22/24, tạo `.env` với tên DB và Redis riêng theo tên thư mục dự án.
+- Dòng lệnh: `install.sh` / `install.ps1` trong repo kit (tự chạy `project:setup`).
+
+Sau đó sửa phần `<...>` ở đầu README này và trong `CLAUDE.md`. Phiên bản kit ghi trong `.kit.json` (nâng cấp bằng
+`kit-sync` của repo kit rồi `/kit-upgrade`).
+
 ## Chạy môi trường dev
 
 Yêu cầu: Node 24 (xem `.nvmrc`), pnpm 10 (`corepack enable`), Docker.
 
 ```bash
-cp .env.example .env              # đổi SEED_ADMIN_PASSWORD (installer đã tạo sẵn, kèm tên DB riêng của dự án)
+pnpm project:setup                # lần đầu: tạo .env (DB/Redis riêng của dự án); rồi đổi SEED_ADMIN_PASSWORD
 pnpm install
 pnpm exec playwright install chromium  # in PDF ở worker, test tích hợp worker và E2E
 pnpm dev:services                 # PostgreSQL + Redis

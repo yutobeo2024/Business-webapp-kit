@@ -13,6 +13,10 @@ Bước 4 của lộ trình: nâng dự án đã tạo lên bản kit mới.
 - Skill `/kit-upgrade` trong dự án: giải xung đột (lõi theo kit, nghiệp vụ của dự án giữ, thứ dự án tự làm trùng lõi thì
   chuyển sang lõi), sinh migration, kiểm tra, báo việc cho người.
 - Installer ghi `.kit.json` (phiên bản, commit kit). Mỗi bản kit có tag `kit-vX.Y.Z`.
+- Tạo dự án bằng "Use this template" trên GitHub: repo `Business-webapp-template` (app ở gốc, bật Template repository)
+  nhận nội dung `template/` của mỗi bản phát hành qua `scripts/publish-template.mjs` (một commit mỗi bản, giữ bit +x,
+  thêm `.kit.json`). Sau khi clone: `pnpm project:setup` (kiểm Node, tạo `.env` với DB/Redis riêng). Hai installer dùng
+  chung script này thay cho phần sinh `.env` tự viết.
 - kit-ci: test công cụ, và nâng thật một dự án cài từ bản kit trước lên bản mới nhất (build + verify).
 
 Nâng cấp dự án tạo từ 1.4.x trở về trước: chạy `node <kit>/scripts/kit-sync.mjs <dự án> --from <bản đã cài>`, rồi

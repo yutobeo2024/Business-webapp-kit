@@ -23,7 +23,8 @@
     "dev:services": "docker compose -f infra/compose.dev.yml up -d",
     "claude:selftest": "node .claude/hooks/selftest.mjs",
     "sample:remove": "node scripts/remove-sample.mjs",
-    "db:reset-local": "node scripts/db-reset-local.mjs"
+    "db:reset-local": "node scripts/db-reset-local.mjs",
+    "project:setup": "node scripts/project-setup.mjs"
   },
   "devDependencies": {
     "@app/tsconfig": "workspace:*",
