@@ -3,6 +3,19 @@
 # shellcheck disable=SC2034
 
 INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Instance = tên thư mục chứa infra/: /opt/app (mặc định) hoặc /opt/app-<tên> (ví dụ app-staging), để nhiều môi trường
+# chạy song song trên một máy. Mỗi instance có dự án compose, thư mục dữ liệu, sao lưu, log riêng. Instance mặc định
+# "app" giữ đường dẫn cũ (máy đang chạy không phải đổi gì).
+APP_INSTANCE="$(basename "$(dirname "$INFRA_DIR")")"
+[[ "$APP_INSTANCE" =~ ^app(-[a-z0-9][a-z0-9-]*)?$ ]] || APP_INSTANCE=app
+export APP_INSTANCE
+if [[ "$APP_INSTANCE" == app ]]; then
+  DEFAULT_BACKUP_DIR=/opt/backups/postgres
+  DEFAULT_FILES_DIR=/opt/app-data/files
+else
+  DEFAULT_BACKUP_DIR="/opt/backups/$APP_INSTANCE"
+  DEFAULT_FILES_DIR="/opt/$APP_INSTANCE-data/files"
+fi
 COMPOSE=(docker compose -f "$INFRA_DIR/compose.prod.yml")
 # compose.prod.yml bắt buộc APP_TAG cho MỌI lệnh compose (kể cả exec, ps). Mặc định lấy tag đang chạy để sao lưu,
 # cảnh báo, khôi phục và lệnh tay hoạt động; deploy.sh tự export tag mới trước khi pull/up.
@@ -17,6 +30,8 @@ load_env() {
   # shellcheck disable=SC1091
   source "$INFRA_DIR/.env"
   set +a
+  # compose.prod.yml mount FILES_DIR vào api/worker: mặc định theo instance nếu .env không đặt.
+  export FILES_DIR="${FILES_DIR:-$DEFAULT_FILES_DIR}"
   # Máy chủ dùng chung (đã có proxy giữ 80/443): Caddy của app chỉ nghe loopback (compose.shared.yml).
   if [[ "${PROXY_MODE:-}" == shared && " ${COMPOSE[*]} " != *" $INFRA_DIR/compose.shared.yml "* ]]; then
     COMPOSE+=(-f "$INFRA_DIR/compose.shared.yml")

@@ -1,7 +1,7 @@
 # Business Web App Kit
 
 Bộ khởi tạo production cho web app quy trình nghiệp vụ giao cho doanh nghiệp, làm việc cùng Claude Code.
-Phiên bản kit: 1.6.1 (05/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
+Phiên bản kit: 1.7.0 (05/10/2026). Thay đổi: [CHANGELOG.md](CHANGELOG.md).
 
 ## Kit gồm gì
 

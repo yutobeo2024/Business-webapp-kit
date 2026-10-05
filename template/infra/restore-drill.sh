@@ -6,7 +6,7 @@ set -Eeuo pipefail
 source "$(dirname "$0")/lib.sh"
 load_env
 
-DIR="${BACKUP_DIR:-/opt/backups/postgres}"
+DIR="${BACKUP_DIR:-$DEFAULT_BACKUP_DIR}"
 LATEST="$(find "$DIR" -maxdepth 1 -name '*.dump' -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)"
 [[ -n "$LATEST" ]] || { alert "Diễn tập khôi phục: KHÔNG có bản sao lưu nào trong $DIR"; exit 1; }
 

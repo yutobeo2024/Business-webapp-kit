@@ -35,6 +35,11 @@ if docker compose version >/dev/null 2>&1; then
   check "docker compose thật, dùng chung: Caddy chỉ nghe 127.0.0.1:8095" \
     'grep -q "host_ip: 127.0.0.1" <<<"$shared_cfg" && grep -q "published: \"8095\"" <<<"$shared_cfg" && ! grep -qE "published: \"(80|443)\"" <<<"$shared_cfg"'
   check "docker compose thật, dùng chung: Caddy dùng Caddyfile.shared" 'grep -q "Caddyfile.shared" <<<"$shared_cfg"'
+  # Instance thứ hai trên cùng máy: dự án compose và thư mục tệp riêng.
+  mkdir -p "$WORK/opt/app-staging" && cp -r "$WORK/real/infra" "$WORK/opt/app-staging/infra"
+  inst_cfg="$(env -u APP_TAG -u FILES_DIR bash -c 'source "$1/lib.sh"; load_env; sed -i "/^FILES_DIR=/d" "$1/.env"; "${COMPOSE[@]}" config' _ "$WORK/opt/app-staging/infra" 2>&1)"
+  check "docker compose thật, instance app-staging: dự án compose tên app-staging" 'grep -q "^name: app-staging" <<<"$inst_cfg"'
+  check "docker compose thật, instance mặc định: dự án compose vẫn tên app" 'grep -q "^name: app$" <<<"$shared_cfg"'
   # Cấu hình Caddy hợp lệ ở cả hai chế độ (chỉ khi có docker daemon thật).
   if docker info >/dev/null 2>&1; then
     for f in Caddyfile Caddyfile.shared; do
@@ -69,6 +74,7 @@ if [[ "${1:-}" == "compose" ]]; then
 fi
 case "${1:-}" in
   inspect) echo "running healthy" ;;
+  image) [[ "${2:-}" == inspect ]] && echo "${*: -1}@sha256:fake${*: -1}" | sed 's/:fake.*\/\([a-z]*\):.*/:fake-\1/' ;;
   # Liệt kê image như docker thật: chỉ những image khớp --filter reference=<tiền tố>/*.
   images)
     ref=""
@@ -133,6 +139,7 @@ up_line=$(line_of "up -d --wait .*postgres redis")
 dump_line=$(line_of "pg_dump")
 check "deploy lần đầu: up postgres redis trước pg_dump" '[[ -n "$up_line" && -n "$dump_line" && $up_line -lt $dump_line ]]'
 check "deploy lần đầu: ghi .deployed-tag" '[[ "$(cat "$CASE/infra/.deployed-tag" 2>/dev/null)" == v1.0.0 ]]'
+check "deploy: lịch sử ghi digest từng image" 'tail -1 "$CASE/infra/deploy-history.log" | grep -q "api=sha256:fake-api worker=sha256:fake-worker web=sha256:fake-web"'
 check "deploy thành công: báo THÔNG BÁO, không gắn nhãn CẢNH BÁO" \
   'grep -q "THÔNG BÁO: .*Đã deploy v1.0.0" "$CASE/out.log" && ! grep -q "CẢNH BÁO: .*Đã deploy" "$CASE/out.log"'
 
@@ -248,6 +255,16 @@ check "server-setup --shared: chỉ tạo phần của app" \
   'grep -q "User deploy" <<<"$shared_plan" && grep -q "cron" <<<"$shared_plan"'
 check "server-setup --shared: không upgrade, không khởi động lại Docker, không đụng SSH/tường lửa/swap" \
   '! grep -qiE "Cập nhật hệ thống|khởi động lại Docker|Siết SSH|Tường lửa|Swap" <<<"$shared_plan"'
+inst_plan="$(bash "$ROOT/infra/server-setup.sh" --shared --instance staging --dry-run "ssh-ed25519 AAAA ci" 2>&1)"
+check "server-setup --instance staging: thư mục và cron theo instance" 'grep -q "instance app-staging (/opt/app-staging)" <<<"$inst_plan"'
+check "server-setup --instance: tên lạ bị từ chối" '! bash "$ROOT/infra/server-setup.sh" --instance "x;rm" --dry-run "ssh-ed25519 A" >/dev/null 2>&1'
+# lib.sh: instance suy từ thư mục; thư mục lạ (bản sao trong test) về mặc định "app".
+mkdir -p "$WORK/lib/app-staging" "$WORK/lib/khac" && cp -r "$ROOT/infra" "$WORK/lib/app-staging/infra" && cp -r "$ROOT/infra" "$WORK/lib/khac/infra"
+lib_inst="$(bash -c 'source "$1/lib.sh"; echo "$APP_INSTANCE $DEFAULT_BACKUP_DIR $DEFAULT_FILES_DIR"' _ "$WORK/lib/app-staging/infra")"
+lib_def="$(bash -c 'source "$1/lib.sh"; echo "$APP_INSTANCE $DEFAULT_BACKUP_DIR $DEFAULT_FILES_DIR"' _ "$WORK/lib/khac/infra")"
+check "lib.sh: /opt/app-staging -> instance app-staging, sao lưu và tệp riêng" \
+  '[[ "$lib_inst" == "app-staging /opt/backups/app-staging /opt/app-staging-data/files" ]]'
+check "lib.sh: thư mục khác -> instance app, đường dẫn cũ" '[[ "$lib_def" == "app /opt/backups/postgres /opt/app-data/files" ]]'
 check "server-setup máy riêng: vẫn đủ các bước siết máy" \
   'grep -q "Tường lửa" <<<"$full_plan" && grep -q "Siết SSH" <<<"$full_plan" && grep -q "Docker Engine" <<<"$full_plan"'
 

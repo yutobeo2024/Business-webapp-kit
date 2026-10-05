@@ -55,7 +55,13 @@ fi
 wait_healthy 40 || rollback "health check qua HTTPS thất bại"
 
 echo "$NEW_TAG" > "$STATE_FILE"
-printf '%s %s (trước: %s)\n' "$(date -Is)" "$NEW_TAG" "${PREV_TAG:-none}" >> "$INFRA_DIR/deploy-history.log"
+# Ghi kèm digest (mã băm nội dung) từng image: đối chiếu đúng bản đã kiểm trên staging với bản chạy production.
+digests=""
+for svc in api worker web; do
+  d="$(docker image inspect --format '{{index .RepoDigests 0}}' "${IMAGE_PREFIX}/$svc:$NEW_TAG" 2>/dev/null || true)"
+  digests+=" $svc=${d##*@}"
+done
+printf '%s %s (trước: %s)%s\n' "$(date -Is)" "$NEW_TAG" "${PREV_TAG:-none}" "$digests" >> "$INFRA_DIR/deploy-history.log"
 # Dọn image CŨ CỦA APP NÀY (mỗi lần deploy để lại một bộ image, lâu ngày đầy đĩa). Không dùng `docker image prune -a`:
 # lệnh đó xóa image không dùng của MỌI dự án trên máy (máy dùng chung sẽ làm dự án khác mất bản để quay lại).
 # Giữ tag vừa deploy và tag trước đó (rollback nhanh); quay về tag cũ hơn sẽ tự pull lại từ registry.

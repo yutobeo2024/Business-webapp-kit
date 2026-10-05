@@ -9,7 +9,7 @@ load_env
 
 LABEL="${1:-daily}"
 valid_label "$LABEL" || die "Nhãn không hợp lệ: $LABEL"
-DIR="${BACKUP_DIR:-/opt/backups/postgres}"
+DIR="${BACKUP_DIR:-$DEFAULT_BACKUP_DIR}"
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
 FILE="$DIR/${POSTGRES_DB}-$(date -u +%Y%m%dT%H%M%SZ)-${LABEL}.dump"
 TMP="$FILE.partial"

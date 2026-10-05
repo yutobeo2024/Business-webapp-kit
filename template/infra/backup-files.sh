@@ -8,8 +8,8 @@ set -Eeuo pipefail
 source "$(dirname "$0")/lib.sh"
 load_env
 
-SRC="${FILES_DIR:-/opt/app-data/files}"
-STATE_DIR="${BACKUP_DIR:-/opt/backups/postgres}"
+SRC="${FILES_DIR:-$DEFAULT_FILES_DIR}"
+STATE_DIR="${BACKUP_DIR:-$DEFAULT_BACKUP_DIR}"
 KEEP_DAYS="${FILES_BACKUP_KEEP_DAYS:-30}"
 [[ "$KEEP_DAYS" =~ ^[0-9]+$ ]] || die "FILES_BACKUP_KEEP_DAYS không hợp lệ: $KEEP_DAYS"
 [[ -d "$SRC" ]] || die "Không có thư mục tệp $SRC (FILES_DIR)"
