@@ -17,10 +17,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { CheckboxGroup } from "@/components/ui/checkbox-group";
 import { DataTable, Pagination, SortTh, Th } from "@/components/ui/data-table";
-import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog, Dialog, DialogActions } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Badge, SearchInput, Select } from "@/components/ui/form-controls";
 import { Input } from "@/components/ui/input";
+import { FilterBar, PageHeader } from "@/components/ui/page";
 import { useMe } from "@/features/auth/use-me";
 import { ExportButton } from "@/features/exports/export-button";
 import { apiErrorMessage } from "@/lib/api";
@@ -59,29 +60,31 @@ export function UsersPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Người dùng</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Xuất đúng bộ lọc và thứ tự đang xem (không phân trang). */}
-          <ExportButton
-            label="Xuất Excel"
-            input={{
-              type: "admin.users.xlsx",
-              params: {
-                q: search.q,
-                departmentId: search.departmentId,
-                roleId: search.roleId,
-                status: search.status,
-                sort: search.sort,
-                order: search.order,
-              },
-            }}
-          />
-          <Button onClick={() => setEditing("new")}>Thêm người dùng</Button>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-5">
+      <PageHeader
+        title="Người dùng"
+        actions={
+          <>
+            {/* Xuất đúng bộ lọc và thứ tự đang xem (không phân trang). */}
+            <ExportButton
+              label="Xuất Excel"
+              input={{
+                type: "admin.users.xlsx",
+                params: {
+                  q: search.q,
+                  departmentId: search.departmentId,
+                  roleId: search.roleId,
+                  status: search.status,
+                  sort: search.sort,
+                  order: search.order,
+                },
+              }}
+            />
+            <Button onClick={() => setEditing("new")}>Thêm người dùng</Button>
+          </>
+        }
+      />
+      <FilterBar>
         <SearchInput
           className="max-w-xs"
           placeholder="Tìm theo tên hoặc email"
@@ -125,7 +128,7 @@ export function UsersPage() {
             </option>
           ))}
         </Select>
-      </div>
+      </FilterBar>
       <DataTable
         isPending={q.isPending}
         error={q.error}
@@ -133,7 +136,7 @@ export function UsersPage() {
         isEmpty={q.data?.items.length === 0}
         emptyText="Không có người dùng nào khớp bộ lọc."
       >
-        <thead className="border-b bg-neutral-50">
+        <thead>
           <tr>
             <SortTh field="fullName" label="Họ tên" {...sortProps} />
             <SortTh field="email" label="Email" {...sortProps} />
@@ -146,16 +149,18 @@ export function UsersPage() {
         </thead>
         <tbody>
           {q.data?.items.map((u) => (
-            <tr key={u.id} className="border-b align-top last:border-0">
+            <tr key={u.id} className="align-top">
               <td className="p-3">
                 {u.fullName}
                 {u.mustChangePassword ? (
-                  <p className="text-xs text-neutral-500">Đang dùng mật khẩu tạm</p>
+                  <p className="text-xs text-muted-foreground">Đang dùng mật khẩu tạm</p>
                 ) : null}
               </td>
               <td className="p-3">{u.email}</td>
               <td className="p-3">{u.departmentName ?? "—"}</td>
-              <td className="p-3">{u.roles.map((r) => r.name).join(", ") || "—"}</td>
+              <td className="min-w-40 p-3 whitespace-normal">
+                {u.roles.map((r) => r.name).join(", ") || "—"}
+              </td>
               <td className="p-3">
                 <Badge tone={statusOf(u).tone}>{statusOf(u).label}</Badge>
               </td>
@@ -190,7 +195,7 @@ function UserActions({ user, onEdit }: { user: UserDto; onEdit: () => void }) {
   const error = apiErrorMessage(setActive.error) ?? apiErrorMessage(unlock.error);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2">
       <Button size="sm" variant="outline" onClick={onEdit}>
         Sửa
       </Button>
@@ -216,7 +221,7 @@ function UserActions({ user, onEdit }: { user: UserDto; onEdit: () => void }) {
         </Button>
       ) : null}
       {error ? (
-        <span role="alert" className="text-sm text-red-600">
+        <span role="alert" className="text-sm text-destructive">
           {error}
         </span>
       ) : null}
@@ -261,9 +266,9 @@ function ResetPasswordBody({ user, onClose }: { user: UserDto; onClose: () => vo
       <>
         <p className="text-sm">
           Mật khẩu tạm (chỉ hiện một lần, gửi riêng cho người dùng):{" "}
-          <code className="rounded bg-neutral-100 px-2 py-1 font-mono">{password}</code>
+          <code className="rounded bg-muted px-2 py-1 font-mono">{password}</code>
         </p>
-        <p className="text-sm text-neutral-600">Người dùng phải đặt mật khẩu mới ở lần đăng nhập tới.</p>
+        <p className="text-sm text-muted-foreground">Người dùng phải đặt mật khẩu mới ở lần đăng nhập tới.</p>
         <div className="flex justify-end">
           <Button onClick={onClose}>Đóng</Button>
         </div>
@@ -272,16 +277,16 @@ function ResetPasswordBody({ user, onClose }: { user: UserDto; onClose: () => vo
   }
   return (
     <>
-      <p className="text-sm text-neutral-700">
+      <p className="text-sm text-foreground">
         Mọi phiên đăng nhập của người này bị đăng xuất ngay. Hệ thống tạo mật khẩu tạm ngẫu nhiên, người dùng
         phải đổi ở lần đăng nhập tới.
       </p>
       {reset.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {apiErrorMessage(reset.error)}
         </p>
       ) : null}
-      <div className="flex justify-end gap-2">
+      <DialogActions>
         <Button variant="ghost" onClick={onClose}>
           Hủy bỏ
         </Button>
@@ -297,7 +302,7 @@ function ResetPasswordBody({ user, onClose }: { user: UserDto; onClose: () => vo
         >
           Đặt lại mật khẩu
         </Button>
-      </div>
+      </DialogActions>
     </>
   );
 }
@@ -335,9 +340,11 @@ function CreateUserForm({ onClose }: { onClose: () => void }) {
       <>
         <p className="text-sm">
           Đã tạo tài khoản <strong>{created.email}</strong>. Mật khẩu tạm (chỉ hiện một lần):{" "}
-          <code className="rounded bg-neutral-100 px-2 py-1 font-mono">{created.password}</code>
+          <code className="rounded bg-muted px-2 py-1 font-mono">{created.password}</code>
         </p>
-        <p className="text-sm text-neutral-600">Người dùng phải đặt mật khẩu mới ở lần đăng nhập đầu tiên.</p>
+        <p className="text-sm text-muted-foreground">
+          Người dùng phải đặt mật khẩu mới ở lần đăng nhập đầu tiên.
+        </p>
         <div className="flex justify-end">
           <Button onClick={onClose}>Đóng</Button>
         </div>
@@ -378,18 +385,18 @@ function CreateUserForm({ onClose }: { onClose: () => void }) {
         render={({ field }) => <RoleChecklist value={field.value} onChange={field.onChange} />}
       />
       {create.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {apiErrorMessage(create.error)}
         </p>
       ) : null}
-      <div className="flex justify-end gap-2">
+      <DialogActions>
         <Button variant="ghost" onClick={onClose}>
           Hủy bỏ
         </Button>
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? "Đang lưu..." : "Tạo tài khoản"}
         </Button>
-      </div>
+      </DialogActions>
     </form>
   );
 }
@@ -437,18 +444,18 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
         )}
       />
       {update.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {apiErrorMessage(update.error)}
         </p>
       ) : null}
-      <div className="flex justify-end gap-2">
+      <DialogActions>
         <Button variant="ghost" onClick={onClose}>
           Hủy bỏ
         </Button>
         <Button type="submit" disabled={update.isPending}>
           {update.isPending ? "Đang lưu..." : "Lưu"}
         </Button>
-      </div>
+      </DialogActions>
     </form>
   );
 }
@@ -482,7 +489,9 @@ function RoleChecklist({
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">Vai trò</legend>
-      {disabled ? <p className="text-xs text-neutral-500">Không tự đổi vai trò của chính mình.</p> : null}
+      {disabled ? (
+        <p className="text-xs text-muted-foreground">Không tự đổi vai trò của chính mình.</p>
+      ) : null}
       <CheckboxGroup
         value={value}
         onChange={onChange}

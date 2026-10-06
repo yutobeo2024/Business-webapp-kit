@@ -27,7 +27,7 @@ export function CheckboxGroup<V extends string>({
               onChange(e.target.checked ? [...value, o.value] : value.filter((v) => v !== o.value))
             }
           />
-          {o.hint ? <p className="ml-6 text-xs text-neutral-500">{o.hint}</p> : null}
+          {o.hint ? <p className="ml-6.5 text-xs text-muted-foreground">{o.hint}</p> : null}
         </div>
       ))}
     </div>

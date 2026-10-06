@@ -1,8 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { formatDateTime, type NotificationDto } from "@app/shared";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/data-table";
+import { PageHeader } from "@/components/ui/page";
 import { apiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useMarkAllRead, useMarkRead, useNotifications } from "./api";
@@ -23,33 +24,35 @@ export function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Thông báo</h1>
-        <div className="flex items-center gap-2">
-          <Link to="/account/notifications" className="text-sm underline">
-            Cài đặt
-          </Link>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-pressed={unread}
-            onClick={() => {
-              setUnread(!unread);
-              setPage(1);
-            }}
-          >
-            {unread ? "Xem tất cả" : "Chỉ chưa đọc"}
-          </Button>
-          <Button size="sm" variant="outline" disabled={markAll.isPending} onClick={() => markAll.mutate()}>
-            Đánh dấu tất cả đã đọc
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Thông báo"
+        actions={
+          <>
+            <Link to="/account/notifications" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              Cài đặt
+            </Link>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-pressed={unread}
+              onClick={() => {
+                setUnread(!unread);
+                setPage(1);
+              }}
+            >
+              {unread ? "Xem tất cả" : "Chỉ chưa đọc"}
+            </Button>
+            <Button size="sm" variant="outline" disabled={markAll.isPending} onClick={() => markAll.mutate()}>
+              Đánh dấu tất cả đã đọc
+            </Button>
+          </>
+        }
+      />
 
-      {q.isPending ? <p className="text-sm text-neutral-500">Đang tải...</p> : null}
+      {q.isPending ? <p className="text-sm text-muted-foreground">Đang tải...</p> : null}
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {error}{" "}
           <button className="underline" onClick={() => void q.refetch()}>
             Thử lại
@@ -57,22 +60,22 @@ export function NotificationsPage() {
         </p>
       ) : null}
       {q.data && q.data.items.length === 0 ? (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           {unread ? "Không có thông báo chưa đọc." : "Chưa có thông báo nào."}
         </p>
       ) : null}
 
-      <ul className="divide-y rounded border bg-white">
+      <ul className="divide-y rounded border bg-card">
         {q.data?.items.map((n) => (
           <li key={n.id}>
             <button
               type="button"
               onClick={() => open(n)}
-              className={cn("block w-full p-3 text-left hover:bg-neutral-50", !n.readAt && "bg-blue-50/60")}
+              className={cn("block w-full p-3 text-left hover:bg-muted", !n.readAt && "bg-primary-soft")}
             >
               <span className={cn("block text-sm", !n.readAt && "font-semibold")}>{n.title}</span>
-              <span className="block text-sm text-neutral-700">{n.body}</span>
-              <span className="block text-xs text-neutral-500">{formatDateTime(n.createdAt)}</span>
+              <span className="block text-sm text-foreground">{n.body}</span>
+              <span className="block text-xs text-muted-foreground">{formatDateTime(n.createdAt)}</span>
             </button>
           </li>
         ))}

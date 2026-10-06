@@ -18,6 +18,8 @@ const { stripSample: STRIP_SAMPLE } = await import(
 );
 const SKIP = (p) =>
   p === ".env" || p === ".kit.json" || p === "pnpm-lock.yaml" || p.startsWith("packages/db/migrations/");
+// Thương hiệu là của dự án: kit chỉ thêm khi dự án chưa có, không bao giờ ghi đè hay trộn (kit 1.8.0).
+const PROJECT_OWNED = new Set(["apps/web/brand.json", "apps/web/src/brand.css", "apps/web/public/favicon.svg"]);
 // Hook của dự án chặn agent sửa các tệp này: công cụ phải giải xong, xung đột thì báo người.
 const PROTECTED = (p) =>
   /^\.claude\/(hooks\/|settings(\.local)?\.json$)/.test(p) || /^(infra|\.github\/workflows)\//.test(p);
@@ -154,6 +156,7 @@ export function syncProject({ kitDir = KIT_DIR, projectDir, from, to, dryRun = f
       const projPath = join(projectDir, path);
       const P = existsSync(projPath) ? readFileSync(projPath) : null;
       if (B && N && B.sha === N.sha) continue; // kit không đổi tệp này
+      if (P && PROJECT_OWNED.has(path)) continue;
       const Bbuf = B ? blob(kitDir, B.sha) : null;
       const Nbuf = N ? blob(kitDir, N.sha) : null;
       const binary = [Bbuf, Nbuf, P].some((b) => b && isBinary(b));

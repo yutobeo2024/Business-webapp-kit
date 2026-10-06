@@ -38,23 +38,23 @@ function AttachmentsBody({ pr, onClose }: { pr: PurchaseRequestDto; onClose: () 
   const error = apiErrorMessage(upload.error) ?? apiErrorMessage(remove.error) ?? apiErrorMessage(list.error);
 
   return (
-    <div className="space-y-4">
-      {list.isPending ? <p className="text-sm text-neutral-500">Đang tải...</p> : null}
+    <div className="space-y-5">
+      {list.isPending ? <p className="text-sm text-muted-foreground">Đang tải...</p> : null}
       {!list.isPending && files.length === 0 ? (
-        <p className="text-sm text-neutral-500">Chưa có tệp đính kèm.</p>
+        <p className="text-sm text-muted-foreground">Chưa có tệp đính kèm.</p>
       ) : null}
       <ul className="divide-y rounded border">
         {files.map((f) => (
           <li key={f.id} className="flex items-center justify-between gap-3 p-2 text-sm">
             <div className="min-w-0">
               <a
-                className="block truncate text-blue-700 underline"
+                className="block truncate text-primary-text underline"
                 href={attachmentDownloadUrl(pr.id, f.id)}
                 download
               >
                 {f.name}
               </a>
-              <span className="text-xs text-neutral-500">
+              <span className="text-xs text-muted-foreground">
                 {formatBytes(f.sizeBytes)} · {formatDateTime(f.createdAt)}
               </span>
             </div>
@@ -88,14 +88,14 @@ function AttachmentsBody({ pr, onClose }: { pr: PurchaseRequestDto; onClose: () 
           >
             {upload.isPending ? "Đang tải lên..." : "Thêm tệp"}
           </Button>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-muted-foreground">
             {fileTypeLabels(PR_ATTACHMENT_TYPES)}; tối đa {PR_ATTACHMENT_LIMIT} tệp.
           </p>
         </div>
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       ) : null}

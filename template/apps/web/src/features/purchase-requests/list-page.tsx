@@ -3,7 +3,6 @@ import { useState } from "react";
 import {
   can,
   formatDateTime,
-  formatVnd,
   type ListPurchaseRequestsQuery,
   PR_EVENT_LABELS,
   PR_STATUS_LABELS,
@@ -17,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable, Pagination, SortTh, Th } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Badge, SearchInput, Select } from "@/components/ui/form-controls";
+import { FilterBar, MoneyText, PageHeader } from "@/components/ui/page";
 import { useMe } from "@/features/auth/use-me";
 import { ExportButton } from "@/features/exports/export-button";
 import { ApiError } from "@/lib/api";
@@ -65,7 +65,7 @@ function Actions({ pr }: { pr: PurchaseRequestDto }) {
         </Button>
       ))}
       {t.error ? (
-        <span role="alert" className="text-sm text-red-600">
+        <span role="alert" className="text-sm text-destructive">
           {t.error instanceof ApiError ? t.error.message : "Có lỗi xảy ra"}
         </span>
       ) : null}
@@ -117,25 +117,27 @@ export function PurchaseRequestListPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Phiếu đề nghị mua hàng</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {canExport ? (
-            // Xuất đúng bộ lọc và thứ tự đang xem (không phân trang).
-            <ExportButton
-              label="Xuất Excel"
-              input={{
-                type: "purchase-requests.xlsx",
-                params: { q: search.q, status: search.status, sort: search.sort, order: search.order },
-              }}
-            />
-          ) : null}
-          {canCreate && !showForm ? <Button onClick={() => setShowForm(true)}>Lập phiếu</Button> : null}
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Phiếu đề nghị mua hàng"
+        actions={
+          <>
+            {canExport ? (
+              // Xuất đúng bộ lọc và thứ tự đang xem (không phân trang).
+              <ExportButton
+                label="Xuất Excel"
+                input={{
+                  type: "purchase-requests.xlsx",
+                  params: { q: search.q, status: search.status, sort: search.sort, order: search.order },
+                }}
+              />
+            ) : null}
+            {canCreate && !showForm ? <Button onClick={() => setShowForm(true)}>Lập phiếu</Button> : null}
+          </>
+        }
+      />
       {showForm ? <CreatePurchaseRequestForm onDone={() => setShowForm(false)} /> : null}
-      <div className="flex flex-wrap gap-2">
+      <FilterBar>
         <SearchInput
           className="max-w-xs"
           placeholder="Tìm theo mã hoặc tiêu đề"
@@ -155,7 +157,7 @@ export function PurchaseRequestListPage() {
             </option>
           ))}
         </Select>
-      </div>
+      </FilterBar>
       <DataTable
         isPending={q.isPending}
         error={q.error}
@@ -163,7 +165,7 @@ export function PurchaseRequestListPage() {
         isEmpty={q.data?.items.length === 0}
         emptyText={search.q || search.status ? "Không có phiếu nào khớp bộ lọc." : "Chưa có phiếu nào."}
       >
-        <thead className="border-b bg-neutral-50">
+        <thead>
           <tr>
             <SortTh field="code" label="Mã phiếu" {...sortProps} />
             <Th>Tiêu đề</Th>
@@ -176,16 +178,18 @@ export function PurchaseRequestListPage() {
         </thead>
         <tbody>
           {q.data?.items.map((pr) => (
-            <tr key={pr.id} className="border-b align-top last:border-0">
+            <tr key={pr.id} className="align-top">
               <td className="p-3 font-mono">{pr.code}</td>
-              <td className="p-3">
+              <td className="min-w-56 p-3 whitespace-normal">
                 {pr.title}
                 {pr.rejectReason ? (
-                  <p className="mt-1 text-xs text-red-600">Lý do từ chối: {pr.rejectReason}</p>
+                  <p className="mt-1 text-xs text-destructive">Lý do từ chối: {pr.rejectReason}</p>
                 ) : null}
               </td>
               <td className="p-3">{pr.requesterName}</td>
-              <td className="p-3 text-right tabular-nums">{formatVnd(pr.totalAmount)}</td>
+              <td className="p-3 text-right">
+                <MoneyText value={pr.totalAmount} />
+              </td>
               <td className="p-3">
                 <Badge tone={STATUS_TONE[pr.status]}>{PR_STATUS_LABELS[pr.status]}</Badge>
               </td>
@@ -195,6 +199,7 @@ export function PurchaseRequestListPage() {
                   <Actions pr={pr} />
                   <AttachmentsButton pr={pr} />
                   <ExportButton
+                    size="sm"
                     label="In PDF"
                     input={{ type: "purchase-request.pdf", params: { id: pr.id } }}
                   />

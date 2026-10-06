@@ -57,11 +57,11 @@ function ImportBody({
   }, [done, qc, invalidateKey]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <ol className="list-decimal space-y-1 pl-5 text-sm">
         <li>
           Tải{" "}
-          <a className="text-blue-700 underline" href={importTemplateUrl(type)} download>
+          <a className="text-primary-text underline" href={importTemplateUrl(type)} download>
             tệp mẫu
           </a>
           , điền dữ liệu từ dòng 2, giữ nguyên dòng tiêu đề.
@@ -102,7 +102,7 @@ function ImportBody({
           </p>
           {data.status === "INVALID" || data.status === "FAILED" ? (
             <>
-              <p className="text-red-700">
+              <p className="text-destructive">
                 {data.errorCount} lỗi
                 {data.errorCount > data.errors.length ? ` (hiện ${data.errors.length} lỗi đầu)` : ""}. Sửa tệp
                 rồi chọn lại.
@@ -118,8 +118,8 @@ function ImportBody({
                   </thead>
                   <tbody>
                     {data.errors.map((e, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="p-1 tabular-nums">{e.row ?? ""}</td>
+                      <tr key={i}>
+                        <td className="p-1 num">{e.row ?? ""}</td>
                         <td className="p-1">{e.column ?? ""}</td>
                         <td className="p-1">{e.message}</td>
                       </tr>
@@ -145,7 +145,7 @@ function ImportBody({
                   </thead>
                   <tbody>
                     {data.preview.map((row, i) => (
-                      <tr key={i} className="border-b last:border-0">
+                      <tr key={i}>
                         {IMPORT_TYPES[type].columns.map((c) => (
                           <td key={c.key} className="p-1">
                             {row[c.header]}
@@ -165,7 +165,7 @@ function ImportBody({
             </>
           ) : null}
           {done ? (
-            <p role="status" className="text-green-700">
+            <p role="status" className="text-success">
               Đã nhập {data.importedCount} dòng.
             </p>
           ) : null}
@@ -173,7 +173,7 @@ function ImportBody({
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       ) : null}

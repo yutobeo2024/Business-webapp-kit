@@ -1,5 +1,22 @@
 # Báo cáo kiểm chứng kit
 
+## 1.7.0: build một lần, staging và production trên cùng máy (05/10/2026)
+
+Cùng VPS dùng chung của 1.6.x; dự án tam-ung nâng 1.6.0 -> 1.7.0 bằng kit-sync (PR #6, 2 xung đột trộn tay).
+
+| Hạng mục | Kết quả |
+|---|---|
+| `server-setup.sh --shared --instance staging` | Tạo `/opt/app-staging`, dữ liệu, sao lưu, log, cron lệch giờ; không đụng `/opt/app` |
+| Site Caddy `staging.webappkit.ydsg.website` -> 127.0.0.1:8096 | `caddy-add-site.sh`: site khác giữ nguyên mã trả lời trước/sau |
+| Merge main -> CI build `sha-cd2e8bb` -> deploy staging | Xanh; dự án compose `app-staging` (DB, Redis riêng), health OK qua HTTPS |
+| Production trong lúc đó | Vẫn `v0.1.0`, container không khởi động lại |
+| Lịch sử deploy | Ghi digest api/worker/web |
+| Hai instance | ~0,6 GB RAM tổng cho app; máy còn ~2,7 GB trống |
+| Test kit | tests/infra 43/43 (dự án 45/45), shellcheck, actionlint, selftest 261/261 |
+
+Chưa kiểm (chờ người dùng gắn tag `v0.2.0` vào `cd2e8bb`): job `promote` (không build, digest production = staging),
+tag vào commit chưa qua staging bị chặn.
+
 ## 1.6.x: deploy thật lên máy chủ dùng chung (05/10/2026)
 
 VPS Ubuntu 24.04 đang chạy 6 dự án Docker Compose sau Caddy của máy; app dogfood tam-ung (kit 1.6.0) tại

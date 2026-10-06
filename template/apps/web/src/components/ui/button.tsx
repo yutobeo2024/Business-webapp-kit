@@ -2,17 +2,21 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:pointer-events-none disabled:opacity-50",
+/** Dùng chung cho <button> và <Link> trông như nút: `className={buttonVariants({ variant: "outline" })}`. */
+export const buttonVariants = cva(
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-neutral-900 text-white hover:bg-neutral-800",
-        outline: "border border-neutral-300 bg-white hover:bg-neutral-100",
-        destructive: "bg-red-600 text-white hover:bg-red-700",
-        ghost: "hover:bg-neutral-100",
+        default: "bg-primary text-primary-foreground hover:bg-primary-hover",
+        outline: "border border-border bg-card text-heading hover:border-input hover:bg-muted",
+        soft: "bg-primary-soft text-primary-text hover:bg-primary-soft/70",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        ghost: "text-foreground hover:bg-muted",
+        link: "px-0 font-medium text-primary-text underline-offset-4 hover:underline",
       },
-      size: { default: "h-9 px-4", sm: "h-8 px-3", lg: "h-10 px-6" },
+      // Mặc định cao 40px: đủ lớn để chạm bằng ngón tay. `sm` chỉ dùng trong hàng của bảng và thanh công cụ dày.
+      size: { default: "h-10 px-4", sm: "h-9 px-3 text-[13px]", lg: "h-11 px-6", icon: "size-10" },
     },
     defaultVariants: { variant: "default", size: "default" },
   },

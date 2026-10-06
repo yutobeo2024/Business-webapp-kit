@@ -1,18 +1,11 @@
+import { Search } from "lucide-react";
 import { type InputHTMLAttributes, type SelectHTMLAttributes, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { Input } from "./input";
+import { controlClass, Input } from "./input";
 
 /** Ô chọn (thẻ select gốc: bàn phím, trình đọc màn hình, điện thoại đều dùng được, không cần thư viện). */
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      className={cn(
-        "h-9 rounded-md border border-neutral-300 bg-white px-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 aria-[invalid=true]:border-red-500",
-        className,
-      )}
-      {...props}
-    />
-  );
+  return <select className={cn(controlClass, "h-10 w-auto max-w-full pr-8 pl-2.5", className)} {...props} />;
 }
 
 export function Checkbox({
@@ -21,8 +14,8 @@ export function Checkbox({
   ...props
 }: Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & { label: string }) {
   return (
-    <label className={cn("flex items-start gap-2 text-sm", className)}>
-      <input type="checkbox" className="mt-0.5 size-4 accent-neutral-900" {...props} />
+    <label className={cn("flex items-start gap-2.5 text-sm", className)}>
+      <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" {...props} />
       <span>{label}</span>
     </label>
   );
@@ -36,6 +29,7 @@ export function SearchInput({
   value,
   onChange,
   delayMs = 300,
+  className,
   ...props
 }: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> & {
   value: string;
@@ -52,31 +46,54 @@ export function SearchInput({
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   return (
-    <Input
-      type="search"
-      value={text}
-      onChange={(e) => {
-        const next = e.target.value;
-        setText(next);
-        clearTimeout(timer.current);
-        timer.current = setTimeout(() => onChange(next), delayMs);
-      }}
-      {...props}
-    />
+    <span className={cn("relative block w-full", className)}>
+      <Search
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-faint"
+      />
+      <Input
+        type="search"
+        className="pl-9"
+        value={text}
+        onChange={(e) => {
+          const next = e.target.value;
+          setText(next);
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => onChange(next), delayMs);
+        }}
+        {...props}
+      />
+    </span>
   );
 }
 
+/**
+ * Màu huy hiệu theo NGHĨA, cố định cho mọi khách hàng (không theo màu thương hiệu): người dùng học một lần.
+ * `green` xong/đạt, `amber` đang chờ, `orange` cần chú ý, `red` từ chối/lỗi, `blue` đang xử lý, `muted` đã đóng/nháp.
+ */
 const BADGE_TONES = {
-  neutral: "bg-neutral-100 text-neutral-700",
-  green: "bg-green-100 text-green-800",
-  amber: "bg-amber-100 text-amber-800",
-  orange: "bg-orange-100 text-orange-800",
-  red: "bg-red-100 text-red-800",
-  muted: "bg-neutral-200 text-neutral-500",
+  neutral: "bg-neutral/12 text-neutral",
+  green: "bg-success/12 text-success",
+  amber: "bg-warning/14 text-warning",
+  orange: "bg-chart-3/16 text-warning",
+  red: "bg-destructive/12 text-destructive",
+  blue: "bg-info/12 text-info",
+  primary: "bg-primary-soft text-primary-text",
+  muted: "bg-muted text-muted-foreground",
 } as const;
 
-export function Badge({ tone = "neutral", children }: { tone?: keyof typeof BADGE_TONES; children: string }) {
+export type BadgeTone = keyof typeof BADGE_TONES;
+
+export function Badge({ tone = "neutral", children }: { tone?: BadgeTone; children: string }) {
   return (
-    <span className={cn("rounded px-2 py-0.5 text-xs whitespace-nowrap", BADGE_TONES[tone])}>{children}</span>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap",
+        BADGE_TONES[tone],
+      )}
+    >
+      <span aria-hidden className="size-1.5 rounded-full bg-current" />
+      {children}
+    </span>
   );
 }

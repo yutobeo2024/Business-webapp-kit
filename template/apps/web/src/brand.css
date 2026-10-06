@@ -1,0 +1,15 @@
+/* Sinh từ apps/web/brand.json bằng `pnpm brand`. Không sửa tay: sửa brand.json rồi chạy lại. */
+:root {
+  --brand: #1aa5a2;
+  --brand-primary: #008482;
+  --brand-primary-foreground: #ffffff;
+  --brand-text: #007775;
+  --radius: 10px;
+}
+
+.dark {
+  --brand: #4fd1cd;
+  --brand-primary: #4fd1cd;
+  --brand-primary-foreground: #0b1220;
+  --brand-text: #4fd1cd;
+}
