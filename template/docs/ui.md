@@ -56,12 +56,12 @@ Trang chỉ dùng tên ngữ nghĩa, không dùng màu bảng Tailwind (`text-ne
 
 | Component                                                                          | Dùng khi                                                                                                                       |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `PageHeader`                                                                       | Đầu MỌI trang: tiêu đề, mô tả, đường dẫn, nút hành động                                                                        |
+| `PageHeader`                                                                       | Đầu MỌI trang: tiêu đề, mô tả, đường dẫn, nút hành động; trang chi tiết thêm huy hiệu trạng thái qua `badges`                  |
 | `FilterBar` + `SearchInput`, `Select`                                              | Hàng lọc phía trên bảng                                                                                                        |
 | `DataTable`, `Th`, `SortTh`, `Pagination`                                          | Mọi danh sách: đủ trạng thái tải, lỗi, rỗng; cuộn ngang trong khung                                                            |
 | `Badge`                                                                            | Trạng thái của bản ghi. `tone` theo nghĩa: `green` xong, `amber` đang chờ, `blue` đang xử lý, `red` từ chối, `muted` nháp/đóng |
 | `MoneyText`                                                                        | Số tiền VND (không ngắt dòng giữa số và ₫); ô bảng thêm `text-right`                                                           |
-| `DescriptionList`                                                                  | Thông tin một bản ghi trên trang chi tiết (nhãn và giá trị)                                                                    |
+| `DescriptionList`, `DescriptionItem`                                               | Thông tin một bản ghi (nhãn và giá trị); dòng theo điều kiện thì đặt `DescriptionItem` bên trong                               |
 | `Card`, `SectionCard`                                                              | Khối nội dung; `SectionCard` có tiêu đề và hành động                                                                           |
 | `StatCard`, `Sparkline`                                                            | Ô số liệu trên trang tổng quan                                                                                                 |
 | `EmptyState`, `Skeleton`                                                           | Chưa có dữ liệu / đang tải                                                                                                     |
@@ -75,7 +75,7 @@ Icon: `lucide-react`, kèm `aria-hidden`; nút chỉ có icon phải có `aria-l
 
 ## Khung trang
 
-- Menu: thêm mục vào `apps/web/src/app/nav.ts` (nhóm, icon, quyền). Thanh bên thu gọn được; dưới 1024px thành ngăn kéo.
+- Menu: thêm mục vào `apps/web/src/app/nav.ts` (nhóm, icon, quyền; `permission` nhận một quyền hoặc danh sách quyền, có một trong số đó là thấy). Thanh bên thu gọn được; dưới 1024px thành ngăn kéo.
 - Thanh trên có sẵn: tìm trang (Ctrl+K), chuông thông báo, menu tài khoản (đổi mật khẩu, cài đặt thông báo, sáng/tối,
   đăng xuất). Module nghiệp vụ không tự làm lại các thứ này.
 
@@ -83,7 +83,7 @@ Icon: `lucide-react`, kèm `aria-hidden`; nút chỉ có icon phải có `aria-l
 
 - Danh sách: `features/admin/users-page.tsx` (`PageHeader` + `FilterBar` + `DataTable` + `Pagination`, form trong `Dialog`).
 - Tổng quan: `features/home/home-page.tsx` (`SectionCard`, lối tắt; thêm hàng `StatCard` cho số liệu nghiệp vụ).
-- Chi tiết: `PageHeader` có `breadcrumb` và nút theo `allowedEvents`, bên dưới `SectionCard` chứa `DescriptionList`.
+- Chi tiết: `PageHeader` có `breadcrumb`, `badges` (trạng thái) và nút theo `allowedEvents`, bên dưới `SectionCard` chứa `DescriptionList`.
 
 ## Yêu cầu với mọi trang mới
 

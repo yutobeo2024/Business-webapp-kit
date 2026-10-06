@@ -5,16 +5,19 @@ import { formatVnd } from "@app/shared";
 import { cn } from "@/lib/cn";
 
 /**
- * Đầu trang: đường dẫn, tiêu đề, mô tả ngắn, nút hành động bên phải (xuống dòng trên điện thoại).
+ * Đầu trang: đường dẫn, tiêu đề (trang chi tiết: kèm huy hiệu trạng thái qua `badges`), mô tả ngắn, nút hành động bên
+ * phải (xuống dòng trên điện thoại).
  * Đường dẫn KHÔNG dùng thẻ <nav>: cả trang chỉ có một vùng điều hướng là menu bên trái.
  */
 export function PageHeader({
   title,
+  badges,
   description,
   breadcrumb,
   actions,
 }: {
   title: string;
+  badges?: ReactNode;
   description?: string;
   breadcrumb?: { label: string; to?: string }[];
   actions?: ReactNode;
@@ -38,7 +41,10 @@ export function PageHeader({
             ))}
           </ol>
         ) : null}
-        <h1 className="text-2xl leading-tight font-bold tracking-tight">{title}</h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h1 className="text-2xl leading-tight font-bold tracking-tight">{title}</h1>
+          {badges}
+        </div>
         {description ? <p className="mt-1 max-w-2xl text-muted-foreground">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -51,15 +57,20 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
   return <div className={cn("flex flex-wrap items-end gap-3", className)}>{children}</div>;
 }
 
-/** Danh sách nhãn và giá trị của một bản ghi (trang chi tiết). Hai cột trên màn rộng, một cột trên điện thoại. */
+/**
+ * Danh sách nhãn và giá trị của một bản ghi (trang chi tiết). Hai cột trên màn rộng, một cột trên điện thoại.
+ * Truyền `items`, hoặc đặt các `DescriptionItem` bên trong (tiện khi có dòng chỉ hiện theo điều kiện).
+ */
 export function DescriptionList({
-  items,
+  items = [],
   columns = 2,
   className,
+  children,
 }: {
-  items: { label: string; value: ReactNode; wide?: boolean }[];
+  items?: { label: string; value: ReactNode; wide?: boolean }[];
   columns?: 1 | 2 | 3;
   className?: string;
+  children?: ReactNode;
 }) {
   return (
     <dl
@@ -71,12 +82,30 @@ export function DescriptionList({
       )}
     >
       {items.map((it) => (
-        <div key={it.label} className={cn("min-w-0", it.wide && "sm:col-span-full")}>
-          <dt className="text-[13px] text-muted-foreground">{it.label}</dt>
-          <dd className="mt-0.5 font-medium break-words text-heading">{it.value ?? "-"}</dd>
-        </div>
+        <DescriptionItem key={it.label} label={it.label} wide={it.wide}>
+          {it.value}
+        </DescriptionItem>
       ))}
+      {children}
     </dl>
+  );
+}
+
+/** Một dòng của `DescriptionList`. `wide`: chiếm cả hàng (lý do, ghi chú dài). */
+export function DescriptionItem({
+  label,
+  wide,
+  children,
+}: {
+  label: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("min-w-0", wide && "sm:col-span-full")}>
+      <dt className="text-[13px] text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 font-medium break-words text-heading">{children ?? "-"}</dd>
+    </div>
   );
 }
 

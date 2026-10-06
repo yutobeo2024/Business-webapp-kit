@@ -199,6 +199,7 @@ export function PurchaseRequestListPage() {
                   <Actions pr={pr} />
                   <AttachmentsButton pr={pr} />
                   <ExportButton
+                    size="sm"
                     label="In PDF"
                     input={{ type: "purchase-request.pdf", params: { id: pr.id } }}
                   />

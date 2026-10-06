@@ -7,21 +7,29 @@ import { useRequestExport } from "./api";
 /**
  * Nút yêu cầu xuất file (chạy nền). Xong thì báo và dẫn tới trang "Tệp đã xuất". Ẩn/hiện theo quyền là việc của nơi dùng;
  * quyền thật do backend kiểm. Mẫu: nút "Xuất Excel" ở trang quản trị người dùng (`features/admin/users-page.tsx`).
+ * Cỡ mặc định bằng các nút khác ở đầu trang; trong hàng của bảng truyền `size="sm"`.
  */
 export function ExportButton({
   input,
   label,
   variant = "outline",
+  size = "default",
 }: {
   input: CreateExportInput;
   label: string;
   variant?: "default" | "outline";
+  size?: "default" | "sm";
 }) {
   const request = useRequestExport();
   const error = apiErrorMessage(request.error);
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Button size="sm" variant={variant} disabled={request.isPending} onClick={() => request.mutate(input)}>
+      <Button
+        size={size}
+        variant={variant}
+        disabled={request.isPending}
+        onClick={() => request.mutate(input)}
+      >
         {request.isPending ? "Đang gửi..." : label}
       </Button>
       {request.isSuccess ? (

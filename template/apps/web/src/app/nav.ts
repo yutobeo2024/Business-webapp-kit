@@ -7,14 +7,17 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { can, type CurrentUser, type Permission } from "@app/shared";
+import { can, type Permission } from "@app/shared";
 
 export interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
-  /** Chỉ hiện khi người dùng có quyền. Quyền thật do backend kiểm ở từng endpoint. */
-  permission?: Permission;
+  /**
+   * Chỉ hiện khi người dùng có quyền này, hoặc có MỘT trong danh sách quyền (ví dụ hộp "Chờ tôi xử lý" cho mọi người
+   * duyệt). Không ghi: ai đăng nhập cũng thấy. Quyền thật do backend kiểm ở từng endpoint.
+   */
+  permission?: Permission | readonly Permission[];
 }
 
 export interface NavGroup {
@@ -42,10 +45,16 @@ export const NAV: NavGroup[] = [
   },
 ];
 
-/** Các nhóm và mục người dùng này được thấy; nhóm không còn mục nào thì bỏ. */
-export function visibleNav(me: CurrentUser | null | undefined): NavGroup[] {
-  return NAV.map((g) => ({
-    ...g,
-    items: g.items.filter((i) => !i.permission || can(me, i.permission)),
-  })).filter((g) => g.items.length > 0);
+type Viewer = { permissions: readonly string[] } | null | undefined;
+
+const allowed = (me: Viewer, permission: NavItem["permission"]) =>
+  !permission || (typeof permission === "string" ? [permission] : permission).some((p) => can(me, p));
+
+/** Các nhóm và mục người dùng được thấy; nhóm không còn mục nào thì bỏ. */
+export function filterNav(groups: readonly NavGroup[], me: Viewer): NavGroup[] {
+  return groups
+    .map((g) => ({ ...g, items: g.items.filter((i) => allowed(me, i.permission)) }))
+    .filter((g) => g.items.length > 0);
 }
+
+export const visibleNav = (me: Viewer): NavGroup[] => filterNav(NAV, me);

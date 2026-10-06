@@ -24,10 +24,21 @@ Bộ giao diện mới ("phương án B": bảng điều khiển vận hành), �
 - `kit-sync`: `brand.json`, `brand.css`, `favicon.svg` là tệp của dự án, chỉ thêm khi chưa có, không ghi đè.
 - Thư viện thêm vào `apps/web`: `radix-ui`, `lucide-react`, `sonner`, `@fontsource/be-vietnam-pro`.
 
-Nâng cấp dự án tạo từ 1.7.x: `kit-sync`, `pnpm install`, sửa `apps/web/brand.json` theo khách rồi `pnpm brand`. Menu
-chuyển từ `router.tsx` sang `src/app/nav.ts`: mục menu của module riêng phải thêm lại ở đó (kèm icon). Trang tự viết còn
-màu cứng vẫn chạy nhưng lệch ở chế độ tối: `node scripts/check-ui.mjs` liệt kê chỗ cần đổi sang token. Nút X của hộp
-thoại mang nhãn "Tắt hộp thoại"; bấm ra ngoài hộp thoại không còn đóng nó.
+Nâng cấp dự án tạo từ 1.7.x (đã thử trên dự án tạm ứng):
+
+1. `kit-sync`, `pnpm install`, rồi `pnpm brand --name "..." --short "..." --primary "#..."` theo khách.
+2. Menu chuyển từ `router.tsx` sang `src/app/nav.ts`: xóa `NAV` và `AppShell` cũ khỏi `router.tsx` (xung đột ở đó là
+   bình thường), thêm mục menu của module vào `nav.ts` kèm icon. Mục cần một trong nhiều quyền: `permission: [...]`.
+3. Trang tự viết: `node scripts/check-ui.mjs` liệt kê màu viết cứng cần đổi sang token (bảng đổi trong `docs/ui.md`);
+   đầu trang đổi sang `PageHeader` (trang chi tiết: `breadcrumb` thay liên kết "← Danh sách", trạng thái vào `badges`);
+   khối nhãn-giá trị tự chế đổi sang `DescriptionList` + `DescriptionItem`.
+4. Ô bảng trong `DataTable` mặc định không ngắt dòng: cột chữ dài (lý do, mục đích, mô tả) thêm
+   `className="min-w-56 p-3 whitespace-normal"`, nếu không bảng tràn ngang và đẩy cột trạng thái ra khỏi khung.
+5. `ci.yml` là tệp bảo vệ: thêm `scripts/brand.test.mjs scripts/check-ui.test.mjs` vào bước `node --test` và
+   `&& node scripts/brand.mjs --check` (người trộn tay).
+
+Thay đổi hành vi: nút X của hộp thoại mang nhãn "Tắt hộp thoại"; bấm ra ngoài hộp thoại không còn đóng nó;
+`ExportButton` mặc định cỡ thường (trong hàng bảng truyền `size="sm"`).
 
 ## 1.7.0 (05/10/2026)
 
